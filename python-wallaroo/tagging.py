@@ -18,6 +18,8 @@ import wallaby
 from wallaby_mixin import patch_to, calculated_attribute
 
 PARTITION_GROUP = "===TAGS_BELOW==="
+TAG_SENTINEL_PARAM = "WALLABY_TAGS"
+TAG_SENTINEL_PARAM_ATTR = "__tag_sentinel_param"
 store = None
 
 def uniq(ls):
@@ -38,6 +40,31 @@ class StorePatches(object):
             return self.getGroup({"name": PARTITION_GROUP})
         else:
             return self.addExplicitGroup(PARTITION_GROUP)
+    
+    @patch_to(wallaby.Store)
+    def addTag(self, tag_name):
+        """
+        Adds a tag group with the given name to the store.  If a group with the given name already exists, ensure it is marked as a tag group.
+        """
+        tag = None
+        if self.checkGroupValidity([tag_name]) == [tag_name]:
+            tag = self.addExplicitGroup(tag_name)
+        else:
+            tag = self.getGroupByName(tag_name)
+        if not hasattr(self, TAG_SENTINEL_PARAM_ATTR):
+            if self.checkParameterValidity([TAG_SENTINEL_PARAM]) == [TAG_SENTINEL_PARAM]:
+                self.addParam(TAG_SENTINEL_PARAM)
+            setattr(self, TAG_SENTINEL_PARAM_ATTR, True)
+        tag.modifyParams("ADD", {TAG_SENTINEL_PARAM : ">= %s" % tag_name})
+        return tag
+    
+    @patch_to(wallaby.Store)
+    def isTag(self, tag):
+        if hasattr(tag, "params"):
+            return tag.params.has_key(TAG_SENTINEL_PARAM)
+        if type(tag) == str and self.checkGroupValidity([tag]) == []:
+            return self.getGroupByName(tag).params.has_key(TAG_SENTINEL_PARAM)
+        return False
 
 class NodePatches(object):
     @calculated_attribute(wallaby.Node, "tags")
@@ -81,7 +108,7 @@ class NodePatches(object):
             if store is None:
                 raise RuntimeError("You must call tagging.setup(store) before using the create_missing_tags option")
             for missing_tag in store.checkGroupValidity(new_tags):
-                store.addExplicitGroup(missing_tag)
+                store.addTag(missing_tag)
         
         return self.modifyMemberships("REPLACE", new_memberships, {})
 
