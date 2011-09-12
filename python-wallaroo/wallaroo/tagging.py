@@ -15,7 +15,7 @@
 # limitations under the License.
 
 import wallaby
-from wallaby_mixin import patch_to, calculated_attribute
+from wallaby.mixin import patch_to, calculated_attribute
 
 PARTITION_GROUP = "===TAGS_BELOW==="
 TAG_SENTINEL_PARAM = "WALLABY_TAGS"
