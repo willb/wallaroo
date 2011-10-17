@@ -1,0 +1,12 @@
+{application, wallaroo,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { wallaroo_app, []}},
+  {env, []}
+ ]}.
