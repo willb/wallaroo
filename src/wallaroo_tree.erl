@@ -7,7 +7,7 @@
 empty() ->
     gb_trees:empty().
 
-put(Key, Val, Tree) ->
+store(Key, Val, Tree) ->
     case gb_trees:lookup(Key, Tree) of
 	none ->
 	    gb_trees:insert(Key, Val, Tree);
@@ -15,7 +15,7 @@ put(Key, Val, Tree) ->
 	    gb_trees:update(Key, Val, Tree)
 	end.
 
-get(Key, Tree) ->
+find(Key, Tree) ->
     gb_trees:lookup(Key, Tree).
 
 has(Key, Tree) ->
@@ -33,7 +33,7 @@ get_path([], BS, FindFunc) when is_binary(BS) ->
 get_path([], Obj, _) ->
     Obj;
 get_path([P|Rest], Tree, FindFunc) ->
-    case get(P, Tree) of
+    case find(P, Tree) of
 	none ->
 	    none;
 	{value, ElementHash} ->
@@ -46,13 +46,13 @@ put_tree(Tree, StoreFunc) ->
     hash_and_store(Tree, StoreFunc).
 
 put_path([P], BS, Tree, StoreFunc, _FindFunc) when is_binary(BS) ->
-    NewTree = put(P, BS, Tree),
+    NewTree = store(P, BS, Tree),
     hash_and_store(NewTree, StoreFunc);	    
 put_path([P], Object, Tree, StoreFunc, _FindFunc) ->
     {ObjectHash, Object} = hash_and_store(Object, StoreFunc),
     put_path([P], ObjectHash, Tree, StoreFunc, _FindFunc);
 put_path([P|Rest], Object, Tree, StoreFunc, FindFunc) ->
-    case get(P, Tree) of
+    case find(P, Tree) of
 	none ->
 	    [Last|Tser] = lists:reverse(Rest),
 	    {LeafHash, _Leaf} = put_path([Last], Object, gb_trees:empty(), StoreFunc, FindFunc),
@@ -62,7 +62,7 @@ put_path([P|Rest], Object, Tree, StoreFunc, FindFunc) ->
 	{value, ElementHash} ->
 	    Subtree = FindFunc(ElementHash),
 	    {SubtreeHash, _NewSubtree} = put_path(Rest, Object, Subtree, StoreFunc, FindFunc),
-	    NewTree = put(P, SubtreeHash, Tree),
+	    NewTree = store(P, SubtreeHash, Tree),
 	    hash_and_store(NewTree, StoreFunc)
     end.
 
