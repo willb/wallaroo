@@ -4,15 +4,8 @@
 -module(wallaroo_hash).
 -export([as_bitstring/1, as_string/1, as_num/1, hash_to_bitstring/1, hash_to_num/1]).
 
-% XXX:  we need to verify that term_to_binary is stable across
-% Erlang versions, i.e., that some term T will always be encoded
-% as exactly the same string of bits (not merely that 
-% binary_to_term(term_to_binary(T)) will produce T for any version 
-% of binary_to_term and term_to_binary.
-% 
-% If not, we'll have to integrate or implement a stable serializer.
 as_bitstring(Object) ->
-    crypto:sha(term_to_binary(Object)).
+    crypto:sha(wallaroo_binary:from_term(Object)).
 
 as_string(Object) ->
     lists:flatten(io_lib:format("~40.16.0b", [as_num(Object)])).
