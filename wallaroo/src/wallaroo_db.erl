@@ -4,5 +4,8 @@
 -module(wallaroo_db).
 -compile(export_all).
 
+store(Object) ->
+    ok.
 
-
+get(Object) ->
+    {ok, nil}.
