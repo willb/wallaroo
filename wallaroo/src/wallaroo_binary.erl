@@ -26,9 +26,9 @@ from_term(T) ->
 % backwards-compatible from_term
 bc_from_term(T) ->
     <<131, (bc_from_term_internal(T))/binary>>.
-bc_from_term_internal(<<Num:8/unsigned-integer>>) ->
-    <<97, Num>>;
-bc_from_term_internal(<<Num:32/signed-integer>>) ->
+bc_from_term_internal(Num) when is_integer(Num) andalso Num < 256 andalso Num >= 0 ->
+    <<97, Num:8>>;
+bc_from_term_internal(<<Num:32/big-signed-integer>>) ->
     <<98, Num/binary>>;
 bc_from_term_internal(BigInt) when is_integer(BigInt) ->
     ABI = abs(BigInt),
@@ -87,6 +87,31 @@ bc_from_list_int(X, {Ct, Bin, IsStr}) ->
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
-
+simple_test_() ->
+    {inorder,
+     {setup,
+      fun() -> ok end,
+      fun(_) -> ok end,
+      [?_assertEqual(<<131,100,0,3,97,98,99>>, bc_from_term(abc)),
+       ?_assertEqual(<<131,97,0>>, bc_from_term(0)),
+       ?_assertEqual(<<131,97,1>>, bc_from_term(1)),
+       ?_assertEqual(<<131,97,255>>, bc_from_term(255)),
+       ?_assertEqual(<<131,98,0,0,1,0>>, bc_from_term(256)),
+       ?_assertEqual(<<131,98,0,0,4,0>>, bc_from_term(1024)),
+       ?_assertEqual(<<131,99,52,46,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,50,
+		       50,50,48,52,101,45,48,49,0,0,0,0,0>>, bc_from_term(0.4)),
+       ?_assertEqual(<<131,98,255,255,255,236>>, bc_from_term(-20)),
+       ?_assertEqual(<<131,110,16,0,255,255,255,255,255,255,255,255,255,255,255,255,
+		       255,255,255,255>>, bc_from_term(340282366920938463463374607431768211455)),
+       ?_assertEqual(<<131,110,16,1,255,255,255,255,255,255,255,255,255,255,255,255,
+		       255,255,255,255>>, bc_from_term(-340282366920938463463374607431768211455)),
+       ?_assertEqual(<<131,104,3,100,0,3,97,98,99,100,0,4,98,108,97,104,100,0,4,97,
+		       114,103,104>>, bc_from_term({abc,blah,argh})),
+       ?_assertEqual(<<131,107,0,7,102,111,111,115,101,112,104>>, bc_from_term("fooseph")),
+       ?_assertEqual(<<131,108,0,0,0,5,98,0,0,4,0,100,0,3,102,111,111,100,0,4,98,108,
+		       97,104,100,0,4,97,114,103,104,104,2,100,0,5,121,105,107,101,
+		       115,98,255,255,255,219,106>>, bc_from_term([1024,foo,blah,argh,{yikes,-37}])), 
+       ?_assertEqual(<<131,109,0,0,0,4,192,168,0,1>>, bc_from_term(<<192,168,0,1>>)),
+       ?_assertEqual(<<131,106>>, bc_from_term([]))]}}.
 
 -endif.
