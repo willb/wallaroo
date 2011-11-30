@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_binary).
--export([from_term/1]).
+-export([from_term/1, bc_from_term/1]).
 
 % XXX: the external term format and term_to_binary should be stable
 % across Erlang versions, i.e., some term T will always be encoded as
@@ -20,4 +20,73 @@
 % this in the face of live updates.
 
 from_term(T) ->
-    term_to_binary(T).
+    term_to_binary(T, [{minor_version,0}]).
+
+
+% backwards-compatible from_term
+bc_from_term(T) ->
+    <<131, (bc_from_term_internal(T))/binary>>.
+bc_from_term_internal(<<Num:8/unsigned-integer>>) ->
+    <<97, Num>>;
+bc_from_term_internal(<<Num:32/signed-integer>>) ->
+    <<98, Num/binary>>;
+bc_from_term_internal(BigInt) when is_integer(BigInt) ->
+    ABI = abs(BigInt),
+    Bin = binary:encode_unsigned(ABI),
+    Size = size(Bin),
+    Sign = if BigInt =:= ABI -> 1; true -> 0 end,
+    if Size < 256 ->
+	    <<110, Size:8, Sign:8, Bin/binary>>;
+       true ->
+	    <<111, Size:32, Sign:8, Bin/binary>>
+    end;
+bc_from_term_internal(Float) when is_float(Float) ->
+    Bin = list_to_binary(io_lib:format("~.20e", [Float])),
+    <<99, Bin/binary>>;
+bc_from_term_internal(Atom) when is_atom(Atom) ->
+    Ls = atom_to_list(Atom),
+    Bin = list_to_binary(Ls),
+    Size = length(Ls),
+    <<100, Size:16, Bin/binary>>;
+bc_from_term_internal(Tup) when is_tuple(Tup) andalso tuple_size(Tup) < 256 ->
+    Tag = 104,
+    Arity = tuple_size(Tup),
+    Elements = << <<Elt/binary>> || Elt <- lists:map(fun bc_from_term_internal/1, tuple_to_list(Tup)) >>,
+    <<Tag:8, Arity:8, Elements/binary>>;
+bc_from_term_internal(Tup) when is_tuple(Tup) andalso tuple_size(Tup) >= 256 ->
+    Tag = 105,
+    Arity = tuple_size(Tup),
+    Elements = << <<Elt/binary>> || Elt <- lists:map(fun bc_from_term_internal/1, tuple_to_list(Tup)) >>,
+    <<Tag:8, Arity:32, Elements/binary>>;
+bc_from_term_internal([]) ->
+    <<106>>;
+bc_from_term_internal(Ls) when is_list(Ls) ->
+    bc_from_list(Ls);
+bc_from_term_internal(Bin) when is_binary(Bin) ->
+    Tag = 109, Size = size(Bin),
+    <<Tag:8, Size:32, Bin/binary>>.
+
+bc_from_list(Ls) ->
+    {Ct, Bin, IsStr, Tl} = bc_from_list_int(Ls, {0, <<>>, true}),
+    if IsStr andalso (Ct < 65536) ->
+	    <<107, Ct:16, Bin/binary>>;
+       true ->
+	    EncodedTl = bc_from_term_internal(Tl),
+	    <<108, Ct:32, Bin/binary, EncodedTl/binary>>
+    end.
+
+bc_from_list_int([H|T], {Ct, Bin, IsStr} ) when is_integer(H), H >= 0, H < 256 ->
+    bc_from_list_int(T, {Ct+1, <<Bin/binary, (bc_from_term_internal(H))/binary>>, IsStr});
+bc_from_list_int([H|T], {Ct, Bin, _} ) ->
+    bc_from_list_int(T, {Ct+1, <<Bin/binary, (bc_from_term_internal(H))/binary>>, false});
+bc_from_list_int(X, {Ct, Bin, IsStr}) ->
+    {Ct, Bin, IsStr, X}.
+
+% test code
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+
+
+-endif.
