@@ -28,13 +28,13 @@ bc_from_term(T) ->
     <<131, (bc_from_term_internal(T))/binary>>.
 bc_from_term_internal(Num) when is_integer(Num) andalso Num < 256 andalso Num >= 0 ->
     <<97, Num:8>>;
-bc_from_term_internal(<<Num:32/big-signed-integer>>) ->
-    <<98, Num/binary>>;
+bc_from_term_internal(Num) when is_integer(Num) andalso Num < (1 bsl 31) andalso Num >= (-1 bsl 31) ->
+    <<98, Num:32/big-signed-integer>>;
 bc_from_term_internal(BigInt) when is_integer(BigInt) ->
     ABI = abs(BigInt),
     Bin = binary:encode_unsigned(ABI),
     Size = size(Bin),
-    Sign = if BigInt =:= ABI -> 1; true -> 0 end,
+    Sign = if BigInt =:= ABI -> 0; true -> 1 end,
     if Size < 256 ->
 	    <<110, Size:8, Sign:8, Bin/binary>>;
        true ->
@@ -67,20 +67,20 @@ bc_from_term_internal(Bin) when is_binary(Bin) ->
     <<Tag:8, Size:32, Bin/binary>>.
 
 bc_from_list(Ls) ->
-    {Ct, Bin, IsStr, Tl} = bc_from_list_int(Ls, {0, <<>>, true}),
+    {Ct, Chars, Bin, IsStr, Tl} = bc_from_list_int(Ls, {0, <<>>, <<>>, true}),
     if IsStr andalso (Ct < 65536) ->
-	    <<107, Ct:16, Bin/binary>>;
+	    <<107, Ct:16, Chars/binary>>;
        true ->
 	    EncodedTl = bc_from_term_internal(Tl),
 	    <<108, Ct:32, Bin/binary, EncodedTl/binary>>
     end.
 
-bc_from_list_int([H|T], {Ct, Bin, IsStr} ) when is_integer(H), H >= 0, H < 256 ->
-    bc_from_list_int(T, {Ct+1, <<Bin/binary, (bc_from_term_internal(H))/binary>>, IsStr});
-bc_from_list_int([H|T], {Ct, Bin, _} ) ->
-    bc_from_list_int(T, {Ct+1, <<Bin/binary, (bc_from_term_internal(H))/binary>>, false});
-bc_from_list_int(X, {Ct, Bin, IsStr}) ->
-    {Ct, Bin, IsStr, X}.
+bc_from_list_int([H|T], {Ct, Chars, Bin, true} ) when is_integer(H), H >= 0, H < 256 ->
+    bc_from_list_int(T, {Ct+1, <<Chars/binary, H:8>>, <<Bin/binary, (bc_from_term_internal(H))/binary>>, true});
+bc_from_list_int([H|T], {Ct, Chars, Bin, _} ) ->
+    bc_from_list_int(T, {Ct+1, Chars, <<Bin/binary, (bc_from_term_internal(H))/binary>>, false});
+bc_from_list_int(X, {Ct, Chars, Bin, IsStr}) ->
+    {Ct, Chars, Bin, IsStr, X}.
 
 % test code
 
