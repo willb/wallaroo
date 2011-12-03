@@ -20,7 +20,7 @@
 % this in the face of live updates.
 
 from_term(T) ->
-    term_to_binary(T, [{minor_version,0}]).
+    term_to_binary(T, [{minor_version,1}]).
 
 
 % backwards-compatible from_term
@@ -41,8 +41,7 @@ bc_from_term_internal(BigInt) when is_integer(BigInt) ->
 	    <<111, Size:32, Sign:8, Bin/binary>>
     end;
 bc_from_term_internal(Float) when is_float(Float) ->
-    Bin = list_to_binary(io_lib:format("~.20e", [Float])),
-    <<99, Bin/binary>>;
+    <<70, Float/big-float>>;
 bc_from_term_internal(Atom) when is_atom(Atom) ->
     Ls = atom_to_list(Atom),
     Bin = list_to_binary(Ls),
@@ -98,8 +97,7 @@ simple_test_() ->
        ?_assertEqual(<<131,97,255>>, bc_from_term(255)),
        ?_assertEqual(<<131,98,0,0,1,0>>, bc_from_term(256)),
        ?_assertEqual(<<131,98,0,0,4,0>>, bc_from_term(1024)),
-       ?_assertEqual(<<131,99,52,46,48,48,48,48,48,48,48,48,48,48,48,48,48,48,48,50,
-		       50,50,48,52,101,45,48,49,0,0,0,0,0>>, bc_from_term(0.4)),
+       ?_assertEqual(<<131,70,63,217,153,153,153,153,153,154>>, bc_from_term(0.4)),
        ?_assertEqual(<<131,98,255,255,255,236>>, bc_from_term(-20)),
        ?_assertEqual(<<131,110,16,0,255,255,255,255,255,255,255,255,255,255,255,255,
 		       255,255,255,255>>, bc_from_term(340282366920938463463374607431768211455)),
