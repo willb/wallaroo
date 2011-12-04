@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_binary).
--export([from_term/1, bc_from_term/1]).
+-export([from_term/1]).
 
 % XXX: the external term format and term_to_binary should be stable
 % across Erlang versions, i.e., some term T will always be encoded as
@@ -14,16 +14,16 @@
 % Erlang releases are supposed to be forwards-compatible for two major
 % releases, and backwards-compatibility should only be broken at a new
 % major release.  In the unlikely event that the external term format
-% changes in the future, we will have to reimplement the R13 version
-% of term_to_binary here for our own use.  Because we use this function 
-% instead of a raw call to the term_to_binary NIF, we will be able to do 
-% this in the face of live updates.
+% changes in the future, we will have to call out to bc_from_term
+% (which is compatible with term_to_binary for our purposes but surely 
+% much slower).  Because we use this function instead of a raw call to 
+% the term_to_binary NIF, we will be able to do this even if live updating.
 
 from_term(T) ->
-    term_to_binary(T, [{minor_version,1}]).
+    term_to_binary(T, [{minor_version,1}, {compressed, 0}]).
 
 
-% backwards-compatible from_term
+% backwards-compatible from_term; doesn't handle funs, references, or pids
 bc_from_term(T) ->
     <<131, (bc_from_term_internal(T))/binary>>.
 bc_from_term_internal(Num) when is_integer(Num) andalso Num < 256 andalso Num >= 0 ->
@@ -63,7 +63,12 @@ bc_from_term_internal(Ls) when is_list(Ls) ->
     bc_from_list(Ls);
 bc_from_term_internal(Bin) when is_binary(Bin) ->
     Tag = 109, Size = size(Bin),
-    <<Tag:8, Size:32, Bin/binary>>.
+    <<Tag:8, Size:32, Bin/binary>>;
+bc_from_term_internal(Bin) when is_bitstring(Bin) ->
+    Tag = 77, TotalBits = bit_size(Bin), 
+    Bits = TotalBits rem 8, Size = if Bits == 0 -> TotalBits div 8; true -> (TotalBits div 8) + 1 end,
+    PadAmount = 8 - Bits, Padding = <<0:PadAmount>>,
+    <<Tag:8, Size:32, Bits:8, Bin/bitstring, Padding/bitstring>>.
 
 bc_from_list(Ls) ->
     {Ct, Chars, Bin, IsStr, Tl} = bc_from_list_int(Ls, {0, <<>>, <<>>, true}),
@@ -105,6 +110,8 @@ simple_test_() ->
 		       255,255,255,255>>, bc_from_term(-340282366920938463463374607431768211455)),
        ?_assertEqual(<<131,104,3,100,0,3,97,98,99,100,0,4,98,108,97,104,100,0,4,97,
 		       114,103,104>>, bc_from_term({abc,blah,argh})),
+       ?_assertEqual(<<131,77,0,0,0,2,2,99,64>>, bc_from_term(<<12:5, 13:5>>)),
+       ?_assertEqual(<<131,109,0,0,0,5,12,0,0,0,13>>, bc_from_term(<<12:8, 13:32>>)),
        ?_assertEqual(<<131,107,0,7,102,111,111,115,101,112,104>>, bc_from_term("fooseph")),
        ?_assertEqual(<<131,108,0,0,0,5,98,0,0,4,0,100,0,3,102,111,111,100,0,4,98,108,
 		       97,104,100,0,4,97,114,103,104,104,2,100,0,5,121,105,107,101,
