@@ -21,49 +21,42 @@ find(Key, Tree) ->
 has(Key, Tree) ->
     gb_trees:is_defined(Key, Tree).
 
-
-hash_and_store(Object, StoreFunc) ->
-    SHA = wallaroo_hash:as_bitstring(Object),
-    StoreFunc(SHA, Object),
-    {SHA, Object}.
-
-
-get_path([], BS, FindFunc) when is_binary(BS) ->
-    FindFunc(BS);
+get_path([], BS, StoreMod) when is_binary(BS) ->
+    StoreMod:find_object(BS);
 get_path([], Obj, _) ->
     Obj;
-get_path([P|Rest], Tree, FindFunc) ->
+get_path([P|Rest], Tree, StoreMod) ->
     case find(P, Tree) of
 	none ->
 	    none;
 	{value, ElementHash} ->
-	    Branch = FindFunc(ElementHash),
-	    get_path(Rest, Branch, FindFunc)
+	    Branch = StoreMod:find_object(ElementHash),
+	    get_path(Rest, Branch, StoreMod)
     end.
     
 
-put_tree(Tree, StoreFunc) ->
-    hash_and_store(Tree, StoreFunc).
+put_tree(Tree, StoreMod) ->
+    wallaroo_db:hash_and_store(Tree, StoreMod).
 
-put_path([P], BS, Tree, StoreFunc, _FindFunc) when is_binary(BS) ->
+put_path([P], BS, Tree, StoreMod) when is_binary(BS) ->
     NewTree = store(P, BS, Tree),
-    hash_and_store(NewTree, StoreFunc);	    
-put_path([P], Object, Tree, StoreFunc, _FindFunc) ->
-    {ObjectHash, Object} = hash_and_store(Object, StoreFunc),
-    put_path([P], ObjectHash, Tree, StoreFunc, _FindFunc);
-put_path([P|Rest], Object, Tree, StoreFunc, FindFunc) ->
+    wallaroo_db:hash_and_store(NewTree, StoreMod);	    
+put_path([P], Object, Tree, StoreMod) ->
+    {ObjectHash, Object} = wallaroo_db:hash_and_store(Object, StoreMod),
+    put_path([P], ObjectHash, Tree, StoreMod);
+put_path([P|Rest], Object, Tree, StoreMod) ->
     case find(P, Tree) of
 	none ->
 	    [Last|Tser] = lists:reverse(Rest),
-	    {LeafHash, _Leaf} = put_path([Last], Object, gb_trees:empty(), StoreFunc, FindFunc),
-	    FoldFun = fun(Element, AccHash) -> {Hash, _NST} = put_path([Element], AccHash, gb_trees:empty(), StoreFunc, FindFunc), Hash end,
+	    {LeafHash, _Leaf} = put_path([Last], Object, gb_trees:empty(), StoreMod),
+	    FoldFun = fun(Element, AccHash) -> {Hash, _NST} = put_path([Element], AccHash, gb_trees:empty(), StoreMod), Hash end,
 	    NewBranch = lists:foldl(FoldFun, LeafHash, Tser),
-	    put_path([P], NewBranch, Tree, StoreFunc, FindFunc);
+	    put_path([P], NewBranch, Tree, StoreMod);
 	{value, ElementHash} ->
-	    Subtree = FindFunc(ElementHash),
-	    {SubtreeHash, _NewSubtree} = put_path(Rest, Object, Subtree, StoreFunc, FindFunc),
+	    Subtree = StoreMod:find_object(ElementHash),
+	    {SubtreeHash, _NewSubtree} = put_path(Rest, Object, Subtree, StoreMod),
 	    NewTree = store(P, SubtreeHash, Tree),
-	    hash_and_store(NewTree, StoreFunc)
+	    wallaroo_db:hash_and_store(NewTree, StoreMod)
     end.
 
 
@@ -72,28 +65,27 @@ put_path([P|Rest], Object, Tree, StoreFunc, FindFunc) ->
 -include_lib("eunit/include/eunit.hrl").
 
 test_setup() ->
-    ets_db_init().
+    wallaroo_store_ets:init([]).
 
 first_fixture() ->
-    SF = fun wallaroo_tree:ets_db_store/2,
-    FF = fun wallaroo_tree:ets_db_find/1,
-    {_T0H, T0} = wallaroo_tree:put_path([a,b,c,d,0], "a/b/c/d/0 for all", wallaroo_tree:empty(), SF, FF),
-    {_T1H, T1} = wallaroo_tree:put_path([a,b,c,d,e], "a/b/c/d/e for T1", T0, SF, FF),
-    {_T2H, T2} = wallaroo_tree:put_path([a,b,c,d,e], "a/b/c/d/e for T2", T1, SF, FF),
-    {_T3H, T3} = wallaroo_tree:put_path([a,b,x], "a/b/x for T3", T2, SF, FF),
-    {_T4H, T4} = wallaroo_tree:put_path([a,b,y], "a/b/y for T4", T3, SF, FF),
-    SF(t0, T0),
-    SF(t1, T1),
-    SF(t2, T2),
-    SF(t3, T3),
-    SF(t4, T4).
+    SM = wallaroo_store_ets,
+    {_T0H, T0} = wallaroo_tree:put_path([a,b,c,d,0], "a/b/c/d/0 for all", wallaroo_tree:empty(), SM),
+    {_T1H, T1} = wallaroo_tree:put_path([a,b,c,d,e], "a/b/c/d/e for T1", T0, SM),
+    {_T2H, T2} = wallaroo_tree:put_path([a,b,c,d,e], "a/b/c/d/e for T2", T1, SM),
+    {_T3H, T3} = wallaroo_tree:put_path([a,b,x], "a/b/x for T3", T2, SM),
+    {_T4H, T4} = wallaroo_tree:put_path([a,b,y], "a/b/y for T4", T3, SM),
+    SM:store_object(t0, T0),
+    SM:store_object(t1, T1),
+    SM:store_object(t2, T2),
+    SM:store_object(t3, T3),
+    SM:store_object(t4, T4).
     
 
 test_teardown() ->
-    ets:delete(test_wallaroo_tree).
+    wallaroo_store_ets:cleanup([]).
 
 find_fixture_tree(Id) ->
-    wallaroo_tree:ets_db_find(Id).
+    wallaroo_store_ets:find_object(Id).
 
 simple_test_() ->
     {inorder,
@@ -101,31 +93,31 @@ simple_test_() ->
       fun() -> test_setup(), first_fixture() end,
       fun(_) -> test_teardown() end,
       [?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t0), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t0), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t1), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t1), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t2), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t2), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t3), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t3), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t4), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T1", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t1), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t1), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T2", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t2), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t2), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T2", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t3), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t3), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T2", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t4), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertEqual("a/b/x for T3", 
-		    wallaroo_tree:get_path([a,b,x], find_fixture_tree(t3), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,x], find_fixture_tree(t3), wallaroo_store_ets)),
       ?_assertEqual("a/b/x for T3", 
-		    wallaroo_tree:get_path([a,b,x], find_fixture_tree(t4), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,x], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertEqual("a/b/y for T4", 
-		    wallaroo_tree:get_path([a,b,y], find_fixture_tree(t4), fun wallaroo_tree:ets_db_find/1)),
+		    wallaroo_tree:get_path([a,b,y], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertNot("a/b/y for T4" =:=
-		       wallaroo_tree:get_path([a,b,y], find_fixture_tree(t1), fun wallaroo_tree:ets_db_find/1))]}}.
+		       wallaroo_tree:get_path([a,b,y], find_fixture_tree(t1), wallaroo_store_ets))]}}.
 		    
 
 	      
@@ -143,11 +135,10 @@ do_dbg_from_shell() ->
 
 do_test_from_shell() ->
     ets_db_init(),
-    Store = fun wallaroo_tree:ets_db_store/2,
-    Find = fun wallaroo_tree:ets_db_find/1,
-    {_H1, Res} = wallaroo_tree:put_path([a,b,c,d,e], 37, wallaroo_tree:empty(), Store, Find),
-    {_H2, Res2} = wallaroo_tree:put_path([a,b,d,e], 42, Res, Store, Find),
-    {_H3, _Res3} = wallaroo_tree:put_path([a,c,d,e], 18, Res2, Store, Find).
+    SM = wallaroo_store_ets,
+    {_H1, Res} = wallaroo_tree:put_path([a,b,c,d,e], 37, wallaroo_tree:empty(), SM),
+    {_H2, Res2} = wallaroo_tree:put_path([a,b,d,e], 42, Res, SM),
+    {_H3, _Res3} = wallaroo_tree:put_path([a,c,d,e], 18, Res2, SM).
 
 -endif.
 
