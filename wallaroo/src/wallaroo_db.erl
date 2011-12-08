@@ -4,16 +4,13 @@
 -module(wallaroo_db).
 -compile(export_all).
 
-hash_and_store(Object, StoreMod) ->
-    hash_and_store(Object, StoreMod, store_object).
+identity(Term) ->
+    wallaroo_hash:as_bitstring(Term).
 
-hash_and_store(Object, StoreMod, Func) ->
-    SHA = wallaroo_hash:as_bitstring(Object),
-    StoreMod:Func(SHA, Object),
-    {SHA, Object}.
+hash_and_store(Term, StoreMod) ->
+    hash_and_store(Term, StoreMod, store_object).
 
-store(Object) ->
-    ok.
-
-get(Object) ->
-    {ok, nil}.
+hash_and_store(Term, StoreMod, Func) ->
+    SHA = identity(Term),
+    StoreMod:Func(SHA, Term),
+    {SHA, Term}.
