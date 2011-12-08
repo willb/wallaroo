@@ -1,4 +1,5 @@
 % ETS implementation of wallaroo_storage
+% Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_store_ets).
 -export([init/1,start/1,cleanup/1,find_object/1,find_commit/1,find_tag/1,store_object/2,store_commit/2,store_tag/2, objects/0, tags/0, commits/0]).
@@ -12,7 +13,6 @@ init(_) ->
     lists:map(fun(X)->create_table(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE]), ok.
 
 create_table(T) ->
-    io:format("~p~n", [T]),
     case ets:info(T) of
 	undefined ->
 	    ets:new(T, [public, named_table]),
