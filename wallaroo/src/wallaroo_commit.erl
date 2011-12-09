@@ -59,10 +59,8 @@ reachable(From, StoreMod, as_set) ->
     reachable_helper([From], StoreMod, gb_sets:empty()).
 
 reachable_helper([], _, Visited) ->
-    io:format("rh base case; Visited = ~p~n", [Visited]),
     Visited;
 reachable_helper([Hash|Hs], StoreMod, Visited) ->
-    io:format("rh; Hash = ~p, Hs = ~p, Visited = ~p~n", [Hash, Hs, Visited]),
     case gb_sets:is_member(Hash, Visited) of 
 	true ->
 	    reachable_helper(Hs, StoreMod, Visited);
@@ -93,9 +91,17 @@ test_setup() ->
 fixture() ->
     SM = wallaroo_store_ets,
     EmptySHA = store(empty(), SM),
-    FirstSHA = store(new([EmptySHA], bogus, [], []), SM),
+    FirstSHA = store(new([EmptySHA], first, [], []), SM),
+    SecondSHA = store(new([EmptySHA], second, [], []), SM),
+    ThirdSHA = store(new([SecondSHA], third, [], []), SM),
+    FourthSHA = store(new([FirstSHA, SecondSHA], fourth, [], []), SM),
+    FifthSHA = store(new([FirstSHA, SecondSHA, EmptySHA], fifth, [], []), SM),
     SM:store_object(es, EmptySHA), 
-    SM:store_object(fs, FirstSHA).
+    SM:store_object(fis, FirstSHA),
+    SM:store_object(ss, SecondSHA),
+    SM:store_object(ts, ThirdSHA),
+    SM:store_object(fos, FourthSHA),
+    SM:store_object(ffs, FifthSHA).
 
 basic_test_() ->
     {inorder,
@@ -103,7 +109,11 @@ basic_test_() ->
       fun() -> test_setup(), fixture() end,
       fun(_) -> ok end,
       [?_assertEqual(1, length(reachable(wallaroo_store_ets:find_object(es), wallaroo_store_ets, as_list))),
-       ?_assertEqual(2, length(reachable(wallaroo_store_ets:find_object(fs), wallaroo_store_ets, as_list)))]}}.
-	     
-	      
+       ?_assertEqual(2, length(reachable(wallaroo_store_ets:find_object(fis), wallaroo_store_ets, as_list))),
+       ?_assertEqual(2, length(reachable(wallaroo_store_ets:find_object(ss), wallaroo_store_ets, as_list))),
+       ?_assertEqual(3, length(reachable(wallaroo_store_ets:find_object(ts), wallaroo_store_ets, as_list))),
+       ?_assertEqual(4, length(reachable(wallaroo_store_ets:find_object(fos), wallaroo_store_ets, as_list))),
+       ?_assertEqual(4, length(reachable(wallaroo_store_ets:find_object(ffs), wallaroo_store_ets, as_list)))
+]}}.
+	     	      
 -endif.
