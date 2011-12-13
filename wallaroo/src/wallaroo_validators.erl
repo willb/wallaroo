@@ -53,6 +53,7 @@ basic_test_() ->
        ?_assertEqual({fail, because}, (compose([fun always/2, fun never/2, fun always/2]))(work, bogus_mod)),
        ?_assertEqual({fail, because}, (compose([fun always/2, fun never/2, fun bizarro_sometimes/2]))(work, bogus_mod)),
        ?_assertEqual(ok, (compose([fun always/2, fun sometimes/2]))(work, bogus_mod)),
+       ?_assertEqual(ok, (compose([(compose([fun always/2, fun sometimes/2])),(compose([fun always/2, fun sometimes/2]))]))(work, bogus_mod)),
        ?_assertEqual(ok, (compose([fun always/2, fun sometimes/2, fun always/2]))(work, bogus_mod)),
        ?_assertEqual({fail, "work specified"}, (compose([fun always/2, fun bizarro_sometimes/2]))(work, bogus_mod)),
        ?_assertEqual({fail, "nowork specified"}, (compose([fun always/2, fun bizarro_sometimes/2, fun sometimes/2]))(nowork, bogus_mod)),
