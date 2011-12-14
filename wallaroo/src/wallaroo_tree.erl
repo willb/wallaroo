@@ -59,6 +59,24 @@ put_path([P|Rest], Object, Tree, StoreMod) ->
 	    wallaroo_db:hash_and_store(NewTree, StoreMod)
     end.
 
+del_path([P], Tree, StoreMod) ->
+    NewTree = gb_trees:balance(gb_trees:delete(P, Tree)),
+    wallaroo_db:hash_and_store(NewTree, StoreMod);
+del_path([P|Rest], Tree, StoreMod) ->
+    {value, SubtreeHash} = find(P, Tree),
+    Subtree = StoreMod:find_object(SubtreeHash),
+    {SubtreeHash, NewSubtree} = del_path(Rest, Subtree, StoreMod),
+    NewTree = gb_trees:balance(store(P, Subtreehash, Tree)),
+    wallaroo_db:hash_and_store(NewTree, StoreMod).
+
+
+children(Tree) ->
+    lists:map(fun(Key) -> {_, Value} = find(Key, Tree), {Key, Value} end, gb_trees:keys(Tree)).
+
+
+diff(T1, T2) ->
+    Keys = ordsets:union(gb_trees:keys(T1), gb_trees:keys(T2)),
+    [{Key, V1, V2} || {Key, V1, V2} <- [{K, gb_trees:lookup(K, T1), gb_trees:lookup(K, T2)} || K <- Keys], V1 =/= V2].
 
 -ifdef(TEST).
 -define(ETS_STORE_BACKEND, true).
