@@ -1,0 +1,18 @@
+%%-*- mode: erlang -*-
+{application, wallaroo_web,
+ [
+  {description, "wallaroo_web"},
+  {vsn, "1"},
+  {modules, []},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  inets,
+                  crypto,
+                  mochiweb,
+                  webmachine
+                 ]},
+  {mod, { wallaroo_web_app, []}},
+  {env, []}
+ ]}.
