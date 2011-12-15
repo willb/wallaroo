@@ -65,8 +65,8 @@ del_path([P], Tree, StoreMod) ->
 del_path([P|Rest], Tree, StoreMod) ->
     {value, SubtreeHash} = find(P, Tree),
     Subtree = StoreMod:find_object(SubtreeHash),
-    {SubtreeHash, NewSubtree} = del_path(Rest, Subtree, StoreMod),
-    NewTree = gb_trees:balance(store(P, Subtreehash, Tree)),
+    {NSTHash, _} = del_path(Rest, Subtree, StoreMod),
+    NewTree = gb_trees:balance(store(P, NSTHash, Tree)),
     wallaroo_db:hash_and_store(NewTree, StoreMod).
 
 
