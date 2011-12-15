@@ -8,6 +8,7 @@
 
 %% Supervisor callbacks
 -export([init/1]).
+-define(SERVER, ?MODULE).
 
 %% Helper macro for declaring children of supervisor
 -define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
@@ -17,13 +18,20 @@
 %% ===================================================================
 
 start_link() ->
-    supervisor:start_link({local, ?MODULE}, ?MODULE, []).
+    Result = supervisor:start_link({local, ?SERVER}, ?MODULE, []),
+    error_logger:info_msg("WALLAROO SUP start_link result ~p~n", [Result]),
+    Result.
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init([]) ->
-    Server = {wallaroo, {wallaroo, start_link, []}, permanent, 2000, worker, [wallaroo]},
-    {ok, { {one_for_one, 5, 10}, [Server]} }.
+init(_) ->
+    error_logger:info_msg("in WALLAROO SUP init callback ~n", []),
+    Server = ?CHILD(wallaroo, worker),
+    Children = [Server],
+    RestartStrategy = {one_for_one, 1, 60},
+    Result = {ok, {RestartStrategy, Children}},
+    error_logger:info_msg("returning ~p from WALLAROO SUP init callback ~n", [Result]),
+    Result.
 
