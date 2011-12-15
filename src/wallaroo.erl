@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_node/2, get_node/1, get_group/2, get_tag/1, get_group/1, put_node/2, put_node/3, put_group/2, put_group/3, put_tag/2, list_nodes/0, list_groups/0, list_tags/0]).
+-export([start_link/0, get_node/2, get_node/1, get_group/2, get_tag/1, get_group/1, put_node/2, put_node/3, put_group/2, put_group/3, put_tag/2, list_nodes/0, list_groups/0, list_nodes/1, list_groups/1, list_tags/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -29,11 +29,26 @@ init([]) ->
 %%% API functions
 
 list_nodes() ->
-    [].
+    generic_list_current(fun list_nodes/1).
+
 list_groups() ->
-    [].
+    generic_list_current(fun list_groups/1).
+
+generic_list_current(Fun) ->
+    case get_tag("current") of
+	find_failed ->
+	    [];
+	Tag ->
+	    Commit = wallaroo_tag:get_commit(Tag),
+	    Fun(Commit)
+    end.
+
+list_nodes(Commit) ->
+    gen_server:call(wallaroo, {list_nodes, Commit}).
+list_groups(Commit) ->
+    gen_server:call(wallaroo, {list_groups, Commit}).
 list_tags() ->
-    [].
+    gen_server:call(wallaroo, {list_tags}).
 
 get_node(Name) ->
     case get_tag("current") of
@@ -86,6 +101,18 @@ put_node(Name, {wallaby_node, [_|_]}=Node, SC) ->
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+handle_call({list_tags}, _From, {StoreMod}=State) ->
+    {reply, StoreMod:tags(), State};
+handle_call({list_nodes, StartingCommit}, _From, {StoreMod}=State) ->
+    CommitObj = get_commit(StartingCommit, StoreMod),
+    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+    Nodes = wallaroo_tree:get_path(["nodes"], Tree, StoreMod),
+    {reply, [Node || {Node, _} <- wallaroo_tree:children(Nodes)], State};
+handle_call({list_groups, StartingCommit}, _From, {StoreMod}=State) ->
+    CommitObj = get_commit(StartingCommit, StoreMod),
+    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+    Groups = wallaroo_tree:get_path(["groups"], Tree, StoreMod),
+    {reply, [Group || {Group, _} <- wallaroo_tree:children(Groups)], State};
 handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when What=:=group; What=:=node ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
@@ -101,7 +128,7 @@ handle_call({get_tag, Name}, _From, {StoreMod}=State) ->
     TagObj = StoreMod:find_tag(Name),
     {reply, TagObj, State};
 handle_call({put_tag, Name, Commit}, _From, {StoreMod}=State) ->
-    TagObj = StoreMod:store_tag(Name, Commit),
+    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, [], [])),
     {reply, TagObj, State}.
 
 handle_info(_X, State) ->
@@ -135,7 +162,5 @@ put_path(What, Name, Value, Tree, StoreMod, ParentCommit) ->
     wallaroo_commit:store(Commit, StoreMod).
 
 get_commit(SHA, StoreMod) ->
-    Result = StoreMod:find_commit(SHA),
-    error_logger:info_msg("wallaroo:get_commit/2 -> ~p ~n", [Result]),
-    Result.
+    StoreMod:find_commit(SHA).
 
