@@ -11,8 +11,7 @@
                   inets,
                   crypto,
                   mochiweb,
-                  webmachine,
-		  wallaroo
+                  webmachine
                  ]},
   {mod, { wallaroo_web_app, []}},
   {env, []}
