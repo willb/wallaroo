@@ -24,5 +24,6 @@ start_link() ->
 %% ===================================================================
 
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, []} }.
+    Server = {wallaroo, {wallaroo, start_link, []}, permanent, 2000, worker, [wallaroo]},
+    {ok, { {one_for_one, 5, 10}, [Server]} }.
 
