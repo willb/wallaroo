@@ -52,7 +52,7 @@ get_group(Name) ->
 	find_failed ->
 	    find_failed;
 	Tag ->
-	    Commit = wallaroo_commit:get_tag(Tag),
+	    Commit = wallaroo_tag:get_commit(Tag),
 	    get_group(Name, Commit)
     end.
 
