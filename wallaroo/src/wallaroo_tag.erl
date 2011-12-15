@@ -12,7 +12,7 @@ new(Commit, Annotation, Meta) when is_binary(Commit) ->
 
 store(Name, {?TAG_TUPLE_TAG, {CommitHash, _A, _M}}=Tag, StoreMod, Validator) when is_function(Validator, 2) ->
     Commit = StoreMod:find_commit(CommitHash),
-    Tree = wallaroo_commit:get_tree(Commit),
+    Tree = wallaroo_commit:get_tree(Commit, StoreMod),
     case Validator(Tree, StoreMod) of
 	ok -> 
 	    StoreMod:store_tag(Name, Tag), ok;
