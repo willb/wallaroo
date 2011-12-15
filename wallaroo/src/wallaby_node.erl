@@ -4,7 +4,7 @@
 -module(wallaby_node).
 -compile(export_all).
 
-new(Name, Provisioned) when is_binary(Name) ->
+new(Name, Provisioned) ->
     Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, nil}, {provisioned, Provisioned}, {last_checkin, 0}, {last_updated_version, 0}]),
     {wallaby_node, Dict}.
 
