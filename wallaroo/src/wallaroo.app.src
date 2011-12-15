@@ -1,8 +1,8 @@
 {application, wallaroo,
  [
-  {description, ""},
+  {description, "The wallaroo versioned data store"},
   {vsn, "1"},
-  {registered, []},
+  {registered, [wallaroo, wallaroo_sup]},
   {applications, [
                   kernel,
                   stdlib
