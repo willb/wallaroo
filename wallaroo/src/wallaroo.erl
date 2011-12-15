@@ -44,9 +44,9 @@ generic_list_current(Fun) ->
     end.
 
 list_nodes(Commit) ->
-    gen_server:call(wallaroo, {list_nodes, Commit}).
+    gen_server:call(wallaroo, {list_nodes, canonicalize_hash(Commit)}).
 list_groups(Commit) ->
-    gen_server:call(wallaroo, {list_groups, Commit}).
+    gen_server:call(wallaroo, {list_groups, canonicalize_hash(Commit)}).
 list_tags() ->
     gen_server:call(wallaroo, {list_tags}).
 
@@ -143,7 +143,7 @@ code_change(_, State, _) ->
 %%% Helpers
 
 canonicalize_hash(String) when is_list(String) ->
-    wallaroo_hash:as_bitstring(String);
+    wallaroo_hash:hash_to_bitstring(String);
 canonicalize_hash(BS) when is_binary(BS) ->
     BS.
 
