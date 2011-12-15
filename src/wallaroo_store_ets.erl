@@ -71,10 +71,10 @@ generic_store(Table, Key, Value, Overwrite) ->
     end.
 
 commits() ->
-    ok.
+    ets:tab2list(?COMMIT_TABLE).
 
 objects() ->
     ok.
 
 tags() ->
-    ok.
+    ets:tab2list(?TAG_TABLE).
