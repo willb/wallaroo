@@ -4,13 +4,19 @@
 -module(wallaroo_validators).
 -export([succeed/2, compose/1, pcompose/1]).
 
+-type validator_result() :: ('ok' | {'fail', _}).
+-type validator() :: fun((gb_tree(), module()) -> validator_result()).
+-export_type([validator_result/0, validator/0]).
+
 succeed(_Tree, _StoreMod) ->
     ok.
 
+-spec compose([validator()]) -> validator().		     
 compose(Validators) when is_list(Validators) ->
     Srotadilav = lists:reverse(Validators),
     lists:foldl(fun compose_once/2, fun succeed/2, Srotadilav).
 
+-spec compose_once(validator(), validator()) -> validator().		     
 compose_once(Fun, AccFun) when is_function(Fun, 2), is_function(AccFun, 2) ->
     fun(Tree, StoreMod) ->
 	    case Fun(Tree, StoreMod) of
@@ -21,6 +27,7 @@ compose_once(Fun, AccFun) when is_function(Fun, 2), is_function(AccFun, 2) ->
 	    end
     end.
 
+-spec pcompose([validator()]) -> validator().		     
 pcompose(Validators) when is_list(Validators) ->
     fun(Tree, StoreMod) ->
 	    Self = self(),
@@ -30,14 +37,15 @@ pcompose(Validators) when is_list(Validators) ->
 	    pcompose_loop(ordsets:from_list(Pids))
     end.
 
+-spec pcompose_loop([pid()]) -> validator_result().
 pcompose_loop([]) ->
     ok;
 pcompose_loop(Pids) ->
     receive
-	{result_for, Pid, is, ok} ->
+	{result_for, Pid, ok} ->
 	    NewPidSet = ordsets:del_element(Pid, Pids),
 	    pcompose_loop(NewPidSet);
-	{result_for, _, is, {fail, _}=Failure} ->
+	{result_for, _, {fail, _}=Failure} ->
 	    lists:map(fun(P) -> exit(P, kill) end, Pids),
 	    Failure;
 	X ->
@@ -45,13 +53,13 @@ pcompose_loop(Pids) ->
 	    {fail, {other_result, X}}
     end.
 
-pcompose_worker(Parent, Validator, Tree, StoreMod) ->
+pcompose_worker(Parent, Validator, Tree, StoreMod) when is_function(Validator,2) ->
     Result = try
 		 Validator(Tree, StoreMod)
 	     catch
 		 Kind:Reason -> {fail, {Kind, Reason}}
 	     end,
-    Parent ! {result_for, self(), is, Result}.
+    Parent ! {result_for, self(), Result}.
 
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
