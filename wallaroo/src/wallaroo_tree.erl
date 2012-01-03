@@ -4,9 +4,15 @@
 -module(wallaroo_tree).
 -compile(export_all).
 
+-type tree() :: gb_tree().
+-type find_result() :: 'none' | {'value', _}.
+-export_type([tree/0]).
+
+-spec empty() -> tree().
 empty() ->
     gb_trees:empty().
 
+-spec store(_,_,tree()) -> tree().
 store(Key, Val, Tree) ->
     case gb_trees:lookup(Key, Tree) of
 	none ->
@@ -15,12 +21,15 @@ store(Key, Val, Tree) ->
 	    gb_trees:update(Key, Val, Tree)
 	end.
 
+-spec find(_, tree()) -> find_result().
 find(Key, Tree) ->
     gb_trees:lookup(Key, Tree).
 
+-spec has(_, tree()) -> boolean().
 has(Key, Tree) ->
     gb_trees:is_defined(Key, Tree).
 
+-spec get_path([any()], _, atom()) -> any().
 get_path([], BS, StoreMod) when is_binary(BS) ->
     StoreMod:find_object(BS);
 get_path([], Obj, _) ->
