@@ -3,10 +3,17 @@
 
 -module(wallaroo_hash).
 -export([as_bitstring/1, as_string/1, as_num/1, hash_to_bitstring/1, hash_to_num/1]).
+-export_type([bin/0, hexdigit/0, hexstring/0]).
 
+-type bin() :: <<_:160>>.
+-type hexdigit() :: 48..57 | 65..70 | 97..102.
+-type hexstring() :: [hexdigit(), ...].
+
+-spec as_bitstring(any()) -> bin().
 as_bitstring(Object) ->
     crypto:sha(wallaroo_binary:from_term(Object)).
 
+-spec as_string(any()) -> hexstring().
 as_string(Object) ->
     lists:flatten(io_lib:format("~40.16.0b", [as_num(Object)])).
 
@@ -17,6 +24,7 @@ generic_to_num(Object, F) ->
     <<SHA:160/big-unsigned-integer>> = F(Object),
     SHA.
 
+-spec hash_to_bitstring(hexstring()) -> bin().
 hash_to_bitstring(S) ->
     << <<(hexdigit_to_int(C)):4>> || C <- S >>.
 
