@@ -6,7 +6,7 @@
 
 -type tree() :: gb_tree().
 -type find_result() :: 'none' | {'value', _}.
--export_type([tree/0]).
+-export_type([tree/0, find_result/0]).
 
 -spec empty() -> tree().
 empty() ->
