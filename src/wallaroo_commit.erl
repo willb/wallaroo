@@ -2,20 +2,33 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_commit).
--compile(export_all).
+-export([empty/0, new/4, store/2, get_meta/2, get_changes/1, get_tree_hash/1, get_tree/2, reachable/2, reachable/3]).
 
 -define(COMMIT_TUPLE_TAG, wallaroo_commit).
 -define(EMPTY_COMMIT, {?COMMIT_TUPLE_TAG, empty}).
 
+-export_type([parents/0, tree_id/0, changes/0, meta/0, commit/0, commit_id/0]).
+
+-type parents() :: [wallaroo_hash:bin()].
+-type tree_id() :: wallaroo_hash:bin().
+-type changes() :: [any()].
+-type meta() :: [{atom(), any()}].
+
+-type commit() :: ?EMPTY_COMMIT | {?COMMIT_TUPLE_TAG, {parents(), tree_id(), changes(), meta()}}.
+-type commit_id() :: wallaroo_hash:bin().
+
+-spec empty() -> commit().
 empty() ->
     ?EMPTY_COMMIT.
 
+-spec new(parents(), tree_id(), changes(), meta()) -> commit().
 new([_|_]=Parents, Tree, Changes, Meta) 
   when is_list(Changes), is_list(Parents), is_list(Meta) ->
     OrderedParents = lists:sort(Parents),
     OrderedMeta = orddict:from_list(Meta),
     {?COMMIT_TUPLE_TAG, {OrderedParents, Tree, Changes, OrderedMeta}}.
 
+-spec store(commit(), module()) -> commit_id().
 store({?COMMIT_TUPLE_TAG, {_P,_T,_C,_M}}=Commit, StoreMod) ->
     {SHA, _} = wallaroo_db:hash_and_store(Commit, StoreMod, store_commit),
     SHA;
@@ -23,34 +36,42 @@ store(?EMPTY_COMMIT=Commit, StoreMod) ->
     {SHA, _} = wallaroo_db:hash_and_store(Commit, StoreMod, store_commit),
     SHA.
 
+-spec get_meta(commit(), atom()) -> any().
 get_meta({?COMMIT_TUPLE_TAG, {_, _, _, Meta}}, Key) ->
     orddict:find(Key, Meta);
 get_meta(?EMPTY_COMMIT, _) ->
     error.
 
+-spec get_parents(commit()) -> {ok, parents()} | error.
 get_parents({?COMMIT_TUPLE_TAG, {Parents, _, _, _}}) ->
     {ok, Parents};
 get_parents(?EMPTY_COMMIT) ->
     {ok, []}.
 
+-spec get_changes(commit()) -> {ok, changes()} | error.
 get_changes({?COMMIT_TUPLE_TAG, {_, _, Changes, _}}) ->
     {ok, Changes};
 get_changes(?EMPTY_COMMIT) ->
     error.
 
+-spec get_tree_hash(commit()) -> {ok, tree_id()} | error.
 get_tree_hash({?COMMIT_TUPLE_TAG, {_, Tree, _, _}}) ->
     {ok, Tree};
 get_tree_hash(?EMPTY_COMMIT) ->
     error.
 
+-spec get_tree(commit(), module()) -> wallaroo_tree:tree() | error.
 get_tree({?COMMIT_TUPLE_TAG, {_, Tree, _, _}}, StoreMod) ->
     StoreMod:find_object(Tree);
 get_tree(?EMPTY_COMMIT, _) ->
     error.
 
+-spec reachable(commit() | commit_id(), module()) -> [commit_id()].
 reachable(From, StoreMod) ->
     reachable(From, StoreMod, as_list).
 
+-spec reachable(commit() | commit_id(), module(), as_list) -> [commit_id()]
+      ; (commit() | commit_id(), module(), as_set) -> gb_set().
 reachable({?COMMIT_TUPLE_TAG, _}=FC, StoreMod, How) ->
     reachable(wallaroo_db:identity(FC), StoreMod, How);
 reachable(From, StoreMod, as_list) ->  
