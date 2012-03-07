@@ -29,7 +29,27 @@
 
 -spec extract_graph(wallaroo_tree:tree(), module()) -> simple_graph().
 extract_graph(Tree, StoreMod) ->
+    {NodeEntities, NodeRelationships} = extract_node_entities(get_children(["nodes"], Tree, StoreMod)),
+    {GroupEntities, GroupRelationships} = extract_group_entities(get_children(["groups"], Tree, StoreMod)),
+    {FeatureEntities, FeatureRelationships} = extract_feature_entities(get_children(["features"], Tree, StoreMod)),
+    {ParamEntities, ParamRelationships} = extract_parameter_entities(get_children(["params"], Tree, StoreMod)),
+    GroupRoot = wallaroo_tree:get_path(["nodes"], Tree, StoreMod),
+
+    GroupObjects = wallaroo_tree:get_path(["nodes"], Tree, StoreMod),
     {[], []}.
+
+get_children([_|_]=Path, Tree, StoreMod) ->
+    % XXX:  this, like all raw tree accesses, should be factored out to an internal API
+    Root = wallaroo_tree:get_path(Path, Tree, StoreMod),
+    [Obj || {_, Obj} <- wallaroo_tree:children(Root)].
+
+extract_node_entities([_|_]=NodeObjects) ->
+    {Es,Rs} = lists:foldl(fun(Node, {[_|_]=Nodes, [_|_]=Relationships}) ->
+				  Name = {'node', wallaby_node:name(Node)},
+				  Memberships = [{'member_of', Name, Grp} || Grp <- wallaby_node:memberships(Node)],
+				  {Name|Nodes, Memberships++Relationships}
+			  end, {[], []}, NodeObjects),
+    {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 
 -spec sg_union(simple_graph(), simple_graph()) -> simple_graph().
 sg_union({G1E, G1R}, {G2E, G2R}) ->

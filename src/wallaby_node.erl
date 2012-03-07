@@ -14,13 +14,13 @@
 -type node() :: {?WALLABY_NODE_TAG, orddict()}.
 
 % @doc Returns a new Wallaby node structure.
--spec new(string(), boolean()) -> node().
+-spec new(binary(), boolean()) -> node().
 new(Name, Provisioned) ->
     Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, "+++" + ""}, {provisioned, Provisioned}]),
     {?WALLABY_NODE_TAG, Dict}.
 
 % @doc Returns the name of the given node.
--spec name(node()) -> string().
+-spec name(node()) -> binary().
 name({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(name, Dict).
 
 % @doc Returns whether or not the given node is provisioned.
@@ -28,18 +28,18 @@ name({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(name, Dict).
 provisioned({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(provisioned, Dict).
 
 % @doc Returns the name of the given node's identity group.
--spec identity_group(node()) -> string().
+-spec identity_group(node()) -> binary().
 identity_group({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(identity_group, Dict).
 
 % @doc Returns a list of the names of the groups that this node is a member of, 
 % not including identity or default groups.
--spec memberships(node()) -> [string()].
+-spec memberships(node()) -> [binary()].
 memberships({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(memberships, Dict).
 
 % @doc Sets the membership list for this node; the supplied list is not checked
 % to ensure that its constituents all refer to valid groups.  Returns a new term 
 % representing this node with the changed memberships.
--spec set_memberships(node(), [string()]) -> node().
+-spec set_memberships(node(), [binary()]) -> node().
 set_memberships({?WALLABY_NODE_TAG, Dict}, Memberships) ->
     {?WALLABY_NODE_TAG, orddict:store(memberships, Memberships, Dict)}.
 
