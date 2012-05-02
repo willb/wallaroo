@@ -16,7 +16,7 @@
 % @doc Returns a new Wallaby node structure.
 -spec new(binary(), boolean()) -> wnode().
 new(Name, Provisioned) ->
-    Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, "+++" ++ ""}, {provisioned, Provisioned}]),
+    Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, idgroupname(Name)}, {provisioned, Provisioned}]),
     {?WALLABY_NODE_TAG, Dict}.
 
 % @doc Returns the name of the given node.
@@ -48,3 +48,10 @@ set_memberships({?WALLABY_NODE_TAG, Dict}, Memberships) ->
 -spec make_provisioned(wnode()) -> wnode().
 make_provisioned({?WALLABY_NODE_TAG, Dict}) ->
     {?WALLABY_NODE_TAG, orddict:store(provisioned, true, Dict)}.
+
+-spec idgroupname(binary()) -> binary().
+idgroupname(Name) ->
+    <<Hash:128/big-unsigned-integer>> = crypto:md5(Name),
+    [MD5] = io_lib:format("~32.16.0b", [Hash]),
+    list_to_binary("+++" ++ MD5).
+			 
