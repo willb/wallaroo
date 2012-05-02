@@ -5,7 +5,7 @@
 -export([succeed/2, compose/1, pcompose/1]).
 
 -type validator_result() :: ('ok' | {'fail', _}).
--type validator() :: fun((gb_tree(), module()) -> validator_result()).
+-type validator() :: fun((wallaroo_tree:tree(), module()) -> validator_result()).
 -export_type([validator_result/0, validator/0]).
 
 succeed(_Tree, _StoreMod) ->
