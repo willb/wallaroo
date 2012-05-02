@@ -6,45 +6,45 @@
 % @author William Benton <willb@redhat.com>
 
 -module(wallaby_node).
--export([new/2, name/1, provisioned/1, identity_group/1, memberships/1, set_memberships/2, make_provisioned/2]).
--export_type([node/0]).
+-export([new/2, name/1, provisioned/1, identity_group/1, memberships/1, set_memberships/2, make_provisioned/1]).
+-export_type([wnode/0]).
 
 -define(WALLABY_NODE_TAG, wallaby_node).
 
--type node() :: {?WALLABY_NODE_TAG, orddict()}.
+-type wnode() :: {?WALLABY_NODE_TAG, orddict:orddict()}.
 
 % @doc Returns a new Wallaby node structure.
--spec new(binary(), boolean()) -> node().
+-spec new(binary(), boolean()) -> wnode().
 new(Name, Provisioned) ->
-    Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, "+++" + ""}, {provisioned, Provisioned}]),
+    Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, "+++" ++ ""}, {provisioned, Provisioned}]),
     {?WALLABY_NODE_TAG, Dict}.
 
 % @doc Returns the name of the given node.
--spec name(node()) -> binary().
+-spec name(wnode()) -> binary().
 name({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(name, Dict).
 
 % @doc Returns whether or not the given node is provisioned.
--spec provisioned(node()) -> boolean().
+-spec provisioned(wnode()) -> boolean().
 provisioned({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(provisioned, Dict).
 
 % @doc Returns the name of the given node's identity group.
--spec identity_group(node()) -> binary().
+-spec identity_group(wnode()) -> binary().
 identity_group({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(identity_group, Dict).
 
 % @doc Returns a list of the names of the groups that this node is a member of, 
 % not including identity or default groups.
--spec memberships(node()) -> [binary()].
+-spec memberships(wnode()) -> [binary()].
 memberships({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(memberships, Dict).
 
 % @doc Sets the membership list for this node; the supplied list is not checked
 % to ensure that its constituents all refer to valid groups.  Returns a new term 
 % representing this node with the changed memberships.
--spec set_memberships(node(), [binary()]) -> node().
+-spec set_memberships(wnode(), [binary()]) -> wnode().
 set_memberships({?WALLABY_NODE_TAG, Dict}, Memberships) ->
     {?WALLABY_NODE_TAG, orddict:store(memberships, Memberships, Dict)}.
 
 % @doc Returns a new term representing this node after it has been marked as
 % explicitly provisioned.
--spec make_provisioned(node()) -> node().
+-spec make_provisioned(wnode()) -> wnode().
 make_provisioned({?WALLABY_NODE_TAG, Dict}) ->
     {?WALLABY_NODE_TAG, orddict:store(provisioned, true, Dict)}.

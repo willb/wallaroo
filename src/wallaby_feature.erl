@@ -2,12 +2,12 @@
 % Copyright (c) 2011 Red Hat, Inc. and William C. Benton
 
 -module(wallaby_feature).
--export([new/1,name/1,features/1,parameters/1,set_features/2,set_parameters/2]).
--export_type([group/0]).
+-export([new/1,name/1,includes/1,conflicts/1,depends/1,set_conflicts/2,set_depends/2,parameters/1,set_includes/2,set_parameters/2]).
+-export_type([feature/0]).
 
 -define(FEATURE_TUPLE_TAG, wallaby_feature).
 
--type feature() :: {?FEATURE_TUPLE_TAG, orddict()}.
+-type feature() :: {?FEATURE_TUPLE_TAG, orddict:orddict()}.
 
 -spec new(binary()) -> feature().
 new(Name) when is_binary(Name) ->
@@ -17,7 +17,7 @@ new(Name) when is_binary(Name) ->
 -spec name(feature()) -> binary().
 name({?FEATURE_TUPLE_TAG, Dict}) -> orddict:fetch(name, Dict).
 
--spec features(feature()) -> [binary()].
+-spec includes(feature()) -> [binary()].
 includes({?FEATURE_TUPLE_TAG, Dict}) -> orddict:fetch(includes, Dict).
 
 -spec conflicts(feature()) -> [binary()].
