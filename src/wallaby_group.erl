@@ -7,7 +7,7 @@
 
 -define(GROUP_TUPLE_TAG, wallaby_group).
 
--type group() :: {?GROUP_TUPLE_TAG, orddict()}.
+-type group() :: {?GROUP_TUPLE_TAG, orddict:orddict()}.
 
 -spec new(binary()) -> group().
 new(Name) when is_binary(Name) ->

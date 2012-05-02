@@ -3,11 +3,11 @@
 
 -module(wallaby_subsystem).
 -export([new/1,name/1,parameters/1,set_parameters/2]).
--export_type([group/0]).
+-export_type([subsystem/0]).
 
 -define(SUBSYSTEM_TUPLE_TAG, wallaby_subsystem).
 
--type subsystem() :: {?SUBSYSTEM_TUPLE_TAG, orddict()}.
+-type subsystem() :: {?SUBSYSTEM_TUPLE_TAG, orddict:orddict()}.
 
 -spec new(binary()) -> subsystem().
 new(Name) when is_binary(Name) ->
@@ -20,6 +20,6 @@ name({?SUBSYSTEM_TUPLE_TAG, Dict}) -> orddict:fetch(name, Dict).
 -spec parameters(subsystem()) -> [binary()].
 parameters({?SUBSYSTEM_TUPLE_TAG, Dict}) -> orddict:fetch(parameters, Dict).
 
--spec set_parameters(subsystem(), orddict()) -> [binary()].
+-spec set_parameters(subsystem(), orddict:orddict()) -> [binary()].
 set_parameters({?SUBSYSTEM_TUPLE_TAG, Dict}, Ps) ->
     {?SUBSYSTEM_TUPLE_TAG, orddict:store(parameters, Ps, Dict)}.

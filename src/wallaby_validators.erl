@@ -3,6 +3,7 @@
 %% @doc Wallaby-specific validators for Wallaroo
 
 -module(wallaby_validators).
+-export([extract_graph/2,sg_union/2]).
 
 -type node_entity() :: {'node', string()}.
 -type group_entity() :: {'group', string()}.
@@ -79,6 +80,14 @@ extract_parameter_entities([_|_]=ParameterObjects) ->
 				  Cnfs = [{'conflicts_with', Name, {parameter, F}} || F <- wallaby_parameter:depends(Parameter)],
 				  {[Name|Parameters], Deps++Cnfs++Relationships}
 			  end, {[], []}, ParameterObjects),
+    {ordsets:from_list(Es), ordsets:from_list(Rs)}.
+
+extract_subsystem_entities([_|_]=SubsystemObjects) ->
+    {Es,Rs} = lists:foldl(fun(Subsystem, {[_|_]=Subsystems, [_|_]=Relationships}) ->
+				  Name = {'subsystem', wallaby_subsystem:name(Subsystem)},
+				  Prms = [{'is_interested_in', Name, {parameter, P}} || P <- wallaby_subsystem:parameters(Subsystem)],
+				  {[Name|Subsystems], Prms++Relationships}
+			  end, {[], []}, SubsystemObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 
 -spec sg_union(simple_graph(), simple_graph()) -> simple_graph().
