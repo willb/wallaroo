@@ -60,6 +60,16 @@ If we convert accessible subtrees with more than 64 buckets to internal subtrees
 
 In the accessible-subtree case, the writes involved would store the size of the serialized node object (presumably, this would be pretty small), approximately 1 MB to store the updated `/nodes` hierarchy, and approximately 1 KB to store the updated root, _for a total on the order of 1 MB of writes (and 1 MB of reads)_.  In the bucketed-subtree case, the writes involved would store the size of the serialized node object, approximately 4 KB for each of `nodes`, `31`, `7`, and `61`, and approximately 1 KB for the updated root, _for a total on the order of 16 KB of writes (and 16KB of reads)_.
 
+The bucketed-tree case is a clear winner for space efficiency of updates (and also, probably, for speed of updates) but would involve substantially more database read activity in order to fetch all of the (transitive) children of a bucketed tree.  We'd need to evaluate its performance under some workloads to characterize whether or not this is an acceptable tradeoff.
+
+### Storage considerations
+
+Currently, objects are stored in the database in a relatively raw format:  if something looks like a hash, it is a hash; if something looks like a tree, it is a tree; in general, the current implementation relies on clients to know what sort of thing is stored at a given path.  We should change this so that objects have a more well-defined format:
+
+    -type accessible_tree() :: {wallaroo_accessible_tree, tree()}.
+    -type bucketed_tree() :: {wallaroo_bucketed_tree, tree()}.
+    -type serialized_object() :: {wallaroo_object, any()}.
+
 ## Appendix:  Overhead-measurement code
 
     -module(tree_eval).
