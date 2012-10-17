@@ -2,16 +2,23 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_tree).
--compile(export_all).
+-export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, children/1, diff/2]).
 
--type tree() :: gb_tree().
+-define(TAG_OBJ, wObj).
+-define(TAG_ACCESSIBLE_TREE, wAT).
+-define(TAG_BUCKETED_TREE, wBT).
+
+-type rawtree() :: gb_tree().
+-type tree() :: {?TAG_ACCESSIBLE_TREE, rawtree()} | {?TAG_BUCKETED_TREE, rawtree()}.
 -type find_result() :: 'none' | {'value', _}.
 -export_type([tree/0, find_result/0]).
 
+%% @doc returns an empty tree
 -spec empty() -> tree().
 empty() ->
     gb_trees:empty().
 
+%% @doc stores an entry in Tree with key Key and value Val
 -spec store(_,_,tree()) -> tree().
 store(Key, Val, Tree) ->
     case gb_trees:lookup(Key, Tree) of
@@ -21,14 +28,17 @@ store(Key, Val, Tree) ->
 	    gb_trees:update(Key, Val, Tree)
 	end.
 
+%% @doc finds the value stored in Tree under Key
 -spec find(_, tree()) -> find_result().
 find(Key, Tree) ->
     gb_trees:lookup(Key, Tree).
 
+%% @doc returns true if Tree contains an entry for Key
 -spec has(_, tree()) -> boolean().
 has(Key, Tree) ->
     gb_trees:is_defined(Key, Tree).
 
+%% @doc returns the result of looking up 
 -spec get_path([any()], _, atom()) -> any().
 get_path([], BS, StoreMod) when is_binary(BS) ->
     StoreMod:find_object(BS);
