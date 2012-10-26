@@ -22,7 +22,17 @@
 empty() ->
     {?TAG_ACCESSIBLE_TREE, gb_trees:empty()}.
 
-%% @doc stores an entry in Tree with key Key and value Val
+wrap_object({?TAG_OBJECT, _}=O) ->
+    O;
+wrap_object(O) ->
+    {?TAG_OBJECT, O}.
+
+unwrap_object({?TAG_OBJECT, O}) ->
+    O;
+unwrap_object(O) ->
+    O.
+
+%% @doc stores an entry in an accessible Tree with key Key and value Val
 -spec store(_,_,tree()) -> tree().
 store(Key, Val, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     case gb_trees:lookup(Key, Tree) of
@@ -30,8 +40,7 @@ store(Key, Val, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
 	    {Tag, gb_trees:insert(Key, Val, Tree)};
 	{value, _} ->
 	    {Tag, gb_trees:update(Key, Val, Tree)}
-	end.
-
+    end.
 
 %% When you split, take the kth byte of the hash and use that as a key
 kth_part(K, Bin) when is_bitstring(Bin) && is_integer(K) ->
@@ -55,6 +64,7 @@ map_pairs([_|_]=Pairs, Depth) when is_integer(Depth) ->
     lists:foldl(FoldFun, gb_trees:empty(), Pairs).
 
 %% @doc splits and balances an accessible tree into buckets if necessary; requires a storage module
+%% @return a tree that should be hashed and stored
 split({?TAG_ACCESSIBLE_TREE=Tag, {Sz,_}=Tree}, _, _) when Sz <= ?MAX_TREE_SIZE ->
     {Tag, Tree};
 split({?TAG_ACCESSIBLE_TREE=Tag, Tree}, Depth, StoreMod) ->
@@ -63,5 +73,71 @@ split({?TAG_ACCESSIBLE_TREE=Tag, Tree}, Depth, StoreMod) ->
     NewTree = gb_trees:map(StoreFunc, RawTree),
     {?TAG_BUCKETED_TREE, Depth, NewTree}.
 
+%% @doc finds the value stored in Tree under Key
+-spec find(_, tree()) -> find_result().
+find(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
+    gb_trees:lookup(Key, Tree);
+find(Key, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
+    gb_trees:lookup(Key, Tree).
 
-    
+%% @doc returns true if Tree contains an entry for Key
+-spec has(_, tree()) -> boolean().
+has(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
+    gb_trees:is_defined(Key, Tree).
+
+
+-spec put_tree(tree(), atom()) -> binary().
+put_tree(Tree, StoreMod) ->
+    wallaroo_db:hash_and_store(Tree, StoreMod).
+
+put_path(Path, Object, Tree, StoreMod) ->
+    put_path_int(Path, Object, Tree, StoreMod, 0, nil).
+
+put_path_int([P], BS, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, _) when is_binary(BS) ->
+    NewTree = split(store(P, BS, Tree), Depth, StoreMod),
+    wallaroo_db:hash_and_store(NewTree, StoreMod);	    
+put_path_int([P], Object, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, _) ->
+    WrappedObj = wrap_object(Object),
+    {ObjectHash, WrappedObj} = wallaroo_db:hash_and_store(WrappedObj, StoreMod),
+    put_path_int([P], ObjectHash, Tree, StoreMod, Depth, nil);
+put_path_int([P|Rest], Object, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, _) ->
+    case find(P, Tree) of
+	none ->
+	    [Last|Tser] = lists:reverse(Rest),
+	    {LeafHash, _Leaf} = put_path([Last], Object, empty(), StoreMod),
+	    FoldFun = fun(Element, AccHash) -> {Hash, _NST} = put_path([Element], AccHash, empty(), StoreMod), Hash end,
+	    NewBranch = lists:foldl(FoldFun, LeafHash, Tser),
+	    put_path_int([P], NewBranch, Tree, StoreMod, 0, nil);
+	{value, ElementHash} ->
+	    Subtree = StoreMod:find_object(ElementHash),
+	    {SubtreeHash, _NewSubtree} = put_path(Rest, Object, Subtree, StoreMod),
+	    NewTree = store(P, SubtreeHash, Tree),
+	    wallaroo_db:hash_and_store(NewTree, StoreMod)
+    end;
+put_path_int(Path, Object, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, nil) ->
+    KeyHash = wallaroo_db:identity(P),
+    put_path_int(Path, Object, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, KeyHash);
+put_path_int([SK], BS, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, _) when is_binary(BS) ->
+    NewTree = store(SK, BS, Tree),
+    wallaroo_db:hash_and_store(NewTree, StoreMod);
+put_path_int([P|Rest]=Path, Object, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, KeyHash) ->
+    Subkey = kth_part(Depth, KeyHash),
+    case find(Subkey, Tree) of
+	none ->
+	    [Last|Tser] = lists:reverse(Path),
+	    {LeafHash, _Leaf} = put_path([Last], Object, empty(), StoreMod),
+	    FoldFun = fun(Element, AccHash) -> {Hash, _NST} = put_path([Element], AccHash, empty(), StoreMod), Hash end,
+	    NewBranch = lists:foldl(FoldFun, LeafHash, Tser),
+	    put_path_int([Subkey], NewBranch, Tree, StoreMod, Depth, KeyHash);
+	{value, ElementHash} ->
+	    Subtree = StoreMod:find_object(ElementHash),
+	    % is this a bucketed tree?  if so, keep digging with depth + 1 (as recorded in the tree).  If not, proceed to put things in the accessible tree below (at depth + 1)
+	    {SubtreeHash, _NewSubtree} = case Subtree of
+					     {?TAG_BUCKETED_TREE, D, _) ->
+						 put_path_int(Path, Object, Subtree, StoreMod, D, KeyHash);
+					     {?TAG_ACCESSIBLE_TREE, _) ->
+						 put_path_int(Path, Object, Subtree, StoreMod, Depth + 1, KeyHash);
+					     end,
+	    NewTree = store(Subkey, SubtreeHash, Tree),
+	    wallaroo_db:hash_and_store(NewTree, StoreMod)
+    end.
