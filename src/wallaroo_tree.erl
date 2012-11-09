@@ -11,34 +11,36 @@
 -type rawtree() :: gb_tree().
 -type tree() :: {?TAG_ACCESSIBLE_TREE, rawtree()} | {?TAG_BUCKETED_TREE, rawtree()}.
 -type find_result() :: 'none' | {'value', _}.
+-type resolve_elt() :: {'none', tree(), list()} | {{any(), any()}, tree(), int(), bitstring()}.
+-type resolution() :: [resolve_elt()].
 -export_type([tree/0, find_result/0]).
 
 %% @doc returns an empty tree
 -spec empty() -> tree().
 empty() ->
-    gb_trees:empty().
+    {?TAG_ACCESSIBLE_TREE, gb_trees:empty()}.
 
 %% @doc stores an entry in Tree with key Key and value Val
 -spec store(_,_,tree()) -> tree().
-store(Key, Val, Tree) ->
+store(Key, Val, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     case gb_trees:lookup(Key, Tree) of
 	none ->
-	    gb_trees:insert(Key, Val, Tree);
+	    {Tag, gb_trees:insert(Key, Val, Tree)};
 	{value, _} ->
-	    gb_trees:update(Key, Val, Tree)
+	    {Tag, gb_trees:update(Key, Val, Tree)}
 	end.
 
 %% @doc finds the value stored in Tree under Key
 -spec find(_, tree()) -> find_result().
-find(Key, Tree) ->
+find(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     gb_trees:lookup(Key, Tree).
 
 %% @doc returns true if Tree contains an entry for Key
 -spec has(_, tree()) -> boolean().
-has(Key, Tree) ->
+has(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     gb_trees:is_defined(Key, Tree).
 
-%% @doc returns the result of looking up 
+%% @doc returns the result of looking up a path
 -spec get_path([any()], _, atom()) -> any().
 get_path([], BS, StoreMod) when is_binary(BS) ->
     StoreMod:find_object(BS);
