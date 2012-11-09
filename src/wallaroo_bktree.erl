@@ -15,6 +15,8 @@
 -type object() :: {?TAG_OBJECT, any()}.
 -type tree() :: bucketed_tree() | accessible_tree().
 -type find_result() :: 'none' | {'value', _}.
+-type resolve_elt() :: {'none', tree(), list()} | {'none', tree(), {any(), list()}} | {{any(), any()}, tree(), int(), bitstring()}.
+-type resolution() :: [resolve_elt()].
 -export_type([tree/0, find_result/0]).
 
 %% @doc returns an empty (accessible) tree
@@ -85,6 +87,43 @@ find(Key, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
 has(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     gb_trees:is_defined(Key, Tree).
 
+%% XXX: first any is really tree() | bitstring() | object(); second any is really 'nil' | bitstring()
+-spec resolve(list(), any(), atom()) -> resolution().
+resolve(Path, Tree, StoreMod) ->
+    resolve_it(Path, Tree, StoreMod, 0, nil, []).
+
+-spec resolve_it(list(), any(), atom(), integer(), any(), resolution()) -> resolution().
+resolve_it([], Tree, StoreMod, Depth, KeyHash, Acc) ->
+    Acc;
+resolve_it([P|Rest]=Path, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, KeyHash, Acc) ->
+    case find(P, Tree) of
+	none ->
+	    [{none, Tree, Path}|Acc];
+	{value, ElementHash} ->
+	    Branch = StoreMod:find_object(ElementHash),
+	    Entry = {{P, Branch}, Tree, Depth, KeyHash},
+	    resolve_it(Rest, Branch, StoreMod, 0, nil, [Entry|Acc])
+    end;
+resolve_it([P|_]=Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, Depth, nil, Acc) ->
+    KeyHash = wallaroo_db:identity(P),
+    resolve_it(Path, Tree, StoreMod, Depth, KeyHash, Acc);
+resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, KeyHash, Acc) ->
+    Subkey = kth_part(Depth, KeyHash),
+    case find(Subkey, Tree) of
+	none ->
+	    [{none, Tree, {Subkey, Path}}|Acc];
+	{value, ElementHash} ->
+	    Subtree = StoreMod:findObject(ElementHash),
+	    NewDepth = case Subtree of
+			   {?TAG_BUCKETED_TREE, D, _} ->
+			       D;
+			   {?TAG_ACCESSIBLE_TREE, _} ->
+			       ProvidedDepth + 1
+		       end,
+	    Entry = {{Subkey, Subtree}, Tree, Depth, KeyHash},
+	    resolve_it(Path, Subtree, StoreMod, Depth, KeyHash, [Entry|Acc])
+    end.
+
 
 -spec put_tree(tree(), atom()) -> binary().
 put_tree(Tree, StoreMod) ->
@@ -116,7 +155,7 @@ put_path_int([P|Rest], Object, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, 
     end;
 put_path_int(Path, Object, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, nil) ->
     KeyHash = wallaroo_db:identity(P),
-    put_path_int(Path, Object, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, KeyHash);
+    put_path_int(Path, Object, Tree, ProvidedDepth, KeyHash);
 put_path_int([SK], BS, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, _) when is_binary(BS) ->
     NewTree = store(SK, BS, Tree),
     wallaroo_db:hash_and_store(NewTree, StoreMod);
@@ -133,11 +172,46 @@ put_path_int([P|Rest]=Path, Object, {?TAG_BUCKETED_TREE, Depth, _}=Tree, Provide
 	    Subtree = StoreMod:find_object(ElementHash),
 	    % is this a bucketed tree?  if so, keep digging with depth + 1 (as recorded in the tree).  If not, proceed to put things in the accessible tree below (at depth + 1)
 	    {SubtreeHash, _NewSubtree} = case Subtree of
-					     {?TAG_BUCKETED_TREE, D, _) ->
+					     {?TAG_BUCKETED_TREE, D, _} ->
 						 put_path_int(Path, Object, Subtree, StoreMod, D, KeyHash);
-					     {?TAG_ACCESSIBLE_TREE, _) ->
+					     {?TAG_ACCESSIBLE_TREE, _} ->
 						 put_path_int(Path, Object, Subtree, StoreMod, Depth + 1, KeyHash);
 					     end,
 	    NewTree = store(Subkey, SubtreeHash, Tree),
 	    wallaroo_db:hash_and_store(NewTree, StoreMod)
     end.
+
+%% @doc returns the result of looking up a path
+-spec get_path([any()], _, atom()) -> find_result().
+get_path(Path, Tree, StoreMod) ->
+    get_path_int(Path, Tree, StoreMod, 0, nil).
+
+get_path_int([], BS, StoreMod, _, _) when is_binary(BS) ->
+    StoreMod:find_object(BS);
+get_path_int([], Obj, _, _, _) ->
+    Obj;
+get_path_int([P|Rest], {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, KeyHash) ->
+    case find(P, Tree) of
+	none ->
+	    none;
+	{value, ElementHash} ->
+	    Branch = StoreMod:find_object(ElementHash),
+	    get_path_int(Rest, Branch, StoreMod, Depth, KeyHash)
+    end;
+get_path_int([P|Rest]=Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, nil) ->
+    KeyHash = wallaroo_db:identity(P),
+    get_path_int(Path, Tree, ProvidedDepth, KeyHash);
+get_path_int([P|Rest]=Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, ProvidedDepth, KeyHash) ->
+    Subkey = kth_part(Depth, KeyHash),
+    case find(Subkey, Tree) of
+	none ->
+	    none;
+	{value, ElementHash} ->
+	    {SubtreeHash, _} = case Subtree of
+				   {?TAG_BUCKETED_TREE, D, _} ->
+				       get_path_int(Path, Subtree, StoreMod, D, KeyHash);
+				   {?TAG_ACCESSIBLE_TREE, _} ->
+				       get_path_int(Path, Subtree, StoreMod, D, KeyHash)
+			       end.
+
+
