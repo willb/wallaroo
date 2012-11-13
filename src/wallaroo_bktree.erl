@@ -15,7 +15,15 @@
 -type object() :: {?TAG_OBJECT, any()}.
 -type tree() :: bucketed_tree() | accessible_tree().
 -type find_result() :: 'none' | {'value', _}.
--type resolve_elt() :: {'none', tree(), list()} | {'none', tree(), {any(), list()}} | {{any(), any()}, tree(), int(), bitstring()}.
+-record(res_none, {tree :: tree(), 
+		   depth = 0 :: integer(),
+		   rest :: list(),
+		   subkey = 'empty' :: 'empty' | integer()}).
+-record(res_some, {tree :: tree(), 
+		   depth :: integer(), 
+		   keyhash :: bitstring(), 
+		   kv :: {any(), any()}}).
+-type resolve_elt() :: #res_none{} | #res_some{}.
 -type resolution() :: [resolve_elt()].
 -export_type([tree/0, find_result/0]).
 
@@ -99,11 +107,10 @@ resolve_it([], Tree, StoreMod, Depth, KeyHash, Acc) ->
 resolve_it([P|Rest]=Path, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, KeyHash, Acc) ->
     case find(P, Tree) of
 	none ->
-	    [{none, Tree, Depth, lists:reverse(Path)}|Acc];
+	    [#res_none{tree=Tree, depth=Depth, rest=lists:reverse(Path)}|Acc];
 	{value, ElementHash} ->
 	    Branch = StoreMod:find_object(ElementHash),
-	    Entry = {{P, Branch}, Tree, Depth, KeyHash},
-	    resolve_it(Rest, Branch, StoreMod, 0, nil, [Entry|Acc])
+	    resolve_it(Rest, Branch, StoreMod, 0, nil, [#res_some{kv={P, Branch}, tree=Tree, depth=Depth, keyhash=KeyHash}|Acc])
     end;
 resolve_it([P|_]=Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, Depth, nil, Acc) ->
     KeyHash = wallaroo_db:identity(P),
@@ -112,7 +119,7 @@ resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, K
     Subkey = kth_part(Depth, KeyHash),
     case find(Subkey, Tree) of
 	none ->
-	    [{none, Tree, Depth, {Subkey, lists:reverse(Path)}}|Acc];
+	    [#res_none{tree=Tree, depth=Depth, subkey=Subkey, rest=lists:reverse(Path)}|Acc];
 	{value, ElementHash} ->
 	    Subtree = StoreMod:findObject(ElementHash),
 	    NewDepth = case Subtree of
@@ -121,7 +128,7 @@ resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, K
 			   {?TAG_ACCESSIBLE_TREE, _} ->
 			       ProvidedDepth + 1
 		       end,
-	    Entry = {{Subkey, Subtree}, Tree, Depth, KeyHash},
+	    Entry = #res_some{kv={Subkey, Subtree}, tree=Tree, depth=Depth, keyhash=KeyHash},
 	    resolve_it(Path, Subtree, StoreMod, Depth, KeyHash, [Entry|Acc])
     end.
 
@@ -134,9 +141,9 @@ put_tree(Tree, StoreMod) ->
 -spec get_path([any()], _, atom()) -> find_result().
 get_path(Path, Tree, StoreMod) ->
     case resolve(Path, Tree, StoreMod) of
-	[{none,_,_,_}|_] ->
+	[#res_none{}|_] ->
 	    none;
-	[{_,V},_,_,_|_] ->
+	[#res_some{kv={_,V}}|_] ->
 	    {value, V};
 	Val ->
 	    {value, Val}
@@ -160,17 +167,25 @@ fold_absent(PathPart, {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
 		 end,
     wallaroo_db:hash_and_store(NewSubtree, StoreMod).
 
-get_depth([]) ->
-    0;
-get_depth([{{_,_}, _, D, _}|_]) ->
-    D;
-get_depth(_) ->
-    0.
+fold_present(ResolvedPath, Val, StoreMod) when is_binary(Val) ->
+    KTs = [{K, T} || #res_some(kv={K, _}, tree=T) <- ResolvedPath],
+    FF = fun({Ky, Tr}, AccHash) ->
+		 wallaroo_db:hash_and_store(store(Ky, AccHash, Tr), StoreMod),
+	 end,
+    lists:foldl(FF, Val, KTs).
 
 %% @doc stores a value at a given path
 -spec put_path(list(), object(), tree(), atom()) -> binary().
 put_path(Path, {?TAG_OBJECT, _}=Object, Tree, StoreMod) when is_list(Path) ->
     ResolvedPath = resolve(Path, Tree, StoreMod),
     case ResolvedPath of
-	[{none, Subtree, {SK, AbsentPath}}|Rest] ->	    
-	    NBHash = fold_absent([SK|AbsentPath], Object, Subtree, get_depth(Rest), StoreMod)
+	[#res_none{tree=Subtree, subkey=empty, depth=Depth, rest=AbsentPath}|Rest] ->	    
+	    NBHash = fold_absent(AbsentPath, Object, Subtree, Depth, StoreMod),
+	    fold_present(Rest, NBHash, StoreMod);
+	[#res_none{tree=Subtree, subkey=SK, depth=Depth, rest=AbsentPath}|Rest] ->	    
+	    NBHash = fold_absent([SK|AbsentPath], Object, Subtree, Depth, StoreMod)
+	    fold_present(Rest, NBHash, StoreMod);
+	[#res_some{}|_] -> 
+	    fold_present(ResolvedPath, wallaroo_db:hash_and_store(Object, StoreMod), StoreMod)
+    end.
+
