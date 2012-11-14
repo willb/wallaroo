@@ -1,16 +1,21 @@
--module(wallaroo_bktree).
+-module(wallaroo_tree).
 % XXX:  should store/3 and friends be exported?
--export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, children/1, diff/2]).
+-export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, diff/2]).
 
+-define(DEBUG, yes).
 
--define(TAG_OBJ, wObj).
+-ifdef(DEBUG).
+-export([do_test_from_shell/0, do_dbg_from_shell/0]).
+-endif.
+
+-define(TAG_OBJECT, wObj).
 -define(TAG_ACCESSIBLE_TREE, wAT).
 -define(TAG_BUCKETED_TREE, wBT).
 -define(MAX_TREE_SIZE, 1024).
 
 -type rawtree() :: gb_tree().
 % tag, depth, tree
--type bucketed_tree() :: {?TAG_BUCKETED_TREE, int(), rawtree()}.
+-type bucketed_tree() :: {?TAG_BUCKETED_TREE, integer(), rawtree()}.
 -type accessible_tree() :: {?TAG_ACCESSIBLE_TREE, rawtree()}.
 -type object() :: {?TAG_OBJECT, any()}.
 -type tree() :: bucketed_tree() | accessible_tree().
@@ -53,9 +58,9 @@ store(Key, Val, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     end.
 
 %% When you split, take the kth byte of the hash and use that as a key
-kth_part(K, Bin) when is_bitstring(Bin) && is_integer(K) ->
+kth_part(K, Bin) when is_bitstring(Bin) and is_integer(K) ->
     SkipSize = K * 8,
-    <<Skip:SkipSize, Take:8, Rest/binary>> = Bin,
+    <<_Skip:SkipSize, Take:8, _Rest/binary>> = Bin,
     Take.
 
 % Returns a raw gb_tree of trees mapping from key_hash_part -> key -> value
@@ -75,11 +80,11 @@ map_pairs([_|_]=Pairs, Depth) when is_integer(Depth) ->
 
 %% @doc splits and balances an accessible tree into buckets if necessary; requires a storage module
 %% @return a tree that should be hashed and stored
-split({?TAG_ACCESSIBLE_TREE=Tag, {Sz,_}=Tree}, _, _) when Sz <= ?MAX_TREE_SIZE ->
+split({?TAG_ACCESSIBLE_TREE=Tag, {Sz,_}=Tree}, _, _) when Sz =< ?MAX_TREE_SIZE ->
     {Tag, Tree};
-split({?TAG_ACCESSIBLE_TREE=Tag, Tree}, Depth, StoreMod) ->
+split({?TAG_ACCESSIBLE_TREE, Tree}, Depth, StoreMod) ->
     RawTree = map_pairs(gb_trees:to_list(Tree), Depth),
-    StoreFunc = fun(HashPart, Subtree) -> wallaroo_db:hash_and_store(Subtree, StoreMod) end,
+    StoreFunc = fun(_HashPart, Subtree) -> element(1, wallaroo_db:hash_and_store(Subtree, StoreMod)) end,
     NewTree = gb_trees:map(StoreFunc, RawTree),
     {?TAG_BUCKETED_TREE, Depth, NewTree}.
 
@@ -135,7 +140,7 @@ resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, K
 
 -spec put_tree(tree(), atom()) -> binary().
 put_tree(Tree, StoreMod) ->
-    wallaroo_db:hash_and_store(Tree, StoreMod).
+    element(1, wallaroo_db:hash_and_store(Tree, StoreMod)).
 
 %% @doc returns the result of looking up a path
 -spec get_path([any()], _, atom()) -> find_result().
@@ -144,19 +149,19 @@ get_path(Path, Tree, StoreMod) ->
 	[#res_none{}|_] ->
 	    none;
 	[#res_some{kv={_,V}}|_] ->
-	    {value, V};
+	    {value, unwrap_object(V)};
 	Val ->
-	    {value, Val}
+	    {value, unwrap_object(Val)}
     end.
 
 %% @doc stores Val in Tree at PathPart, assuming that no component of PathPart is already in Tree; returns hash for updated Tree
 fold_absent(PathPart, {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
     [Last|Tser] = PathPart,
-    ValHash = wallaroo_db:hash_and_store(Val, StoreMod),
-    LeafHash = wallaroo_db:hash_and_store(store(Last, ValHash, empty()), StoreMod),
+    ValHash = element(1, wallaroo_db:hash_and_store(Val, StoreMod)),
+    LeafHash = element(1, wallaroo_db:hash_and_store(store(Last, ValHash, empty()), StoreMod)),
     FoldFun = fun(Element, AccHash) ->
 		      T = store(Element, AccHash, empty()),
-		      wallaroo_db:hash_and_store(T, StoreMod)
+		      element(1, wallaroo_db:hash_and_store(T, StoreMod))
 	      end,
     NewBranch = lists:foldl(FoldFun, LeafHash, Tser),
     NewSubtree = case Tree of 
@@ -167,10 +172,10 @@ fold_absent(PathPart, {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
 		 end,
     wallaroo_db:hash_and_store(NewSubtree, StoreMod).
 
-fold_present(ResolvedPath, Val, StoreMod) when is_binary(Val) ->
-    KTs = [{K, T} || #res_some(kv={K, _}, tree=T) <- ResolvedPath],
-    FF = fun({Ky, Tr}, AccHash) ->
-		 wallaroo_db:hash_and_store(store(Ky, AccHash, Tr), StoreMod),
+fold_present(ResolvedPath, Val, StoreMod) when is_bitstring(Val) ->
+    KTs = [{K, T} || #res_some{kv={K, _}, tree=T} <- ResolvedPath],
+    FF = fun({Ky, Tr}, {AccHash, AccObj}) ->
+		 wallaroo_db:hash_and_store(store(Ky, AccHash, Tr), StoreMod)
 	 end,
     lists:foldl(FF, Val, KTs).
 
@@ -180,17 +185,20 @@ put_path(Path, {?TAG_OBJECT, _}=Object, Tree, StoreMod) when is_list(Path) ->
     ResolvedPath = resolve(Path, Tree, StoreMod),
     case ResolvedPath of
 	[#res_none{tree=Subtree, subkey=empty, depth=Depth, rest=AbsentPath}|Rest] ->	    
-	    NBHash = fold_absent(AbsentPath, Object, Subtree, Depth, StoreMod),
+	    {NBHash, _} = fold_absent(AbsentPath, Object, Subtree, Depth, StoreMod),
 	    fold_present(Rest, NBHash, StoreMod);
 	[#res_none{tree=Subtree, subkey=SK, depth=Depth, rest=AbsentPath}|Rest] ->	    
-	    NBHash = fold_absent([SK|AbsentPath], Object, Subtree, Depth, StoreMod)
+	    {NBHash, _} = fold_absent([SK|AbsentPath], Object, Subtree, Depth, StoreMod),
 	    fold_present(Rest, NBHash, StoreMod);
 	[#res_some{}|_] -> 
-	    fold_present(ResolvedPath, wallaroo_db:hash_and_store(Object, StoreMod), StoreMod)
-    end.
+	    fold_present(ResolvedPath, element(1, wallaroo_db:hash_and_store(Object, StoreMod)), StoreMod)
+    end;
+put_path(Path, Object, Tree, StoreMod) when is_list(Path) ->
+    put_path(Path, wrap_object(Object), Tree, StoreMod).
+
 
 del_path(Path, Tree, StoreMod) ->
-    1 / 0,
+    throw(not_implemented),
     Tree.
 
 diff(T1, T2) ->
@@ -202,6 +210,10 @@ diff(T1, T2) ->
 -include_lib("eunit/include/eunit.hrl").
 
 test_setup() ->
+    dbg:start(),
+    dbg:tracer(),
+    dbg:tpl(wallaroo_tree, '_', []),
+    dbg:p(all, c),
     wallaroo_store_ets:init([]).
 
 first_fixture() ->
@@ -262,7 +274,9 @@ simple_test_() ->
 -endif.
 
 -ifdef(DEBUG).
+-ifndef(ETS_STORE_BACKEND).
 -define(ETS_STORE_BACKEND, true).
+-endif.
 
 do_dbg_from_shell() ->
     dbg:start(),
