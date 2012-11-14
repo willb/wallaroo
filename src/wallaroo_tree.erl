@@ -1,6 +1,6 @@
 -module(wallaroo_tree).
 % XXX:  should store/3 and friends be exported?
--export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, diff/2]).
+-export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, diff/2, resolve/3]).
 
 -define(DEBUG, yes).
 
@@ -90,14 +90,14 @@ split({?TAG_ACCESSIBLE_TREE, Tree}, Depth, StoreMod) ->
 
 %% @doc finds the value stored in Tree under Key
 -spec find(_, tree()) -> find_result().
-find(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
+find(Key, {?TAG_ACCESSIBLE_TREE, Tree}) ->
     gb_trees:lookup(Key, Tree);
-find(Key, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
+find(Key, {?TAG_BUCKETED_TREE, _Depth, Tree}) ->
     gb_trees:lookup(Key, Tree).
 
 %% @doc returns true if Tree contains an entry for Key
 -spec has(_, tree()) -> boolean().
-has(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
+has(Key, {?TAG_ACCESSIBLE_TREE, Tree}) ->
     gb_trees:is_defined(Key, Tree).
 
 %% XXX: first any is really tree() | bitstring() | object(); need a new type for this
@@ -107,12 +107,12 @@ resolve(Path, Tree, StoreMod) ->
 
 %% XXX: first any is really tree() | bitstring() | object(); second any is really 'nil' | bitstring()
 -spec resolve_it(list(), any(), atom(), integer(), any(), resolution()) -> resolution().
-resolve_it([], Tree, StoreMod, Depth, KeyHash, Acc) ->
+resolve_it([], _, _, _, _, Acc) ->
     Acc;
 resolve_it([P|Rest]=Path, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, KeyHash, Acc) ->
     case find(P, Tree) of
 	none ->
-	    [#res_none{tree=Tree, depth=Depth, rest=lists:reverse(Path)}|Acc];
+	    [#res_none{tree=Tree, depth=Depth, rest=Path}|Acc];
 	{value, ElementHash} ->
 	    Branch = StoreMod:find_object(ElementHash),
 	    resolve_it(Rest, Branch, StoreMod, 0, nil, [#res_some{kv={P, Branch}, tree=Tree, depth=Depth, keyhash=KeyHash}|Acc])
@@ -124,17 +124,17 @@ resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, K
     Subkey = kth_part(Depth, KeyHash),
     case find(Subkey, Tree) of
 	none ->
-	    [#res_none{tree=Tree, depth=Depth, subkey=Subkey, rest=lists:reverse(Path)}|Acc];
+	    [#res_none{tree=Tree, depth=Depth, subkey=Subkey, rest=Path}|Acc];
 	{value, ElementHash} ->
-	    Subtree = StoreMod:findObject(ElementHash),
+	    Subtree = StoreMod:find_object(ElementHash),
 	    NewDepth = case Subtree of
 			   {?TAG_BUCKETED_TREE, D, _} ->
 			       D;
 			   {?TAG_ACCESSIBLE_TREE, _} ->
 			       ProvidedDepth + 1
 		       end,
-	    Entry = #res_some{kv={Subkey, Subtree}, tree=Tree, depth=Depth, keyhash=KeyHash},
-	    resolve_it(Path, Subtree, StoreMod, Depth, KeyHash, [Entry|Acc])
+	    Entry = #res_some{kv={Subkey, Subtree}, tree=Tree, depth=NewDepth, keyhash=KeyHash},
+	    resolve_it(Path, Subtree, StoreMod, NewDepth, KeyHash, [Entry|Acc])
     end.
 
 
@@ -149,32 +149,35 @@ get_path(Path, Tree, StoreMod) ->
 	[#res_none{}|_] ->
 	    none;
 	[#res_some{kv={_,V}}|_] ->
-	    {value, unwrap_object(V)};
-	Val ->
-	    {value, unwrap_object(Val)}
+	    unwrap_object(V)
     end.
 
 %% @doc stores Val in Tree at PathPart, assuming that no component of PathPart is already in Tree; returns hash for updated Tree
-fold_absent(PathPart, {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
-    [Last|Tser] = PathPart,
+fold_absent([Key], {?TAG_OBJECT, _}=Val, {?TAG_BUCKETED_TREE, _, _}=Tree, Depth, StoreMod) ->
+    VH = element(1, wallaroo_db:hash_and_store(Val, StoreMod)),
+    wallaroo_db:hash_and_store(store(Key, VH, Tree));    
+fold_absent([Key], {?TAG_OBJECT, _}=Val, {?TAG_ACCESSIBLE_TREE, _}=Tree, Depth, StoreMod) ->
+    VH = element(1, wallaroo_db:hash_and_store(Val, StoreMod)),
+    wallaroo_db:hash_and_store(split(store(Key, VH, Tree), Depth + 1, StoreMod), StoreMod);
+fold_absent([Key|PathPart], {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
+    [Last|Tser] = lists:reverse(PathPart),
     ValHash = element(1, wallaroo_db:hash_and_store(Val, StoreMod)),
-    LeafHash = element(1, wallaroo_db:hash_and_store(store(Last, ValHash, empty()), StoreMod)),
-    FoldFun = fun(Element, AccHash) ->
+    Leaf = wallaroo_db:hash_and_store(store(Last, ValHash, empty()), StoreMod),
+    FoldFun = fun(Element, {AccHash,_}) ->
 		      T = store(Element, AccHash, empty()),
-		      element(1, wallaroo_db:hash_and_store(T, StoreMod))
+		      wallaroo_db:hash_and_store(T, StoreMod)
 	      end,
-    NewBranch = lists:foldl(FoldFun, LeafHash, Tser),
-    NewSubtree = case Tree of 
-		     {?TAG_BUCKETED_TREE, _, _} ->
-			 store(Last, NewBranch, Tree);
-		     {?TAG_ACCESSIBLE_TREE, _} ->
-			 split(store(Last, NewBranch, Tree), Depth + 1, StoreMod)
-		 end,
-    wallaroo_db:hash_and_store(NewSubtree, StoreMod).
+    {NBH,NBT} = lists:foldl(FoldFun, Leaf, Tser),
+    case Tree of 
+	{?TAG_BUCKETED_TREE, _, _} ->
+	    wallaroo_db:hash_and_store(store(Key, NBH, Tree));
+	{?TAG_ACCESSIBLE_TREE, _} ->
+	    wallaroo_db:hash_and_store(split(store(Key, NBH, Tree), Depth + 1, StoreMod), StoreMod)
+    end.
 
-fold_present(ResolvedPath, Val, StoreMod) when is_bitstring(Val) ->
+fold_present(ResolvedPath, {H, _}=Val, StoreMod) when is_bitstring(H) ->
     KTs = [{K, T} || #res_some{kv={K, _}, tree=T} <- ResolvedPath],
-    FF = fun({Ky, Tr}, {AccHash, AccObj}) ->
+    FF = fun({Ky, Tr}, {AccHash, _AccObj}) ->
 		 wallaroo_db:hash_and_store(store(Ky, AccHash, Tr), StoreMod)
 	 end,
     lists:foldl(FF, Val, KTs).
@@ -185,21 +188,20 @@ put_path(Path, {?TAG_OBJECT, _}=Object, Tree, StoreMod) when is_list(Path) ->
     ResolvedPath = resolve(Path, Tree, StoreMod),
     case ResolvedPath of
 	[#res_none{tree=Subtree, subkey=empty, depth=Depth, rest=AbsentPath}|Rest] ->	    
-	    {NBHash, _} = fold_absent(AbsentPath, Object, Subtree, Depth, StoreMod),
+	    NBHash = fold_absent(AbsentPath, Object, Subtree, Depth, StoreMod),
 	    fold_present(Rest, NBHash, StoreMod);
 	[#res_none{tree=Subtree, subkey=SK, depth=Depth, rest=AbsentPath}|Rest] ->	    
-	    {NBHash, _} = fold_absent([SK|AbsentPath], Object, Subtree, Depth, StoreMod),
+	    NBHash = fold_absent([SK|AbsentPath], Object, Subtree, Depth, StoreMod),
 	    fold_present(Rest, NBHash, StoreMod);
 	[#res_some{}|_] -> 
-	    fold_present(ResolvedPath, element(1, wallaroo_db:hash_and_store(Object, StoreMod)), StoreMod)
+	    fold_present(ResolvedPath, wallaroo_db:hash_and_store(Object, StoreMod), StoreMod)
     end;
 put_path(Path, Object, Tree, StoreMod) when is_list(Path) ->
     put_path(Path, wrap_object(Object), Tree, StoreMod).
 
 
-del_path(Path, Tree, StoreMod) ->
-    throw(not_implemented),
-    Tree.
+del_path(_Path, _Tree, _StoreMod) ->
+    throw(not_implemented).
 
 diff(T1, T2) ->
     Keys = ordsets:union(gb_trees:keys(T1), gb_trees:keys(T2)),
@@ -209,16 +211,25 @@ diff(T1, T2) ->
 -define(ETS_STORE_BACKEND, true).
 -include_lib("eunit/include/eunit.hrl").
 
-test_setup() ->
+-ifdef(DEBUG).
+dbg_setup() ->
     dbg:start(),
     dbg:tracer(),
     dbg:tpl(wallaroo_tree, '_', []),
-    dbg:p(all, c),
+    dbg:p(all, c).
+-else.
+dbg_setup() ->
+    ok.
+-endif.
+
+
+test_setup() ->
+%    dbg_setup(),
     wallaroo_store_ets:init([]).
 
 first_fixture() ->
     SM = wallaroo_store_ets,
-    {_T0H, T0} = wallaroo_tree:put_path([a,b,c,d,0], "a/b/c/d/0 for all", wallaroo_tree:empty(), SM),
+    {_T0H, T0} = wallaroo_tree:put_path([a,b,c,d,0], "a/b/c/d/0 for all", empty(), SM),
     {_T1H, T1} = wallaroo_tree:put_path([a,b,c,d,e], "a/b/c/d/e for T1", T0, SM),
     {_T2H, T2} = wallaroo_tree:put_path([a,b,c,d,e], "a/b/c/d/e for T2", T1, SM),
     {_T3H, T3} = wallaroo_tree:put_path([a,b,x], "a/b/x for T3", T2, SM),
@@ -267,9 +278,6 @@ simple_test_() ->
 		    wallaroo_tree:get_path([a,b,y], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertNot("a/b/y for T4" =:=
 		       wallaroo_tree:get_path([a,b,y], find_fixture_tree(t1), wallaroo_store_ets))]}}.
-		    
-
-	      
 
 -endif.
 
@@ -285,52 +293,53 @@ do_dbg_from_shell() ->
     dbg:p(all, c).
 
 do_test_from_shell() ->
-    ets_db_init(),
+    wallaroo_store_ets:init([]),
     SM = wallaroo_store_ets,
     {_H1, Res} = wallaroo_tree:put_path([a,b,c,d,e], 37, wallaroo_tree:empty(), SM),
     {_H2, Res2} = wallaroo_tree:put_path([a,b,d,e], 42, Res, SM),
-    {_H3, _Res3} = wallaroo_tree:put_path([a,c,d,e], 18, Res2, SM).
+    {_H3, Res3} = wallaroo_tree:put_path([a,c,d,e], 18, Res2, SM),
+    {Res, Res2, Res3}.
 
 -endif.
 
 
--ifdef(ETS_STORE_BACKEND).
-ets_db_init() ->
-    case ets:info(test_wallaroo_tree) of
-	undefined ->
-	    ets:new(test_wallaroo_tree, [public, named_table]),
-	    ok;
-	_ ->
-	    ok
-    end.
+%% -ifdef(ETS_STORE_BACKEND).
+%% ets_db_init() ->
+%%     case ets:info(test_wallaroo_tree) of
+%% 	undefined ->
+%% 	    ets:new(test_wallaroo_tree, [public, named_table]),
+%% 	    ok;
+%% 	_ ->
+%% 	    ok
+%%     end.
 
-ets_db_store(Hash, Object) ->
-    case ets:lookup(test_wallaroo_tree, Hash) of
-	[] ->
-	    ets:insert(test_wallaroo_tree, {Hash, Object}),
-	    ok;
-	_ ->
-	    ok
-    end.
+%% ets_db_store(Hash, Object) ->
+%%     case ets:lookup(test_wallaroo_tree, Hash) of
+%% 	[] ->
+%% 	    ets:insert(test_wallaroo_tree, {Hash, Object}),
+%% 	    ok;
+%% 	_ ->
+%% 	    ok
+%%     end.
 
-ets_db_find(Hash) ->
-    case ets:match(test_wallaroo_tree, {Hash, '$1'}) of
-	[[X]] ->
-	    X;
-	[[_X]|_Xs] ->
-	    too_many;
-        _ ->
-	    find_failed
-    end.
+%% ets_db_find(Hash) ->
+%%     case ets:match(test_wallaroo_tree, {Hash, '$1'}) of
+%% 	[[X]] ->
+%% 	    X;
+%% 	[[_X]|_Xs] ->
+%% 	    too_many;
+%%         _ ->
+%% 	    find_failed
+%%     end.
 
-ets_db_keys() ->
-    ets_db_keys(as_binary).
+%% ets_db_keys() ->
+%%     ets_db_keys(as_binary).
 
-ets_db_keys(as_binary) ->
-    Matches = ets:match(test_wallaroo_tree, {'$1', '_'}),
-    [Hash || [Hash] <- Matches];
-ets_db_keys(as_string) ->
-    Matches = ets:match(test_wallaroo_tree, {'$1', '_'}),
-    [wallaroo_hash:as_string(Hash) || [Hash] <- Matches].
+%% ets_db_keys(as_binary) ->
+%%     Matches = ets:match(test_wallaroo_tree, {'$1', '_'}),
+%%     [Hash || [Hash] <- Matches];
+%% ets_db_keys(as_string) ->
+%%     Matches = ets:match(test_wallaroo_tree, {'$1', '_'}),
+%%     [wallaroo_hash:as_string(Hash) || [Hash] <- Matches].
 
--endif.
+%% -endif.
