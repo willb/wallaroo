@@ -47,7 +47,7 @@ unwrap_object({?TAG_OBJECT, O}) ->
 unwrap_object(O) ->
     O.
 
-%% @doc stores an entry in an accessible Tree with key Key and value Val
+%% @doc stores an entry in a Tree with key Key and value Val
 -spec store(_,_,tree()) -> tree().
 store(Key, Val, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
     case gb_trees:lookup(Key, Tree) of
@@ -55,7 +55,15 @@ store(Key, Val, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
 	    {Tag, gb_trees:insert(Key, Val, Tree)};
 	{value, _} ->
 	    {Tag, gb_trees:update(Key, Val, Tree)}
+    end;
+store(Subkey, Val, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
+    case gb_trees:lookup(Subkey, Tree) of
+	none ->
+	    {Tag, Depth, gb_trees:insert(Subkey, Val, Tree)};
+	{value,_} ->
+	    {Tag, Depth, gb_trees:update(Subkey, Val, Tree)}
     end.
+
 
 %% When you split, take the kth byte of the hash and use that as a key
 kth_part(K, Bin) when is_bitstring(Bin) and is_integer(K) ->
@@ -67,7 +75,7 @@ kth_part(K, Bin) when is_bitstring(Bin) and is_integer(K) ->
 map_pairs([_|_]=Pairs, Depth) when is_integer(Depth) ->
     FoldFun = fun({Key, Val}, Acc) ->
 		      HashPart = kth_part(Depth, wallaroo_db:identity(Key)),
-		      case gb_trees:lookup(Key, HashPart) of
+		      case gb_trees:lookup(HashPart, Acc) of
 			  none ->
 			      Subtree = gb_trees:insert(Key, Val, gb_trees:empty()),
 			      gb_trees:insert(HashPart, Subtree, Acc);
@@ -84,7 +92,7 @@ split({?TAG_ACCESSIBLE_TREE=Tag, {Sz,_}=Tree}, _, _) when Sz =< ?MAX_TREE_SIZE -
     {Tag, Tree};
 split({?TAG_ACCESSIBLE_TREE, Tree}, Depth, StoreMod) ->
     RawTree = map_pairs(gb_trees:to_list(Tree), Depth),
-    StoreFunc = fun(_HashPart, Subtree) -> element(1, wallaroo_db:hash_and_store(Subtree, StoreMod)) end,
+    StoreFunc = fun(_HashPart, Subtree) -> element(1, wallaroo_db:hash_and_store({?TAG_ACCESSIBLE_TREE, Subtree}, StoreMod)) end,
     NewTree = gb_trees:map(StoreFunc, RawTree),
     {?TAG_BUCKETED_TREE, Depth, NewTree}.
 
@@ -117,7 +125,7 @@ resolve_it([P|Rest]=Path, {?TAG_ACCESSIBLE_TREE, _}=Tree, StoreMod, Depth, KeyHa
 	    Branch = StoreMod:find_object(ElementHash),
 	    resolve_it(Rest, Branch, StoreMod, 0, nil, [#res_some{kv={P, Branch}, tree=Tree, depth=Depth, keyhash=KeyHash}|Acc])
     end;
-resolve_it([P|_]=Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, Depth, nil, Acc) ->
+resolve_it([P|_]=Path, {?TAG_BUCKETED_TREE, _, _}=Tree, StoreMod, Depth, nil, Acc) ->
     KeyHash = wallaroo_db:identity(P),
     resolve_it(Path, Tree, StoreMod, Depth, KeyHash, Acc);
 resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, KeyHash, Acc) ->
@@ -127,10 +135,10 @@ resolve_it(Path, {?TAG_BUCKETED_TREE, Depth, _}=Tree, StoreMod, ProvidedDepth, K
 	    [#res_none{tree=Tree, depth=Depth, subkey=Subkey, rest=Path}|Acc];
 	{value, ElementHash} ->
 	    Subtree = StoreMod:find_object(ElementHash),
-	    NewDepth = case Subtree of
-			   {?TAG_BUCKETED_TREE, D, _} ->
+	    NewDepth = case {rist_final, Subtree} of
+			   {rist_final, {?TAG_BUCKETED_TREE, D, _}} ->
 			       D;
-			   {?TAG_ACCESSIBLE_TREE, _} ->
+			   {rist_final, {?TAG_ACCESSIBLE_TREE, _}} ->
 			       ProvidedDepth + 1
 		       end,
 	    Entry = #res_some{kv={Subkey, Subtree}, tree=Tree, depth=NewDepth, keyhash=KeyHash},
@@ -170,7 +178,7 @@ fold_absent([Key|PathPart], {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
     {NBH,NBT} = lists:foldl(FoldFun, Leaf, Tser),
     case Tree of 
 	{?TAG_BUCKETED_TREE, _, _} ->
-	    wallaroo_db:hash_and_store(store(Key, NBH, Tree));
+	    wallaroo_db:hash_and_store(store(Key, NBH, Tree), StoreMod);
 	{?TAG_ACCESSIBLE_TREE, _} ->
 	    wallaroo_db:hash_and_store(split(store(Key, NBH, Tree), Depth + 1, StoreMod), StoreMod)
     end.
@@ -209,6 +217,7 @@ diff(T1, T2) ->
 
 -ifdef(TEST).
 -define(ETS_STORE_BACKEND, true).
+-define(BIG_TEST_SIZE, 8192).
 -include_lib("eunit/include/eunit.hrl").
 
 -ifdef(DEBUG).
@@ -239,7 +248,20 @@ first_fixture() ->
     SM:store_object(t2, T2),
     SM:store_object(t3, T3),
     SM:store_object(t4, T4).
-    
+
+second_fixture() -> 
+    %% dbg:start(),
+    %% dbg:tracer(),
+    %% dbg:tpl(wallaroo_tree, resolve_it, []),
+    %% dbg:p(all, c),
+    SM = wallaroo_store_ets,
+    SM:store_object(mt, wallaroo_tree:empty()),
+    LS = [{list_to_atom("element_" ++ integer_to_list(X)), X} || X <- lists:seq(1,?BIG_TEST_SIZE)],
+    FoldFun = fun({Leaf,Value}, {_H,T}) ->
+		      wallaroo_tree:put_path([x,y,z,Leaf], Value, T, SM)
+	      end,
+    {_,SFT} = lists:foldl(FoldFun, {ignored, wallaroo_tree:empty()}, LS),
+    SM:store_object(sft, SFT).
 
 test_teardown() ->
     wallaroo_store_ets:cleanup([]).
@@ -278,6 +300,14 @@ simple_test_() ->
 		    wallaroo_tree:get_path([a,b,y], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertNot("a/b/y for T4" =:=
 		       wallaroo_tree:get_path([a,b,y], find_fixture_tree(t1), wallaroo_store_ets))]}}.
+
+splitting_test_() ->
+    {inorder,
+     {setup,
+      fun() -> test_setup(), second_fixture() end,
+      fun(_) -> test_teardown() end,
+      [?_assertEqual(X, wallaroo_tree:get_path([x,y,z,list_to_atom("element_" ++ integer_to_list(X))], find_fixture_tree(sft), wallaroo_store_ets)) || X <- lists:seq(1,?BIG_TEST_SIZE)]}}.
+	      
 
 -endif.
 
