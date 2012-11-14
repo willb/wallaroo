@@ -257,9 +257,7 @@ second_fixture() ->
     SM = wallaroo_store_ets,
     SM:store_object(mt, wallaroo_tree:empty()),
     LS = [{list_to_atom("element_" ++ integer_to_list(X)), X} || X <- lists:seq(1,?BIG_TEST_SIZE)],
-    FoldFun = fun({Leaf,Value}, {_H,T}) ->
-		      wallaroo_tree:put_path([x,y,z,Leaf], Value, T, SM)
-	      end,
+    FoldFun = fun({Leaf,Value}, {_H,T}) -> wallaroo_tree:put_path([x,y,z,Leaf], Value, T, SM) end,
     {_,SFT} = lists:foldl(FoldFun, {ignored, wallaroo_tree:empty()}, LS),
     SM:store_object(sft, SFT).
 
