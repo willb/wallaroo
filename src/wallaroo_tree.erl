@@ -230,7 +230,33 @@ children({?TAG_BUCKETED_TREE, _, Root}, StoreMod, Stack, Acc) ->
     children(NewRoot, StoreMod, NewStack, Acc).
 
 %% XXX: for non-leaf atrees and transitive children, use a single fold that adds to both stack and acc
+xchildren(Root, StoreMod) ->
+    xchildren(Root, StoreMod, []).
 
+xchildren(Root, StoreMod, PathPrefix) ->
+    xchildren(Root, StoreMod, PathPrefix, [[]], []).
+
+foldleaves([], _, _, Stack, Acc) ->
+    {Stack, Acc};
+foldleaves([Head|Rest], StoreMod, PathPrefix, Stack, Acc) ->
+    Path = lists:reverse(PathPrefix),
+    FoldFun = fun({K,V}, {S,A}) ->
+		      O = StoreMod:find_object(V),
+		      case O of
+			  {?TAG_OBJECT, Val} ->
+			      {S,[
+			  
+    {Stack, Acc};
+foldleaves({?TAG_BUCKETED_TREE, _, Tree}, StoreMod, PathPrefix, Stack, Acc) ->
+    foldleaves(gb_trees:to_list(Tree), StoreMod, PathPrefix, Stack, Acc);
+foldleaves({?TAG_ACCESSIBLE_TREE, Tree}, StoreMod, PathPrefix, Stack, Acc) ->
+    foldleaves(gb_trees:to_list(Tree), StoreMod, PathPrefix, Stack, Acc).
+
+xchildren([], _, _, [], Acc) ->
+    Acc;
+xchildren() ->
+
+xchildren(Root, StoreMod, PathPrefix, Stack, Acc)
 
 
 diff(T1, T2) ->
