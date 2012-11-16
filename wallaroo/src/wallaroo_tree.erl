@@ -1,6 +1,6 @@
 -module(wallaroo_tree).
 % XXX:  should store/3 and friends be exported?
--export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, diff/2, resolve/3]).
+-export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, diff/2, resolve/3, children/2]).
 
 -define(DEBUG, yes).
 
@@ -210,6 +210,28 @@ put_path(Path, Object, Tree, StoreMod) when is_list(Path) ->
 
 del_path(_Path, _Tree, _StoreMod) ->
     throw(not_implemented).
+
+children(Root, StoreMod) ->
+    children(Root, StoreMod, [[]], []).
+
+children([], _, [], Acc) ->
+    Acc;
+children({?TAG_ACCESSIBLE_TREE, Root}, StoreMod, [Top|Rest], Acc) ->
+    % [{K,StoreMod:find_object(V)} || {K, V} <- gb_trees:to_list(Root)] ++ Acc,
+    NewAcc = 
+	lists:foldl(fun({K,V}, A) -> [{K,unwrap_object(StoreMod:find_object(V))}|A] end,
+		    Acc,
+		    gb_trees:to_list(Root)),
+    children(Top, StoreMod, Rest, NewAcc);
+children({?TAG_BUCKETED_TREE, _, Root}, StoreMod, Stack, Acc) ->
+    [NewRoot|NewStack] = lists:foldl(fun({K,V}, A) -> [StoreMod:find_object(V)|A] end,
+				     Stack,
+				     gb_trees:to_list(Root)),
+    children(NewRoot, StoreMod, NewStack, Acc).
+
+%% XXX: for non-leaf atrees and transitive children, use a single fold that adds to both stack and acc
+
+
 
 diff(T1, T2) ->
     Keys = ordsets:union(gb_trees:keys(T1), gb_trees:keys(T2)),
