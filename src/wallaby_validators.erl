@@ -32,18 +32,18 @@
 -spec extract_graph(wallaroo_tree:tree(), module()) -> simple_graph().
 extract_graph(Tree, StoreMod) ->
     % XXX:  these, like all raw tree accesses, should be factored out to an internal API
-    {NodeEntities, NodeRelationships} = extract_node_entities(get_children(["nodes"], Tree, StoreMod)),
-    {GroupEntities, GroupRelationships} = extract_group_entities(get_children(["groups"], Tree, StoreMod)),
-    {FeatureEntities, FeatureRelationships} = extract_feature_entities(get_children(["features"], Tree, StoreMod)),
-    {ParamEntities, ParamRelationships} = extract_parameter_entities(get_children(["parameters"], Tree, StoreMod)),
-    {SubsysEntities, SubsysRelationships} = extract_subsystem_entities(get_children(["subsystems"], Tree, StoreMod)),
+    {NodeEntities, NodeRelationships} = extract_node_entities(get_children([<<"nodes">>], Tree, StoreMod)),
+    {GroupEntities, GroupRelationships} = extract_group_entities(get_children([<<"groups">>], Tree, StoreMod)),
+    {FeatureEntities, FeatureRelationships} = extract_feature_entities(get_children([<<"features">>], Tree, StoreMod)),
+    {ParamEntities, ParamRelationships} = extract_parameter_entities(get_children([<<"parameters">>], Tree, StoreMod)),
+    {SubsysEntities, SubsysRelationships} = extract_subsystem_entities(get_children([<<"subsystems">>], Tree, StoreMod)),
     Entities = lists:foldl(fun ordsets:union/2, [], [NodeEntities, GroupEntities, FeatureEntities, ParamEntities, SubsysEntities]),
     Relationships = lists:foldl(fun ordsets:union/2, [], [NodeRelationships, GroupRelationships, FeatureRelationships, ParamRelationships, SubsysRelationships]),
     {Entities, Relationships}.
 
 get_children([_|_]=Path, Tree, StoreMod) ->
     Root = wallaroo_tree:get_path(Path, Tree, StoreMod),
-    [Obj || {_, Obj} <- wallaroo_tree:children(Root)].
+    [Obj || {_, Obj} <- wallaroo_tree:children(Root, StoreMod)].
 
 extract_node_entities([_|_]=NodeObjects) ->
     {Es,Rs} = lists:foldl(fun(Node, {[_|_]=Nodes, [_|_]=Relationships}) ->
@@ -96,8 +96,8 @@ sg_union({G1E, G1R}, {G2E, G2R}) ->
     Relationships = ordsets:union(G1R, G2R),
     {Entities, Relationships}.
 
--spec sg_validate_mentioned_nodes(simple_graph()) -> sg_validity().
-sg_validate_mentioned_nodes({Ge,[_|_]=Gr}) ->
+-spec sg_validate_mentioned_vertices(simple_graph()) -> sg_validity().
+sg_validate_mentioned_vertices({Ge,[_|_]=Gr}) ->
     MentionedNodes = lists:foldl(fun({_,X,Y}, Entities) ->
 					    ordsets:add_element(X, ordsets:add_element(Y, Entities))
 				    end, ordsets:new(), Gr),
@@ -107,4 +107,4 @@ sg_validate_mentioned_nodes({Ge,[_|_]=Gr}) ->
 	[_|_]=MissingNodes -> 
 	    [{error, {missing_node, Node}} || Node <- MissingNodes]
     end.
-			       
+
