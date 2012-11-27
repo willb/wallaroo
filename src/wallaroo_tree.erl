@@ -11,7 +11,7 @@
 -define(TAG_OBJECT, wObj).
 -define(TAG_ACCESSIBLE_TREE, wAT).
 -define(TAG_BUCKETED_TREE, wBT).
--define(MAX_TREE_SIZE, 1024).
+-define(MAX_TREE_SIZE, 512).
 
 -type rawtree() :: gb_tree().
 % tag, depth, tree
@@ -65,10 +65,10 @@ store(Subkey, Val, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
     end.
 
 
-%% When you split, take the kth byte of the hash and use that as a key
+%% When you split, take the kth part of the hash and use that as a key
 kth_part(K, Bin) when is_bitstring(Bin) and is_integer(K) ->
-    SkipSize = K * 8,
-    <<_Skip:SkipSize, Take:8, _Rest/binary>> = Bin,
+    SkipSize = K * 6,
+    <<_Skip:SkipSize, Take:6, _Rest/bitstring>> = Bin,
     Take.
 
 % Returns a raw gb_tree of trees mapping from key_hash_part -> key -> value
@@ -272,10 +272,10 @@ first_fixture() ->
     SM:store_object(t4, T4).
 
 second_fixture() -> 
-    %% dbg:start(),
-    %% dbg:tracer(),
-    %% dbg:tpl(wallaroo_tree, resolve_it, []),
-    %% dbg:p(all, c),
+    dbg:start(),
+    dbg:tracer(),
+    dbg:tpl(wallaroo_tree, second_fixture, []),
+    dbg:p(all, c),
     SM = wallaroo_store_ets,
     SM:store_object(mt, wallaroo_tree:empty()),
     LS = [{list_to_atom("element_" ++ integer_to_list(X)), X} || X <- lists:seq(1,?BIG_TEST_SIZE)],
