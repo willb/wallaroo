@@ -35,6 +35,8 @@
 -type simple_graph() :: {[entity()], [relationship()]}.
 -type sg_validity() :: 'ok' | [{error, any()}].
 
+-export_type([simple_graph/0]).
+
 -spec extract_graph(wallaroo_tree:tree(), module()) -> simple_graph().
 extract_graph(Tree, StoreMod) ->
     % XXX:  these, like all raw tree accesses, should be factored out to an internal API
@@ -68,7 +70,7 @@ extract_graph(Tree, StoreMod, DirtyNodes) ->
 	extract_node_entities(NodeObjects),
     GroupNames = ordsets:from_list([Group || {'member_of', _, {'group', Group}} <- NodeRelationships]),
     {GroupEntities, GroupRelationships} =
-	extract_group_entities(GroupNames),
+	extract_group_entities(objects_from_names(Tree, ?GROUPPATH, GroupNames, StoreMod)),
     GroupParams = ordsets:from_list([Param || {'installs', _, {'parameter', Param}} <- GroupRelationships]),
     GroupFeatures = ordsets:from_list([F || {'installs', _, {'feature', F}} <- GroupRelationships]),
     {FeatureEntities, FeatureRelationships} =
@@ -81,20 +83,21 @@ extract_graph(Tree, StoreMod, DirtyNodes) ->
     Relationships = lists:foldl(fun ordsets:union/2, [], [NodeRelationships, GroupRelationships, FeatureRelationships, ParamRelationships]),
     {Entities, Relationships}.
 
-get_children([_|_]=Path, Tree, StoreMod) ->
-    Root = wallaroo_tree:get_path(Path, Tree, StoreMod),
+get_children(Path, Tree, StoreMod) when is_list(Path) ->
+    {_, Root} = wallaroo_tree:get_path(Path, Tree, StoreMod),
     [Obj || {_, Obj} <- wallaroo_tree:children(Root, StoreMod)].
 
-extract_node_entities([_|_]=NodeObjects) ->
-    {Es,Rs} = lists:foldl(fun(Node, {[_|_]=Nodes, [_|_]=Relationships}) ->
+-spec extract_node_entities([wallaby_node:wnode()]) -> simple_graph().
+extract_node_entities(NodeObjects) when is_list(NodeObjects) ->
+    {Es,Rs} = lists:foldl(fun(Node, {Nodes, Relationships}) ->
 				  Name = {'node', wallaby_node:name(Node)},
 				  Memberships = [{'member_of', Name, {'group', G}} || G <- wallaby_node:all_memberships(Node)],
 				  {[Name|Nodes], Memberships++Relationships}
 			  end, {[], []}, NodeObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 
-extract_group_entities([_|_]=GroupObjects) ->
-    {Es,Rs} = lists:foldl(fun(Group, {[_|_]=Groups, [_|_]=Relationships}) ->
+extract_group_entities(GroupObjects) when is_list(GroupObjects) ->
+    {Es,Rs} = lists:foldl(fun(Group, {Groups, Relationships}) ->
 				  Name = {'group', wallaby_group:name(Group)},
 				  InstalledFeatures = [{'installs', Name, {'feature', F}} || F <- wallaby_group:features(Group)],
 				  InstalledParams = [{'installs', Name, {'parameter', P}} || {P, _} <- wallaby_group:parameters(Group)],
@@ -102,8 +105,8 @@ extract_group_entities([_|_]=GroupObjects) ->
 			  end, {[], []}, GroupObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 
-extract_feature_entities([_|_]=FeatureObjects) ->
-    {Es,Rs} = lists:foldl(fun(Feature, {[_|_]=Features, [_|_]=Relationships}) ->
+extract_feature_entities(FeatureObjects) when is_list(FeatureObjects) ->
+    {Es,Rs} = lists:foldl(fun(Feature, {Features, Relationships}) ->
 				  Name = {'feature', wallaby_feature:name(Feature)},
 				  Incs = [{'includes', Name, {feature, F}} || F <- wallaby_feature:includes(Feature)],
 				  Deps = [{'depends_on', Name, {feature, F}} || F <- wallaby_feature:depends(Feature)],
@@ -113,8 +116,8 @@ extract_feature_entities([_|_]=FeatureObjects) ->
 			  end, {[], []}, FeatureObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 
-extract_parameter_entities([_|_]=ParameterObjects) ->
-    {Es,Rs} = lists:foldl(fun(Parameter, {[_|_]=Parameters, [_|_]=Relationships}) ->
+extract_parameter_entities(ParameterObjects) when is_list(ParameterObjects) ->
+    {Es,Rs} = lists:foldl(fun(Parameter, {Parameters, Relationships}) ->
 				  Name = {'parameter', wallaby_parameter:name(Parameter)},
 				  Deps = [{'depends_on', Name, {parameter, F}} || F <- wallaby_parameter:depends(Parameter)],
 				  Cnfs = [{'conflicts_with', Name, {parameter, F}} || F <- wallaby_parameter:depends(Parameter)],
@@ -122,8 +125,8 @@ extract_parameter_entities([_|_]=ParameterObjects) ->
 			  end, {[], []}, ParameterObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 
-extract_subsystem_entities([_|_]=SubsystemObjects) ->
-    {Es,Rs} = lists:foldl(fun(Subsystem, {[_|_]=Subsystems, [_|_]=Relationships}) ->
+extract_subsystem_entities(SubsystemObjects) when is_list(SubsystemObjects) ->
+    {Es,Rs} = lists:foldl(fun(Subsystem, {Subsystems, Relationships}) ->
 				  Name = {'subsystem', wallaby_subsystem:name(Subsystem)},
 				  Prms = [{'is_interested_in', Name, {parameter, P}} || P <- wallaby_subsystem:parameters(Subsystem)],
 				  {[Name|Subsystems], Prms++Relationships}
@@ -135,19 +138,6 @@ sg_union({G1E, G1R}, {G2E, G2R}) ->
     Entities = ordsets:union(G1E, G2E),
     Relationships = ordsets:union(G1R, G2R),
     {Entities, Relationships}.
-
--spec sg_validate_mentioned_vertices(simple_graph()) -> sg_validity().
-sg_validate_mentioned_vertices({Ge,[_|_]=Gr}) ->
-    MentionedNodes = lists:foldl(fun({_,X,Y}, Entities) ->
-					    ordsets:add_element(X, ordsets:add_element(Y, Entities))
-				    end, ordsets:new(), Gr),
-    case ordsets:subtract(MentionedNodes, Ge) of
-	[] ->
-	    ok;
-	[_|_]=MissingNodes -> 
-	    [{error, {missing_node, Node}} || Node <- MissingNodes]
-    end.
-
 
 validator_all_vertices_exist(Entities, Relationships) ->
     fun(_T, _SM) ->
@@ -214,9 +204,14 @@ validator_no_immed_conflicts_with_transitive_includes_or_deps(Entities, Relation
 	    DIG = digraph:new([private]),
 	    Features = [F || F = {'feature', _X} <- Entities],
 	    _ = [{digraph:add_vertex(CG, E), digraph:add_vertex(DIG, E)} || E <- Features],
-	    _ = [digraph:add_edge(DIG, F1, F2, L) || {L, F1={feature, _}, F2={feature, _}} <- Relationships, L == 'includes' orelse L == 'depends_on'],
-	    _ = [digraph:add_edge(CG, F1, F2, L) || {L='conflicts', F1={feature, _}, F2={feature, _}} <- Relationships],
-	    DepsVsConflicts = [{F, TransitiveDepsAndIncludes, ImmediateConflicts} || F <- Features, ordsets:intersection(TransitiveDepsAndIncludes=transitively_reachable(DIG, F), ImmediateConflicts=immediately_reachable(CG, F))],
+	    _ = [digraph:add_edge(DIG, F1, F2, L) || {L, F1={feature, _}, F2={feature, _}} <- Relationships, L == 'depends_on' orelse L == 'includes'],
+	    _ = [digraph:add_edge(CG, F1, F2, L) || {L='conflicts_with', F1={feature, _}, F2={feature, _}} <- Relationships],
+	    DepsVsConflicts = 
+		[{F, TransitiveDepsAndIncludes, ImmediateConflicts} 
+		 || F <- Features, 
+		    ordsets:intersection(TransitiveDepsAndIncludes=transitively_reachable(DIG, F), 
+					 ImmediateConflicts=immediately_reachable(CG, F)) =/= ordsets:new()
+		],
 	    case DepsVsConflicts of
 		[] -> ok;
 		_ -> {fail, {no_immed_conflicts_with_transitive_includes_or_deps, DepsVsConflicts}}
