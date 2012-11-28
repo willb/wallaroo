@@ -107,12 +107,12 @@ handle_call({list_nodes, StartingCommit}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     Nodes = wallaroo_tree:get_path(["nodes"], Tree, StoreMod),
-    {reply, [Node || {Node, _} <- wallaroo_tree:children(Nodes)], State};
+    {reply, [Node || {Node, _} <- wallaroo_tree:children(Nodes, StoreMod)], State};
 handle_call({list_groups, StartingCommit}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     Groups = wallaroo_tree:get_path(["groups"], Tree, StoreMod),
-    {reply, [Group || {Group, _} <- wallaroo_tree:children(Groups)], State};
+    {reply, [Group || {Group, _} <- wallaroo_tree:children(Groups, StoreMod)], State};
 handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when What=:=group; What=:=node ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
