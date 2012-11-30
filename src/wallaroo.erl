@@ -1,16 +1,17 @@
 %% @author William C. Benton <willb@redhat.com>
 %% @copyright 2011 Red Hat, Inc. and William C. Benton
-%% @doc Wallaroo API
+%% @doc Wallaroo internal API.  Unsupported and subject to change!
 
 -module(wallaroo).
 
 -behaviour(gen_server).
 
--export([start_link/0, get_node/2, get_node/1, get_group/2, get_tag/1, get_group/1, put_node/2, put_node/3, put_group/2, put_group/3, put_tag/2, list_nodes/0, list_groups/0, list_nodes/1, list_groups/1, list_tags/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, put_entity/3, put_entity/4, put_tag/2, list_entities/1, list_entities/2, list_tags/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
+-define(VALID_ENTITY_KIND(Kind), Kind=:='node' orelse Kind=:='feature' orelse Kind =:= 'subsystem' orelse Kind=:='group' orelse Kind=:='parameter').
 
 start_link() ->
     error_logger:info_msg("entering WALLAROO start_link/0 ~n", []),
@@ -28,73 +29,59 @@ init([]) ->
 
 %%% API functions
 
-list_nodes() ->
-    generic_list_current(fun list_nodes/1).
-
-list_groups() ->
-    generic_list_current(fun list_groups/1).
-
-generic_list_current(Fun) ->
-    case get_tag("current") of
+list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
+    case get_tag(<<"current">>) of
 	find_failed ->
 	    [];
 	Tag ->
 	    Commit = wallaroo_tag:get_commit(Tag),
-	    Fun(Commit)
+	    list_entities(Kind, Commit)
     end.
 
-list_nodes(Commit) ->
-    gen_server:call(wallaroo, {list_nodes, canonicalize_hash(Commit)}).
-list_groups(Commit) ->
-    gen_server:call(wallaroo, {list_groups, canonicalize_hash(Commit)}).
+list_entities(Kind, Commit) when ?VALID_ENTITY_KIND(Kind) ->
+    gen_server:call(?SERVER, {list, Kind, canonicalize_hash(Commit)}).
+
 list_tags() ->
-    gen_server:call(wallaroo, {list_tags}).
+    gen_server:call(?SERVER, {list_tags}).
 
-get_node(Name) ->
-    case get_tag("current") of
+get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
+    case get_tag(<<"current">>) of
 	find_failed ->
 	    find_failed;
 	Tag ->
 	    Commit = wallaroo_tag:get_commit(Tag),
-	    get_node(Name, Commit)
+	    get_entity(Name, Kind, Commit)
     end.
 
-get_node(Name, Commit) ->
-    gen_server:call(wallaroo,  {get, node, Name, canonicalize_hash(Commit)}).
-
-get_group(Name) ->
-    case get_tag("current") of
-	find_failed ->
-	    find_failed;
-	Tag ->
-	    Commit = wallaroo_tag:get_commit(Tag),
-	    get_group(Name, Commit)
-    end.
-
-get_group(Name, Commit) ->
-    gen_server:call(wallaroo,  {get, group, Name, canonicalize_hash(Commit)}).
+get_entity(Name, Kind, Commit) ->
+    gen_server:call(?SERVER, {get, Kind, Name, canonicalize_hash(Commit)}).
 
 get_tag(Name) ->
-    gen_server:call(wallaroo,  {get_tag, Name}).
+    gen_server:call(?SERVER,  {get_tag, Name}).
 
 put_tag(Name, C) ->
     Commit = canonicalize_hash(C),
-    gen_server:call(wallaroo,  {put_tag, Name, Commit}).
+    gen_server:call(?SERVER,  {put_tag, Name, Commit}).
 
-put_group(Name, {wallaby_group, [_|_]}=Group) ->
-    gen_server:call(wallaroo,  {put, group, Name, Group}).
+value_check(node, {wallaby_node, _}) ->
+    ok;
+value_check(group, {wallaby_group, _}) ->
+    ok;
+value_check(feature, {wallaby_feature, _}) ->
+    ok;
+value_check(parameter, {wallaby_parameter, _}) ->
+    ok;
+value_check(subsystem, {wallaby_subsystem, _}) ->
+    ok.
 
-put_node(Name, {wallaby_node, [_|_]}=Node) ->
-    gen_server:call(wallaroo,  {put, node, Name, Node}).
+put_entity(Name, Kind, Value) when ?VALID_ENTITY_KIND(Kind) ->
+    value_check(Kind, Value),
+    gen_server:call(?SERVER,  {put, Kind, Name, Value}).
 
-put_group(Name, {wallaby_group, [_|_]}=Group, SC) ->
-    C = canonicalize_hash(SC),
-    gen_server:call(wallaroo,  {put, group, Name, Group, C}).
-
-put_node(Name, {wallaby_node, [_|_]}=Node, SC) ->
-    C = canonicalize_hash(SC),
-    gen_server:call(wallaroo,  {put, node, Name, Node, C}).
-
+put_entity(Name, Kind, Value, SuppliedCommit) when ?VALID_ENTITY_KIND(Kind) ->
+    value_check(Kind, Value),
+    C = canonicalize_hash(SuppliedCommit),
+    gen_server:call(?SERVER,  {put, Kind, Name, Value, C}).
 
 %%% gen_server callbacks
 
@@ -103,25 +90,24 @@ handle_cast(stop, State) ->
 
 handle_call({list_tags}, _From, {StoreMod}=State) ->
     {reply, StoreMod:tags(), State};
-handle_call({list_nodes, StartingCommit}, _From, {StoreMod}=State) ->
+handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    Nodes = wallaroo_tree:get_path(["nodes"], Tree, StoreMod),
-    {reply, [Node || {Node, _} <- wallaroo_tree:children(Nodes, StoreMod)], State};
-handle_call({list_groups, StartingCommit}, _From, {StoreMod}=State) ->
-    CommitObj = get_commit(StartingCommit, StoreMod),
-    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    Groups = wallaroo_tree:get_path(["groups"], Tree, StoreMod),
-    {reply, [Group || {Group, _} <- wallaroo_tree:children(Groups, StoreMod)], State};
-handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when What=:=group; What=:=node ->
+    case wallaroo_tree:get_path([xlate_what(Kind)], Tree, StoreMod) of
+	{value, Entities} ->
+	    {reply, [E || {E, _} <- wallaroo_tree:children(Entities, StoreMod)], State};
+	none ->
+	    {reply, [], State}
+    end;
+handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     {reply, get_path(What, Name, Tree, StoreMod), State};
-handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when What=:=group; What=:=node ->
+handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     {reply, put_path(What, Name, Value, Tree, StoreMod, StartingCommit), State};
-handle_call({put, What, Name, Value}, _From, {StoreMod}=State) when What=:=group; What=:=node ->
+handle_call({put, What, Name, Value}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     Tree = wallaroo_tree:empty(),
     {reply, put_path(What, Name, Value, Tree, StoreMod, empty), State};
 handle_call({get_tag, Name}, _From, {StoreMod}=State) ->
@@ -147,17 +133,32 @@ canonicalize_hash(String) when is_list(String) ->
 canonicalize_hash(BS) when is_binary(BS) ->
     BS.
 
+xlate_what('node') ->
+    <<"nodes">>;
+xlate_what('group') ->
+    <<"groups">>;
+xlate_what('feature') ->
+    <<"features">>;
+xlate_what('parameter') ->
+    <<"parameters">>;
+xlate_what('subsystem') ->
+    <<"subsystems">>;
+xlate_what(X) when is_atom(X) ->
+    list_to_binary(atom_to_list(X) ++ "s").
 
-get_path(What, Name, Tree, StoreMod) ->
-    Path = [atom_to_list(What) ++ "s", Name],
+get_path(What, Name, Tree, StoreMod) when is_atom(What) ->
+    get_path(xlate_what(What), Name, Tree, StoreMod);
+get_path(What, Name, Tree, StoreMod) when is_binary(What) ->
+    Path = [What, Name],
     wallaroo_tree:get_path(Path, Tree, StoreMod).
 
-put_path(What, Name, Value, Tree, StoreMod, empty) ->
+put_path(What, Name, Value, Tree, StoreMod, Commit) when is_atom(What) ->
+    put_path(xlate_what(What), Name, Value, Tree, StoreMod, Commit);
+put_path(What, Name, Value, Tree, StoreMod, empty) when is_binary(What) ->
     Commit = wallaroo_commit:store(wallaroo_commit:empty(), StoreMod),
     put_path(What, Name, Value, Tree, StoreMod, Commit);
-put_path(What, Name, Value, Tree, StoreMod, ParentCommit) ->
-    Path = [atom_to_list(What) ++ "s", Name],
-    {NewTree, _} = wallaroo_tree:put_path(Path, Value, Tree, StoreMod),
+put_path(What, Name, Value, Tree, StoreMod, ParentCommit) when is_binary(What) ->
+    {NewTree, _} = wallaroo_tree:put_path([What, Name], Value, Tree, StoreMod),
     Commit = wallaroo_commit:new([ParentCommit], NewTree, [], []),
     wallaroo_commit:store(Commit, StoreMod).
 
