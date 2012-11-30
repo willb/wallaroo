@@ -198,6 +198,9 @@ immediately_reachable(Graph, StartNode) ->
 transitively_reachable(Graph, StartNode) ->
     ordsets:from_list(digraph_utils:reachable_neighbours([StartNode], Graph)).
 
+transitively_reachable(Graph, StartNode, Filter) ->
+    [Node || Node <- transitively_reachable(Graph, StartNode), Filter(Node)].
+
 validator_no_immed_conflicts_with_transitive_includes_or_deps(Entities, Relationships) ->
     fun(_T, _SM) ->
 	    CG = digraph:new([private]),
@@ -218,6 +221,106 @@ validator_no_immed_conflicts_with_transitive_includes_or_deps(Entities, Relation
 	    end
     end.
 
+validator_deps_and_conflicts_satisfied(Entities, Relationships) ->
+    fun(_T, _SM) ->
+	    FDepGraph = digraph:new([protected]),
+	    PDepGraph = digraph:new([protected]),
+	    PConGraph = digraph:new([protected]),
+	    NodeGraph = digraph:new([protected]),
+	    FConGraph = digraph:new([protected]),
+	    lists:foreach(fun(Entity={Kind, _}) when Kind =:= 'feature' ->
+				  digraph:add_vertex(FDepGraph, Entity),
+				  digraph:add_vertex(FConGraph, Entity),
+				  digraph:add_vertex(NodeGraph, Entity);
+			     (Entity={Kind, _}) when Kind =:= 'parameter' ->
+				  digraph:add_vertex(PDepGraph, Entity),
+				  digraph:add_vertex(PConGraph, Entity),
+				  digraph:add_vertex(NodeGraph, Entity);			
+			     (Entity={Kind, _}) when Kind =:= 'group' orelse Kind =:= 'node' ->
+				  digraph:add_vertex(NodeGraph, Entity);
+			     (_) -> ok
+			  end,
+			  Entities),
+	    %% XXX: this fun ain't got no alibi
+	    lists:foreach(fun({L, E1={Kind, _}, E2={Kind, _}}) when L =:= 'depends_on' andalso Kind =:= 'feature'->
+				  digraph:add_edge(FDepGraph, E1, E2, L);
+			     ({L, E1={Kind, _}, E2={Kind, _}}) when L =:= 'conflicts_with' andalso Kind =:= 'feature'->
+				  digraph:add_edge(FConGraph, E1, E2, L);
+			     ({L, E1={Kind, _}, E2={Kind, _}}) when L =:= 'depends_on' andalso Kind =:= 'parameter'->
+				  digraph:add_edge(PDepGraph, E1, E2, L);
+			     ({L, E1={Kind, _}, E2={Kind, _}}) when L =:= 'conflicts_with' andalso Kind =:= 'parameter'->
+				  digraph:add_edge(PConGraph, E1, E2, L);
+			     ({L, E1, E2}) when L =:= 'installs' orelse L =:= 'sets_param' orelse L =:= 'member_of' ->
+				  digraph:add_edge(NodeGraph, E1, E2, L);
+			     (_) -> ok
+			  end,
+			  Relationships),
+	    Nodes = 
+		[Node || Node={'node', _} <- digraph:vertices(NodeGraph)],
+
+	    FeatureReqsSatisfied = requirements_checker_maker(Nodes, NodeGraph, FDepGraph, FConGraph, fun({'feature', _}) -> true; (_) -> false end, feature),
+            ParamReqsSatisfied = requirements_checker_maker(Nodes, NodeGraph, PDepGraph, PConGraph, fun({'parameter', _}) -> true; (_) -> false end, parameter),
+	    Worker = wallaroo_validators:pcompose([FeatureReqsSatisfied, ParamReqsSatisfied]),
+	    Worker(_T, _SM)
+    end.
+
+requirements_checker_maker(Nodes, NodeGraph, DepGraph, ConflictGraph, EntityMatcher, What) ->
+    fun(_T, _SM) ->
+	    NodeMap = 
+		[{Node, ordsets:from_list(transitively_reachable(NodeGraph, Node, EntityMatcher))} ||
+		    Node <- Nodes],
+	    
+	    Entities =
+		lists:foldl(fun({_, Es}, Acc) -> ordsets:union(Es, Acc) end, [], NodeMap),
+	    
+	    % XXX: there is a way to generalize this even more, of course
+	    DepsSatisfied = 
+		fun(_, _) -> 
+			Deps = 
+			    gb_trees:from_orddict([{Entity, ordsets:from_list(transitively_reachable(DepGraph, Entity))} || Entity <- Entities]),
+			MissingDepMap = lists:foldl(fun({Node, Es}, Acc) ->
+							    Result = {Node, 
+								      [{Entity, DepDiff} || 
+									  Entity <- Es, 
+									  (DepDiff = ordsets:subtract(gb_trees:get(Deps, Entity), Es)) =/= []]},
+							    [Result|Acc]
+						    end,
+						    [],
+						    NodeMap),
+			case [{Node, Ls} || {Node, Ls} <- MissingDepMap, Ls =/= []] of
+			    [] ->
+				ok;
+			    MissingDeps when is_list(MissingDeps) ->
+				{fail, {missing_dependencies, What, for_nodes, MissingDeps}}
+			end
+		end,
+	    
+	    ConflictsRespected = 
+		fun(_, _) -> 
+			Cnfs = 
+			    gb_trees:from_orddict([{Entity, ordsets:from_list(immediately_reachable(ConflictGraph, Entity))} || Entity <- Entities]),
+			BadCnfMap = lists:foldl(fun({Node, Es}, Acc) ->
+							    Result = {Node, 
+								      [{Entity, ViolatedCnfs} || 
+									  Entity <- Es, 
+									  (ViolatedCnfs = ordsets:intersection(gb_trees:get(Cnfs, Entity), Es)) =/= []]},
+							    [Result|Acc]
+						    end,
+						    [],
+						    NodeMap),
+			case [{Node, Ls} || {Node, Ls} <- BadCnfMap, Ls =/= []] of
+			    [] ->
+				ok;
+			    ViolatedCnfs when is_list(ViolatedCnfs) ->
+				{fail, {violated_conflicts, What, for_nodes, ViolatedCnfs}}
+			end
+		end,
+	    
+	    Worker = wallaroo_validators:pcompose([DepsSatisfied, ConflictsRespected]),
+	    Worker(_T, _SM)
+    end.
+
+
 make_activate_validators(Tree, StoreMod) ->
     make_activate_validators(all, Tree, StoreMod).
 
@@ -226,10 +329,12 @@ make_activate_validators({E,R}, _Tree, _StoreMod) ->
      validator_no_circular_includes(E,R),
      validator_no_immed_conflicts_with_transitive_includes_or_deps(E,R),
      validator_no_circular_feature_depends(E,R),
-     validator_no_circular_parameter_depends(E,R)];
+     validator_no_circular_parameter_depends(E,R),
+     validator_deps_and_conflicts_satisfied(E,R)];
 make_activate_validators([_|_]=DirtyNodes, Tree, StoreMod) ->
     make_activate_validators(extract_graph(Tree, StoreMod, DirtyNodes), ignored, ignored);
 make_activate_validators(all, Tree, StoreMod) ->
     make_activate_validators(extract_graph(Tree, StoreMod), ignored, ignored).
-    
+
+
      
