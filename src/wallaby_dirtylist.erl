@@ -3,6 +3,7 @@
 %% @doc Wallaby dirty list type and functions
 
 -module(wallaby_dirtylist).
+-export([empty/0, join/2, add/3]).
 
 -type dl_entrykind() :: 'node' | 'group' | 'feature' | 'parameter' | 'subsystem'.
 -type dl_entry() :: {dl_entrykind(), [string()]}.
@@ -21,8 +22,8 @@ join({wallaby_dl, _}=Result, {wallaby_dl, []}) ->
     Result;
 join({wallaby_dl, []}, {wallaby_dl, _}=Result) ->
     Result;
-join({wallaby_dl, [_|_]=LhLs}, {wallaby_dl, [_|_]=RhLs}) ->
-    ResultLs = orddict:merge(fun(X,Y) -> ordsets:union(X, Y) end, LhLs, RhLs),
+join({wallaby_dl, LhLs}, {wallaby_dl, RhLs}) when is_list(LhLs) andalso is_list(RhLs) ->
+    ResultLs = orddict:merge(fun(_, V1, V2) -> ordsets:union(V1, V2) end, LhLs, RhLs),
     {wallaby_dl, ResultLs}.
 
 -spec add(dirtylist(), dl_entrykind(), string()) -> dirtylist().
