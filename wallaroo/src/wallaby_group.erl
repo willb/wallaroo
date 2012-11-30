@@ -20,10 +20,12 @@ name({?GROUP_TUPLE_TAG, Dict}) -> orddict:fetch(name, Dict).
 -spec features(group()) -> [binary()].
 features({?GROUP_TUPLE_TAG, Dict}) -> orddict:fetch(features, Dict).
 
--spec parameters(group()) -> [binary()].
+-spec parameters(group()) -> orddict:orddict().
 parameters({?GROUP_TUPLE_TAG, Dict}) -> orddict:fetch(parameters, Dict).
 
 set_features({?GROUP_TUPLE_TAG, Dict}, Fs) ->
     {?GROUP_TUPLE_TAG, orddict:store(features, Fs, Dict)}.
+
+-spec set_parameters(group(), list({binary(), binary()})) -> group().
 set_parameters({?GROUP_TUPLE_TAG, Dict}, Ps) ->
-    {?GROUP_TUPLE_TAG, orddict:store(memberships, Ps, Dict)}.
+    {?GROUP_TUPLE_TAG, orddict:store(memberships, orddict:from_list(Ps), Dict)}.

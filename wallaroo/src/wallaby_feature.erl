@@ -26,7 +26,7 @@ conflicts({?FEATURE_TUPLE_TAG, Dict}) -> orddict:fetch(conflicts, Dict).
 -spec depends(feature()) -> [binary()].
 depends({?FEATURE_TUPLE_TAG, Dict}) -> orddict:fetch(depends, Dict).
 
--spec parameters(feature()) -> [binary()].
+-spec parameters(feature()) -> orddict:orddict(binary(), binary()).
 parameters({?FEATURE_TUPLE_TAG, Dict}) -> orddict:fetch(parameters, Dict).
 
 set_includes({?FEATURE_TUPLE_TAG, Dict}, Fs) ->
@@ -35,5 +35,7 @@ set_depends({?FEATURE_TUPLE_TAG, Dict}, Fs) ->
     {?FEATURE_TUPLE_TAG, orddict:store(depends, orddict:from_list(Fs), Dict)}.
 set_conflicts({?FEATURE_TUPLE_TAG, Dict}, Fs) ->
     {?FEATURE_TUPLE_TAG, orddict:store(conflicts, orddict:from_list(Fs), Dict)}.
+
+-spec set_parameters(feature(), [{binary(), binary()}]) -> feature().
 set_parameters({?FEATURE_TUPLE_TAG, Dict}, Ps) ->
-    {?FEATURE_TUPLE_TAG, orddict:store(parameters, Ps, Dict)}.
+    {?FEATURE_TUPLE_TAG, orddict:store(parameters, orddict:from_list(Ps), Dict)}.

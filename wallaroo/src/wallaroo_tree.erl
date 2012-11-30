@@ -11,7 +11,7 @@
 -define(TAG_OBJECT, wObj).
 -define(TAG_ACCESSIBLE_TREE, wAT).
 -define(TAG_BUCKETED_TREE, wBT).
--define(MAX_TREE_SIZE, 1024).
+-define(MAX_TREE_SIZE, 512).
 
 -type rawtree() :: gb_tree().
 % tag, depth, tree
@@ -33,7 +33,7 @@
 -export_type([tree/0, find_result/0]).
 
 %% @doc returns an empty (accessible) tree
--spec empty() -> tree().
+-spec empty() -> accessible_tree().
 empty() ->
     {?TAG_ACCESSIBLE_TREE, gb_trees:empty()}.
 
@@ -65,10 +65,10 @@ store(Subkey, Val, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
     end.
 
 
-%% When you split, take the kth byte of the hash and use that as a key
+%% When you split, take the kth part of the hash and use that as a key
 kth_part(K, Bin) when is_bitstring(Bin) and is_integer(K) ->
-    SkipSize = K * 8,
-    <<_Skip:SkipSize, Take:8, _Rest/binary>> = Bin,
+    SkipSize = K * 6,
+    <<_Skip:SkipSize, Take:6, _Rest/bitstring>> = Bin,
     Take.
 
 % Returns a raw gb_tree of trees mapping from key_hash_part -> key -> value
@@ -88,13 +88,16 @@ map_pairs([_|_]=Pairs, Depth) when is_integer(Depth) ->
 
 %% @doc splits and balances an accessible tree into buckets if necessary; requires a storage module
 %% @return a tree that should be hashed and stored
-split({?TAG_ACCESSIBLE_TREE=Tag, {Sz,_}=Tree}, _, _) when Sz =< ?MAX_TREE_SIZE ->
-    {Tag, Tree};
-split({?TAG_ACCESSIBLE_TREE, Tree}, Depth, StoreMod) ->
-    RawTree = map_pairs(gb_trees:to_list(Tree), Depth),
-    StoreFunc = fun(_HashPart, Subtree) -> element(1, wallaroo_db:hash_and_store({?TAG_ACCESSIBLE_TREE, Subtree}, StoreMod)) end,
-    NewTree = gb_trees:map(StoreFunc, RawTree),
-    {?TAG_BUCKETED_TREE, Depth, NewTree}.
+split({?TAG_ACCESSIBLE_TREE=Tag, Tree}, Depth, StoreMod)  ->
+    case gb_trees:size(Tree) =< ?MAX_TREE_SIZE of
+	true -> 
+	    {Tag, Tree};
+	false ->
+	    RawTree = map_pairs(gb_trees:to_list(Tree), Depth),
+	    StoreFunc = fun(_HashPart, Subtree) -> element(1, wallaroo_db:hash_and_store({?TAG_ACCESSIBLE_TREE, Subtree}, StoreMod)) end,
+	    NewTree = gb_trees:map(StoreFunc, RawTree),
+	    {?TAG_BUCKETED_TREE, Depth, NewTree}
+    end.
 
 %% @doc finds the value stored in Tree under Key
 -spec find(_, tree()) -> find_result().
@@ -151,7 +154,7 @@ put_tree(Tree, StoreMod) ->
     element(1, wallaroo_db:hash_and_store(Tree, StoreMod)).
 
 %% @doc returns the result of looking up a path
--spec get_path([any()], _, atom()) -> find_result().
+-spec get_path([binary()|atom()], _, atom()) -> find_result().
 get_path(Path, Tree, StoreMod) ->
     case resolve(Path, Tree, StoreMod) of
 	[#res_none{}|_] ->
@@ -161,9 +164,9 @@ get_path(Path, Tree, StoreMod) ->
     end.
 
 %% @doc stores Val in Tree at PathPart, assuming that no component of PathPart is already in Tree; returns hash for updated Tree
-fold_absent([Key], {?TAG_OBJECT, _}=Val, {?TAG_BUCKETED_TREE, _, _}=Tree, Depth, StoreMod) ->
+fold_absent([Key], {?TAG_OBJECT, _}=Val, {?TAG_BUCKETED_TREE, _, _}=Tree, _, StoreMod) ->
     VH = element(1, wallaroo_db:hash_and_store(Val, StoreMod)),
-    wallaroo_db:hash_and_store(store(Key, VH, Tree));    
+    wallaroo_db:hash_and_store(store(Key, VH, Tree), StoreMod);
 fold_absent([Key], {?TAG_OBJECT, _}=Val, {?TAG_ACCESSIBLE_TREE, _}=Tree, Depth, StoreMod) ->
     VH = element(1, wallaroo_db:hash_and_store(Val, StoreMod)),
     wallaroo_db:hash_and_store(split(store(Key, VH, Tree), Depth + 1, StoreMod), StoreMod);
@@ -175,7 +178,7 @@ fold_absent([Key|PathPart], {?TAG_OBJECT, _}=Val, Tree, Depth, StoreMod) ->
 		      T = store(Element, AccHash, empty()),
 		      wallaroo_db:hash_and_store(T, StoreMod)
 	      end,
-    {NBH,NBT} = lists:foldl(FoldFun, Leaf, Tser),
+    {NBH,_NBT} = lists:foldl(FoldFun, Leaf, Tser),
     case Tree of 
 	{?TAG_BUCKETED_TREE, _, _} ->
 	    wallaroo_db:hash_and_store(store(Key, NBH, Tree), StoreMod);
@@ -191,7 +194,7 @@ fold_present(ResolvedPath, {H, _}=Val, StoreMod) when is_bitstring(H) ->
     lists:foldl(FF, Val, KTs).
 
 %% @doc stores a value at a given path
--spec put_path(list(), object(), tree(), atom()) -> binary().
+-spec put_path([binary()|atom()], object() | binary(), tree(), atom()) -> {binary(), any()}.
 put_path(Path, {?TAG_OBJECT, _}=Object, Tree, StoreMod) when is_list(Path) ->
     ResolvedPath = resolve(Path, Tree, StoreMod),
     case ResolvedPath of
@@ -211,6 +214,7 @@ put_path(Path, Object, Tree, StoreMod) when is_list(Path) ->
 del_path(_Path, _Tree, _StoreMod) ->
     throw(not_implemented).
 
+-spec children(tree(), module()) -> [{binary(), any()}].
 children(Root, StoreMod) ->
     children(Root, StoreMod, [[]], []).
 
@@ -224,7 +228,7 @@ children({?TAG_ACCESSIBLE_TREE, Root}, StoreMod, [Top|Rest], Acc) ->
 		    gb_trees:to_list(Root)),
     children(Top, StoreMod, Rest, NewAcc);
 children({?TAG_BUCKETED_TREE, _, Root}, StoreMod, Stack, Acc) ->
-    [NewRoot|NewStack] = lists:foldl(fun({K,V}, A) -> [StoreMod:find_object(V)|A] end,
+    [NewRoot|NewStack] = lists:foldl(fun({_K,V}, A) -> [StoreMod:find_object(V)|A] end,
 				     Stack,
 				     gb_trees:to_list(Root)),
     children(NewRoot, StoreMod, NewStack, Acc).
@@ -272,10 +276,10 @@ first_fixture() ->
     SM:store_object(t4, T4).
 
 second_fixture() -> 
-    %% dbg:start(),
-    %% dbg:tracer(),
-    %% dbg:tpl(wallaroo_tree, resolve_it, []),
-    %% dbg:p(all, c),
+    dbg:start(),
+    dbg:tracer(),
+    dbg:tpl(wallaroo_tree, second_fixture, []),
+    dbg:p(all, c),
     SM = wallaroo_store_ets,
     SM:store_object(mt, wallaroo_tree:empty()),
     LS = [{list_to_atom("element_" ++ integer_to_list(X)), X} || X <- lists:seq(1,?BIG_TEST_SIZE)],
@@ -345,9 +349,9 @@ do_dbg_from_shell() ->
 do_test_from_shell() ->
     wallaroo_store_ets:init([]),
     SM = wallaroo_store_ets,
-    {_H1, Res} = wallaroo_tree:put_path([a,b,c,d,e], 37, wallaroo_tree:empty(), SM),
-    {_H2, Res2} = wallaroo_tree:put_path([a,b,d,e], 42, Res, SM),
-    {_H3, Res3} = wallaroo_tree:put_path([a,c,d,e], 18, Res2, SM),
+    {_H1, Res} = wallaroo_tree:put_path([a,b,c,d,e], wrap_object(37), wallaroo_tree:empty(), SM),
+    {_H2, Res2} = wallaroo_tree:put_path([a,b,d,e], wrap_object(42), Res, SM),
+    {_H3, Res3} = wallaroo_tree:put_path([a,c,d,e], wrap_object(18), Res2, SM),
     {Res, Res2, Res3}.
 
 -endif.
