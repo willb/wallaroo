@@ -17,9 +17,9 @@ new(Name) when is_binary(Name) ->
 -spec name(subsystem()) -> binary().
 name({?SUBSYSTEM_TUPLE_TAG, Dict}) -> orddict:fetch(name, Dict).
 
--spec parameters(subsystem()) -> [binary()].
+-spec parameters(subsystem()) -> [orddict:orddict()].
 parameters({?SUBSYSTEM_TUPLE_TAG, Dict}) -> orddict:fetch(parameters, Dict).
 
--spec set_parameters(subsystem(), orddict:orddict()) -> [binary()].
+-spec set_parameters(subsystem(), [{binary(), binary()}]) -> subsystem().
 set_parameters({?SUBSYSTEM_TUPLE_TAG, Dict}, Ps) ->
-    {?SUBSYSTEM_TUPLE_TAG, orddict:store(parameters, Ps, Dict)}.
+    {?SUBSYSTEM_TUPLE_TAG, orddict:store(parameters, orddict:from_list(Ps), Dict)}.

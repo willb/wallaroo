@@ -6,7 +6,7 @@
 % @author William Benton <willb@redhat.com>
 
 -module(wallaby_node).
--export([new/2, name/1, provisioned/1, identity_group/1, memberships/1, set_memberships/2, make_provisioned/1]).
+-export([new/2, name/1, provisioned/1, identity_group/1, memberships/1, all_memberships/1, set_memberships/2, make_provisioned/1]).
 -export_type([wnode/0]).
 
 -define(WALLABY_NODE_TAG, wallaby_node).
@@ -36,6 +36,12 @@ identity_group({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(identity_group, Dict)
 -spec memberships(wnode()) -> [binary()].
 memberships({?WALLABY_NODE_TAG, Dict}) -> orddict:fetch(memberships, Dict).
 
+% @doc Returns a list of the names of the groups that this node is a member of, 
+% including identity or default groups.
+-spec all_memberships(wnode()) -> [binary()].
+all_memberships({?WALLABY_NODE_TAG, Dict}=Node) -> 
+    [identity_group(Node) | orddict:fetch(memberships, Dict) ++ [<<"+++DEFAULT">>]].
+
 % @doc Sets the membership list for this node; the supplied list is not checked
 % to ensure that its constituents all refer to valid groups.  Returns a new term 
 % representing this node with the changed memberships.
@@ -54,4 +60,4 @@ idgroupname(Name) ->
     <<Hash:128/big-unsigned-integer>> = crypto:md5(Name),
     [MD5] = io_lib:format("~32.16.0b", [Hash]),
     list_to_binary("+++" ++ MD5).
-			 
+
