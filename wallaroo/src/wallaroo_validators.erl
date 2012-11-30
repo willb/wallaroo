@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_validators).
--export([succeed/2, compose/1, pcompose/1]).
+-export([succeed/2, compose/1, pcompose/1, pcompose/2]).
 
 -type validator_result() :: ('ok' | {'fail', _}).
 -type validator() :: fun((wallaroo_tree:tree(), module()) -> validator_result()).
@@ -29,29 +29,62 @@ compose_once(Fun, AccFun) when is_function(Fun, 2), is_function(AccFun, 2) ->
 
 -spec pcompose([validator()]) -> validator().		     
 pcompose(Validators) when is_list(Validators) ->
+    pcompose(Validators, []).
+
+-spec pcompose([validator()], [atom()]) -> validator().		     
+pcompose(Validators, Options) when is_list(Validators) andalso is_list(Options) ->
+    Failfast = lists:member('failfast', Options),
     fun(Tree, StoreMod) ->
 	    Self = self(),
 	    EachFun = fun(V) -> spawn(fun() -> pcompose_worker(Self, V, Tree, StoreMod) end) end,
 	    Pids = lists:map(EachFun, Validators),
 	    %% FIXME:  probably not the best representation for very large validator lists
-	    pcompose_loop(ordsets:from_list(Pids))
+	    pcompose_loop(ordsets:from_list(Pids), Failfast)
     end.
 
 -spec pcompose_loop([pid()]) -> validator_result().
-pcompose_loop([]) ->
-    ok;
 pcompose_loop(Pids) ->
+    pcompose_loop(Pids, false).
+
+-spec pcompose_loop([pid()], boolean()) -> validator_result().
+pcompose_loop(Pids, Failfast) ->
+    pcompose_loop(Pids, [], Failfast).
+
+-spec pcompose_loop([pid()], [validator_result()], boolean()) -> validator_result().
+pcompose_loop([], [], _) ->
+    ok;
+pcompose_loop([], [Failure], _) ->
+    Failure;
+pcompose_loop([], Failures, _) ->
+    {fail, 
+     {multiple_failures, 
+      lists:foldl(fun({fail, {multiple_failures, Ls}}, Acc) ->
+			  Ls ++ Acc;
+		     ({fail, F}, Acc) ->
+			  [F | Acc]
+		  end,
+		  [],
+		  Failures)}};
+pcompose_loop(Pids, Failures, Failfast) ->
     receive
 	{result_for, Pid, ok} ->
-	    NewPidSet = ordsets:del_element(Pid, Pids),
-	    pcompose_loop(NewPidSet);
-	{result_for, _, {fail, _}=Failure} ->
-	    lists:map(fun(P) -> exit(P, kill) end, Pids),
-	    Failure;
+	    handle_success(Pid, Pids, Failures, Failfast);
+	{result_for, Pid, {fail, _}=Failure} ->
+	    handle_failure(Pid, Pids, Failure, Failures, Failfast);
 	X ->
-	    lists:map(fun(P) -> exit(P, kill) end, Pids),
-	    {fail, {other_result, X}}
+	    handle_failure(unknown, Pids, {fail, {other_validator_result, X}}, Failures, Failfast)	    
     end.
+
+handle_success(Pid, Pids, Failures, Failfast) ->
+    pcompose_loop(ordsets:del_element(Pid, Pids), Failures, Failfast).
+
+-spec handle_failure(pid()|atom(), [pid()], validator_result(), [validator_result()], boolean()) -> validator_result().
+			    
+handle_failure(_Pid, Pids, Failure, _Failures, true) ->
+    _ = [exit(P, kill) || P <- Pids],
+    Failure;
+handle_failure(Pid, Pids, Failure, Failures, false) ->
+    pcompose_loop(ordsets:del_element(Pid, Pids), [Failure|Failures], false).
 
 pcompose_worker(Parent, Validator, Tree, StoreMod) when is_function(Validator,2) ->
     Result = try
