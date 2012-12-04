@@ -25,7 +25,9 @@ start_link() ->
     Result.
 
 init([]) ->
-    {ok, {wallaroo_store_ets}}.
+    {ok, {wallaroo_store_ets}};
+init([{storemod, StoreMod}]) ->
+    {ok, {StoreMod}}.
 
 %%% API functions
 
