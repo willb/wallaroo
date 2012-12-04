@@ -53,5 +53,8 @@ init([]) ->
     Web = {webmachine_mochiweb,
            {webmachine_mochiweb, start, [WebConfig]},
            permanent, 5000, worker, dynamic},
-    Processes = [Web],
+    Wallaroo = {wallaroo_sup,
+           {wallaroo_sup, start_link, []},
+           permanent, 5000, supervisor, [wallaroo]},
+    Processes = [Wallaroo, Web],
     {ok, { {one_for_one, 10, 10}, Processes} }.
