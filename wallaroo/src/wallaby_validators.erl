@@ -33,7 +33,6 @@
 -define(SUBSYSTEMPATH, <<"subsystems">>).
 
 -type simple_graph() :: {[entity()], [relationship()]}.
--type sg_validity() :: 'ok' | [{error, any()}].
 
 -export_type([simple_graph/0]).
 
@@ -330,7 +329,9 @@ make_activate_validators({E,R}, _Tree, _StoreMod) ->
      validator_no_immed_conflicts_with_transitive_includes_or_deps(E,R),
      validator_no_circular_feature_depends(E,R),
      validator_no_circular_parameter_depends(E,R),
-     validator_deps_and_conflicts_satisfied(E,R)];
+     validator_deps_and_conflicts_satisfied(E,R)
+     %% TODO:  must-change params
+    ];
 make_activate_validators([_|_]=DirtyNodes, Tree, StoreMod) ->
     make_activate_validators(extract_graph(Tree, StoreMod, DirtyNodes), ignored, ignored);
 make_activate_validators(all, Tree, StoreMod) ->
