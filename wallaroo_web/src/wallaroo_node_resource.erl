@@ -16,7 +16,7 @@ allowed_methods(ReqData, Ctx) ->
     {['HEAD', 'GET', 'POST', 'PUT'], ReqData, Ctx}.
 
 resource_exists(ReqData, Ctx) ->
-    wallaroo_web_common:generic_entity_exists(ReqData, Ctx, fun wallaroo:get_node/2).
+    wallaroo_web_common:generic_entity_exists(ReqData, Ctx, fun(Name, Commit) -> wallaroo:get_entity(Name, node, Commit) end).
 
 content_types_accepted(ReqData, Ctx) ->
     {[{"application/json", from_json}], ReqData, Ctx}.
@@ -28,7 +28,36 @@ finish_request(ReqData, Ctx) ->
     {true, ReqData, Ctx}.
 
 to_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_to_json(ReqData, Ctx, fun wallaroo:list_nodes/1, fun wallaroo:get_node/2).
+    wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(Commit) -> wallaroo:list_entities(node, Commit) end, fun(Name, Commit) -> wallaroo:get_entity(Name, node, Commit) end).
 
 from_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_node:new(Nm, true) end, node, "nodes").
+    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_node:new(Nm, true) end, node, "nodes", fun validate/2).
+
+validate({wallaby_node, _}=Node, none) ->
+    case wallaby_node:memberships(Node) of
+	[] -> ok;
+	Ls ->
+	    {error, [{nonexistent_groups, Ls}]}
+    end;
+validate({wallaby_node, _}=Node, Commit) ->
+    Groups = wallaby_node:memberships(Node),
+    SpecialGroups = [Group || Group <- Groups, special_group(Group)],
+    NonexistentGroups = [Group || Group <- Groups, wallaroo:get_entity(Group, group, Commit) =:= none, not special_group(Group)],
+    case {node_validate,SpecialGroups, NonexistentGroups} of
+	{node_validate,[],[]} ->
+	    ok;
+	{node_validate, [], Ls} ->
+	    {error, [{nonexistent_groups, Ls}]};
+	{node_validate, Ls, []} ->
+	    {error, [{special_groups, Ls}]};
+	{node_validate, Ls, Ls2} ->
+	    {error, [{special_groups, Ls},{nonexistent_groups, Ls2}]}
+    end.
+
+special_group(<<"+++SKEL">>) ->
+    false;
+special_group(<<"+++", _/binary>>) ->
+    true;
+special_group(_) ->
+    false.
+
