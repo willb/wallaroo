@@ -116,8 +116,18 @@ handle_call({get_tag, Name}, _From, {StoreMod}=State) ->
     TagObj = StoreMod:find_tag(Name),
     {reply, TagObj, State};
 handle_call({put_tag, Name, Commit}, _From, {StoreMod}=State) ->
-    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, [], [])),
-    {reply, TagObj, State}.
+    CommitObj = get_commit(Commit, StoreMod),
+    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+    V = wallaroo_validators:pcompose(wallaby_validators:make_activate_validators(Tree, StoreMod)),
+    case V(Tree, StoreMod) of
+	ok ->
+	    error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
+	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, [], [])),
+	    {reply, TagObj, State};
+	{fail, _}=F ->
+	    error_logger:warning_msg("put_tag FAILURE because ~p~n", [F]),
+	    {reply, F, State}
+    end.
 
 handle_info(_X, State) ->
     {noreply, State}.
