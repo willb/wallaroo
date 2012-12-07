@@ -3,7 +3,7 @@
 %% @doc Wallaby-specific validators for Wallaroo
 
 -module(wallaby_validators).
--export([extract_graph/2,sg_union/2, make_activate_validators/2, make_activate_validators/3]).
+-export([extract_graph/2,sg_union/2, make_activate_validators/2, make_activate_validators/3, get_children/3]).
 
 -type node_entity() :: {'node', string()}.
 -type group_entity() :: {'group', string()}.
@@ -44,13 +44,13 @@ extract_graph(Tree, StoreMod) ->
     {FeatureEntities, FeatureRelationships} = extract_feature_entities(get_children([?FEATUREPATH], Tree, StoreMod)),
     {ParamEntities, ParamRelationships} = extract_parameter_entities(get_children([?PARAMETERPATH], Tree, StoreMod)),
     {SubsysEntities, SubsysRelationships} = extract_subsystem_entities(get_children([?SUBSYSTEMPATH], Tree, StoreMod)),
-    Entities = lists:foldl(fun ordsets:union/2, [], [NodeEntities, GroupEntities, FeatureEntities, ParamEntities, SubsysEntities]),
+    Entities = lists:foldl(fun ordsets:union/2, [], [NodeEntities, GroupEntities, FeatureEntities, ParamEntities, SubsysEntities, [{'group', <<"+++DEFAULT">>}, {'group', <<"+++SKEL">>}]]),
     Relationships = lists:foldl(fun ordsets:union/2, [], [NodeRelationships, GroupRelationships, FeatureRelationships, ParamRelationships, SubsysRelationships]),
     {Entities, Relationships}.
 
 objects_from_names(Tree, Kind, Names, StoreMod) ->
     [Obj || 
-	{_,Obj} <- [wallaroo_tree:get_path([Kind, Name], Tree, StoreMod) ||
+	{value, Obj} <- [wallaroo_tree:get_path([Kind, Name], Tree, StoreMod) ||
 		       Name <- Names]].
 
 saturate_features([], {Entities, Relationships, _}, _Tree, _StoreMod) ->
@@ -78,20 +78,26 @@ extract_graph(Tree, StoreMod, DirtyNodes) ->
     {ParamEntities, ParamRelationships} =
 	extract_parameter_entities(ordsets:union(GroupParams, FeatureParams)),
     % XXX: Subsystems aren't used by validation yet, so they don't appear here
-    Entities = lists:foldl(fun ordsets:union/2, [], [NodeEntities, GroupEntities, FeatureEntities, ParamEntities]),
+    Entities = lists:foldl(fun ordsets:union/2, [], [NodeEntities, GroupEntities, FeatureEntities, ParamEntities, [{'group', <<"+++DEFAULT">>}, {'group', <<"+++SKEL">>}]]),
     Relationships = lists:foldl(fun ordsets:union/2, [], [NodeRelationships, GroupRelationships, FeatureRelationships, ParamRelationships]),
     {Entities, Relationships}.
 
 get_children(Path, Tree, StoreMod) when is_list(Path) ->
-    {_, Root} = wallaroo_tree:get_path(Path, Tree, StoreMod),
-    [Obj || {_, Obj} <- wallaroo_tree:children(Root, StoreMod)].
+    Root = wallaroo_tree:get_path(Path, Tree, StoreMod),
+    error_logger:warning_msg("wallaby_validators:get_children:  Path=~p, Tree=~p, Root=~p~n", [Path, Tree, Root]),
+    case Root of
+	none ->
+	    [];
+	{value, ST} ->
+	    [Obj || {_, Obj} <- wallaroo_tree:children(ST, StoreMod)]
+    end.
 
 -spec extract_node_entities([wallaby_node:wnode()]) -> simple_graph().
 extract_node_entities(NodeObjects) when is_list(NodeObjects) ->
     {Es,Rs} = lists:foldl(fun(Node, {Nodes, Relationships}) ->
 				  Name = {'node', wallaby_node:name(Node)},
 				  Memberships = [{'member_of', Name, {'group', G}} || G <- wallaby_node:all_memberships(Node)],
-				  {[Name|Nodes], Memberships++Relationships}
+				  {[Name|[{'group', wallaby_node:identity_group(Node)}|Nodes]], Memberships++Relationships}
 			  end, {[], []}, NodeObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.
 

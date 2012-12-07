@@ -160,7 +160,7 @@ get_path(Path, Tree, StoreMod) ->
 	[#res_none{}|_] ->
 	    none;
 	[#res_some{kv={_,V}}|_] ->
-	    unwrap_object(V)
+	    {value, unwrap_object(V)}
     end.
 
 %% @doc stores Val in Tree at PathPart, assuming that no component of PathPart is already in Tree; returns hash for updated Tree
