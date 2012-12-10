@@ -1,0 +1,70 @@
+%global wallaroo_dir $RPM_BUILD_ROOT%{_libdir}/erlang/lib/%{name}-%{version}
+%global wallaroo_web_dir $RPM_BUILD_ROOT%{_libdir}/erlang/lib/%{name}_web-%{version}
+
+Name:           wallaby2
+Version: <%= pkg_version %>
+Release: <%= pkg_rel %>%{?dist}
+Group: Applications/System
+License: ASL 2.0
+URL: http://git.fedorahosted.org/git/grid/wallaby.git
+Source0: https://fedorahosted.org/releases/g/r/grid/%{name}-%{version}.tar.gz
+<%= printable_patch_list %>
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+
+BuildRequires:	erlang
+BuildRequires:	erlang-esdl
+BuildRequires:  erlang-rebar
+
+Provides:       wallaby2 = %{version}-%{release}
+Obsoletes:      wallaby2
+
+Requires:	erlang-dialyzer
+Requires:	erlang-erts
+Requires:	erlang-kernel
+Requires:	erlang-stdlib
+Requires:	erlang-tools
+Requires:	erlang-webmachine
+Requires:   erlang-mochiweb
+
+%description
+Wallaby is a configuration service for Condor pools.  It provides a
+semantic model of Condor configuration, enabling administrators to
+apply high-level features to groups of nodes rather than set the
+values of low-level parameters in configuration files.  Wallaby also
+validates configurations before deploying them, pushes out
+configurations to affected nodes, keeps an inventory of running nodes,
+and manages multiple versions of configurations.
+
+
+%prep
+%setup -q
+<% list_patches.each_with_index do |p, i| %>
+<%= "%patch#{i} -p1" %><% end %>
+%build
+
+( cd wallaroo ; rebar -C ../rebar.rpm.config compile )
+( cd wallaroo_web ; rebar -C ../rebar.rpm.config compile )
+
+%install
+rm -rf $RPM_BUILD_ROOT
+
+cp -rf wallaroo/ebin %{wallaroo_dir}
+cp -rf wallaroo/ebin %{wallaroo_web_dir}
+
+# Install main startup script
+install -D -p -m 0755 wallaroo_web/start.sh $RPM_BUILD_ROOT%{_bindir}/start_wallaby2.sh
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+
+%files
+%defattr(-,root,root,-)
+%dir %{wallaroo_dir}
+%dir %{wallaroo_web_dir}
+
+%doc README
+
+
+%changelog
+
