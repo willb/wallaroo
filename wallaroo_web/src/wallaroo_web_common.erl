@@ -1,23 +1,33 @@
 -module(wallaroo_web_common).
--export([generic_entity_exists/3, get_starting_commit/1, generic_find/5, generic_find/6, dump_json/3, generic_to_json/4, generic_from_json/5, generic_from_json/6]).
+-export([generic_init/1, generic_entity_exists/3, get_starting_commit/2, generic_find/5, generic_find/6, dump_json/3, generic_to_json/4, generic_from_json/5, generic_from_json/6]).
 
-generic_entity_exists(ReqData,  [{show_all}]=Ctx, _) ->
+
+-record(ww_ctx, {show_all=false, name, commit, branch, via}). 
+-define(DO_TRACE, {trace, "priv"}).
+
+
+generic_init([{show_all}]) ->
+    {?DO_TRACE, #ww_ctx{show_all=true}};
+generic_init(_) ->
+    {?DO_TRACE, #ww_ctx{}}.
+
+generic_entity_exists(ReqData,  #ww_ctx{show_all=true}=Ctx, _) ->
     {true, ReqData, Ctx};
 generic_entity_exists(ReqData, Ctx, LookupFun) ->
-    Commit = get_starting_commit(ReqData),
+    {Commit, NewCtx} = get_starting_commit(ReqData, Ctx),
     case wrq:path_info(name, ReqData) of
 	undefined ->
-	    {false, ReqData, Ctx};
-	[_|_]=Node ->
+	    {false, ReqData, NewCtx};
+	[_|_]=Name ->
 	    case Commit of 
 		none ->
-		    {false, ReqData, Ctx};
+		    {false, ReqData, NewCtx};
 		_ ->
-		    case LookupFun(Node, Commit) of
+		    case LookupFun(Name, Commit) of
 			none ->
-			    {false, ReqData, Ctx};
+			    {false, ReqData, NewCtx};
 			_ ->
-			    {true, ReqData, [{Node, Commit}|Ctx]}
+			    {true, ReqData, NewCtx#ww_ctx{name=Name,commit=Commit}}
 		    end
 	    end
     end.
@@ -37,31 +47,39 @@ generic_find(Commit, FindFunc, DumpFunc, Name, ReqData, Ctx) ->
 	    end
     end.
 
-get_starting_commit(ReqData) ->
+get_starting_commit(ReqData, Ctx) ->
     Tag=wrq:get_qs_value("tag", "", ReqData),
     Commit=wrq:get_qs_value("commit", "", ReqData),
-    case {Tag, Commit} of
-    	{[], []} ->
-	    none;
-	{_, []} ->
+    Branch=wrq:get_qs_value("branch", "", ReqData),
+    case {get_starting_commit, Branch, Tag, Commit} of
+    	{get_starting_commit, [], [], []} ->
+	    {none, Ctx};
+	{get_starting_commit, _, [], []} ->
+	    case wallaroo:get_branch(Branch) of
+		{wallaroo_branch, _}=TTerm ->
+		    {wallaroo_branch:get_commit(TTerm), Ctx#ww_ctx{via={branch, Branch}}};
+		find_failed ->
+		    {none, Ctx}
+	    end;
+	{get_starting_commit, [], _, []} ->
 	    case wallaroo:get_tag(Tag) of
 		{wallaroo_tag, _}=TTerm ->
-		    wallaroo_tag:get_commit(TTerm);
+		    {wallaroo_tag:get_commit(TTerm), Ctx#ww_ctx{via={tag, Tag}}};
 		find_failed ->
-		    none
+		    {none, Ctx}
 	    end;
 	_ ->
-	    Commit
+	    {Commit, Ctx#ww_ctx{via=commit}}
     end.
 
-generic_to_json(ReqData, [{show_all}]=Ctx, ListFun, _GetFun) ->
-    Commit = wallaroo_web_common:get_starting_commit(ReqData),
+generic_to_json(ReqData, #ww_ctx{show_all=true}=Ctx, ListFun, _GetFun) ->
+    {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
     {Payload, _, _} = case Commit of 
-		  none -> dump_json([], ReqData, Ctx);
-		  _ -> dump_json(ListFun(Commit), ReqData, Ctx)
+		  none -> dump_json([], ReqData, NewCtx);
+		  _ -> dump_json(ListFun(Commit), ReqData, NewCtx)
 	      end,
-    {Payload, ReqData, Ctx};
-generic_to_json(ReqData, [{Name, Commit}]=Ctx, _ListFun, GetFun) ->
+    {Payload, ReqData, NewCtx};
+generic_to_json(ReqData, #ww_ctx{name=Name, commit=Commit}=Ctx, _ListFun, GetFun) ->
     wallaroo_web_common:generic_find(Commit, GetFun, Name, ReqData, Ctx).
 
 
@@ -106,7 +124,7 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
     end.
 
 from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
-    Commit = wallaroo_web_common:get_starting_commit(ReqData),
+    {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
     Name = orddict:fetch(name, Data),
     {Kind, Defaults} = NewFunc(Name),
     Dict = orddict:merge(fun(_,V,_) -> V end, Data, Defaults),
@@ -119,15 +137,21 @@ from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 				wallaroo:put_entity(Name, PutKind, Entity, Whence)
 			end,
 	    error_logger:info_msg("NewCommit is ~p~n", [NewCommit]),
+	    case NewCtx of
+		#ww_ctx{via={branch, Branch}} ->
+		    wallaroo:put_branch(Branch, NewCommit);
+		_ ->
+		    ok
+	    end,
 	    <<CommitNum:160/big-unsigned-integer>> = NewCommit,
 	    NewCommitStr = lists:flatten(io_lib:format("~40.16.0b", [CommitNum])),
 	    NewLocation = io_lib:format("/~s/~s?commit=~s", [PathPart, Name, NewCommitStr]),
 	    error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
 	    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
-	    {true, Redir, Ctx};
+	    {true, Redir, NewCtx};
 	{error, Why} ->
 	    ResponseBody = wrq:append_to_response_body(mochijson:binary_encode(Why), ReqData),
-	    {{halt, 400}, ResponseBody, Ctx}
+	    {{halt, 400}, ResponseBody, NewCtx}
     end.
 
 peel({struct, [_|_]=UnpeeledDict}) ->

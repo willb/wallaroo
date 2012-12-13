@@ -9,8 +9,8 @@
 
 -include_lib("webmachine/include/webmachine.hrl").
 
-init(Ctx) ->
-    {{trace, "priv"}, Ctx}.
+init(Args) ->
+    wallaroo_web_common:generic_init(Args).
 
 allowed_methods(ReqData, Ctx) ->
     {['HEAD', 'GET', 'POST', 'PUT'], ReqData, Ctx}.
