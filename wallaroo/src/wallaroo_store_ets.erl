@@ -2,15 +2,16 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_store_ets).
--export([init/1,start/1,cleanup/1,find_object/1,find_commit/1,find_tag/1,store_object/2,store_commit/2,store_tag/2, objects/0, tags/0, commits/0]).
+-export([init/1,start/1,cleanup/1,find_object/1,find_commit/1,find_tag/1,find_branch/1,store_object/2,store_commit/2,store_tag/2,store_branch/2, objects/0, tags/0, commits/0, branches/0]).
 -behaviour(wallaroo_storage).
 
 -define(OBJECT_TABLE, wallaroo_objects).
 -define(COMMIT_TABLE, wallaroo_commits).
 -define(TAG_TABLE, wallaroo_tags).
+-define(BRANCH_TABLE, wallaroo_branches).
 
 init(_) ->
-    lists:map(fun(X)->create_table(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE]), ok.
+    lists:map(fun(X)->create_table(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE, ?BRANCH_TABLE]), ok.
 
 create_table(T) ->
     case ets:info(T) of
@@ -22,7 +23,7 @@ create_table(T) ->
     end.
 
 cleanup(_) ->
-    lists:map(fun(X) -> ets:delete(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE]), ok.
+    lists:map(fun(X) -> ets:delete(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE, ?BRANCH_TABLE]), ok.
 
 start(_) ->
     ok.
@@ -35,6 +36,9 @@ find_commit(Hash) ->
 
 find_tag(Hash) ->
     generic_find(?TAG_TABLE, Hash).
+
+find_branch(Hash) ->
+    generic_find(?BRANCH_TABLE, Hash).
 
 generic_find(Table, Hash) ->
     case ets:match(Table, {Hash, '$1'}) of
@@ -54,6 +58,9 @@ store_commit(Key, Value) ->
 
 store_tag(Key, Value) ->
     generic_store(?TAG_TABLE, Key, Value, true).
+
+store_branch(Key, Value) ->
+    generic_store(?BRANCH_TABLE, Key, Value, true).
 
 generic_store(Table, Key, Value) ->
     generic_store(Table, Key, Value, false).
@@ -78,3 +85,6 @@ objects() ->
 
 tags() ->
     ets:tab2list(?TAG_TABLE).
+
+branches() ->
+    ets:tab2list(?BRANCH_TABLE).
