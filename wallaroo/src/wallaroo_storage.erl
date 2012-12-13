@@ -14,6 +14,7 @@ behaviour_info(callbacks) ->
      {store_object, 2},
      {store_commit, 2},
      {store_tag, 2},
+     {store_branch, 2},
      {objects,0},
      {tags,0},
      {commits,0}];
