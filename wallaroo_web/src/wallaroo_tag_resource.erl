@@ -73,8 +73,13 @@ from_json(ReqData, Ctx) ->
 from_json_helper(Data, ReqData, Ctx) ->
     Name = orddict:fetch(name, Data),
     SHA = orddict:fetch(commit, Data),
-    wallaroo:put_tag(Name, SHA),
-    {true, ReqData, Ctx}.
+    case {wtr_fjh, wallaroo:put_tag(Name, SHA)} of
+	{wtr_fjh, {fail, Failure}} ->
+	    ResponseBody = wrq:append_to_response(mochijson:binary_encode([Failure]), ReqData),
+	    {{halt, 400}, ResponseBody, NewCtx};
+	_ ->
+	    {true, ReqData, Ctx}
+    end.
 	
 hook({struct, [_|_]=UnhookedDict}) ->
     Dict = [{K,hook(V)} || {K,V} <- UnhookedDict],
