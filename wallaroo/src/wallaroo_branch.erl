@@ -2,7 +2,7 @@
 % Copyright (c) 2012 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_branch).
--compile(export_all).
+-export([new/3, store/3, get_meta/2, get_annotation/1, get_commit/1]).
 
 -define(BRANCH_TUPLE_TAG, wallaroo_branch).
 

@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_tag).
--compile(export_all).
+-export([new/3, store/3, get_meta/2, get_annotation/1, get_commit/1, store_without_validating/3, store/4]).
 
 -define(TAG_TUPLE_TAG, wallaroo_tag).
 
