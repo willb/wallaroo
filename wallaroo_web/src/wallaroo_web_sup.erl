@@ -1,10 +1,10 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
+%% @author William Benton <willb@redhat.com>
+%% @copyright 2011 Red Hat, Inc., and William C. Benton
 
 %% @doc Supervisor for the wallaroo_web application.
 
 -module(wallaroo_web_sup).
--author('author <author@example.com>').
+-author('William Benton <willb@redhat.com>').
 
 -behaviour(supervisor).
 
