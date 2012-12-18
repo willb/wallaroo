@@ -40,7 +40,7 @@ generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
 	Fail when fail =:= find_failed orelse fail =:= none ->
 	    {false, ReqData, Ctx};
 	Head ->
-	    {true, ReqData, Ctx#ww_ctx={head={what, Head}}}
+	    {true, ReqData, Ctx#ww_ctx={head={What, Head}}}
     end.
 
 
@@ -95,6 +95,8 @@ generic_to_json(ReqData, #ww_ctx{show_all=true}=Ctx, ListFun, _GetFun) ->
 generic_to_json(ReqData, #ww_ctx{name=Name, commit=Commit}=Ctx, _ListFun, GetFun) ->
     wallaroo_web_common:generic_find(Commit, GetFun, Name, ReqData, Ctx).
 
+stringize_sha(<<CommitNum:160/big-unsigned-integer>>) ->
+    lists:flatten(io_lib:format("~40.16.0b", [CommitNum])).
 
 dump_json(Entities, ReqData, Ctx) when is_list(Entities) ->
     error_logger:warning_msg("Entities are ~p~n", [Entities]),
@@ -107,6 +109,10 @@ jsonify_entry({LVK, Ls}) when LVK =:= memberships; LVK =:= features; LVK =:= fea
     {LVK, {array, Ls}};
 jsonify_entry({DVK, Ls}) when DVK =:= parameters ->
     {DVK, {struct, Ls}};
+jsonify_entry({commit, <<_:160/big-unsigned-integer>>=SHA}) ->
+    {commit, stringize_sha(SHA)};
+jsonify_entry({BTV, Ls}) when is_list(Ls), BTV =:= meta orelse BTV =:= annotation ->
+    {BTV, {struct, Ls}};
 jsonify_entry(X) ->
     X.
 
