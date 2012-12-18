@@ -1,8 +1,8 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, get_starting_commit/2, generic_find/5, generic_find/6, dump_json/3, generic_to_json/4, generic_from_json/5, generic_from_json/6]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6, dump_json/3, generic_to_json/4, generic_from_json/5, generic_from_json/6]).
 
 
--record(ww_ctx, {show_all=false, name, commit, branch, via}). 
+-record(ww_ctx, {show_all=false, name, commit, branch, via, head}). 
 -define(DO_TRACE, {trace, "priv"}).
 
 
@@ -31,6 +31,19 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 		    end
 	    end
     end.
+
+generic_entity_exists_nc(ReqData,  #ww_ctx{show_all=true}=Ctx, _, _) ->
+    {true, ReqData, Ctx};
+generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
+    EntityName = wrq:path_info(name, ReqData),
+    case LookupFun(EntityName) of
+	Fail when fail =:= find_failed orelse fail =:= none ->
+	    {false, ReqData, Ctx};
+	Head ->
+	    {true, ReqData, Ctx#ww_ctx={head={what, Head}}}
+    end.
+
+
 generic_find(Commit, FindFunc, Name, ReqData, Ctx) ->
     generic_find(Commit, FindFunc, fun dump_json/3, Name, ReqData, Ctx).
 
@@ -123,6 +136,25 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 	    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
     end.
 
+
+from_json_helper(Data, ReqData, Ctx, NewFunc, tag, PathPart, ValidFunc) ->
+    Name = orddict:fetch(name, Data),
+    SHA = orddict:fetch(commit, Data),
+    Meta = orddict:fetch(meta, Data),
+    Annotation = orddict:fetch(annotation, Data),
+    error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
+    case {tag_fjh, wallaroo:put_tag(Name, SHA, Annotation, Meta)} of
+	{tag_fjh, {fail, Failure}} ->
+	    ResponseBody = wrq:append_to_response(mochijson:binary_encode([Failure]), ReqData),
+	    {{halt, 400}, ResponseBody, NewCtx};
+	_ ->
+	    {true, ReqData, Ctx}
+    end;
+from_json_helper(Data, ReqData, Ctx, NewFunc, branch, PathPart, ValidFunc) ->
+    Name = orddict:fetch(name, Data),
+    SHA = orddict:fetch(commit, Data),
+    wallaroo:put_branch(Name, SHA),
+    {true, ReqData, Ctx};
 from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
     {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
     Name = orddict:fetch(name, Data),
