@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_branch/2, list_entities/1, list_entities/2, list_tags/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -65,11 +65,19 @@ get_branch(Name) ->
     gen_server:call(?SERVER,  {get_branch, Name}).
 
 put_branch(Name, Commit) ->
-    gen_server:call(?SERVER,  {get_branch, Name, Commit}).
+    put_branch(Name, Commit, [], []).
+
+put_branch(Name, C, Anno, Meta) ->
+    Commit = canonicalize_hash(C),
+    gen_server:call(?SERVER,  {put_branch, Name, Commit, Anno, Meta}).
+
 
 put_tag(Name, C) ->
+    put_tag(Name, C, [], []).
+
+put_tag(Name, C, Anno, Meta) ->
     Commit = canonicalize_hash(C),
-    gen_server:call(?SERVER,  {put_tag, Name, Commit}).
+    gen_server:call(?SERVER,  {put_tag, Name, Commit, Anno, Meta}).
 
 value_check(node, {wallaby_node, _}) ->
     ok;
@@ -124,17 +132,17 @@ handle_call({get_branch, Name}, _From, {StoreMod}=State) ->
 handle_call({get_tag, Name}, _From, {StoreMod}=State) ->
     TagObj = StoreMod:find_tag(Name),
     {reply, TagObj, State};
-handle_call({put_branch, Name, Commit}, _From, {StoreMod}=State) ->
-    Obj = StoreMod:store_branch(Name, Commit),
+handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
+    Obj = StoreMod:store_branch(Name, wallaroo_branch:new(Name, Commit, Anno, Meta)),
     {reply, Obj, State};
-handle_call({put_tag, Name, Commit}, _From, {StoreMod}=State) ->
+handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(Commit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     V = wallaroo_validators:pcompose(wallaby_validators:make_activate_validators(Tree, StoreMod)),
     case V(Tree, StoreMod) of
 	ok ->
 	    error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
-	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, [], [])),
+	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, Anno, Meta)),
 	    {reply, TagObj, State};
 	{fail, _}=F ->
 	    error_logger:warning_msg("put_tag FAILURE because ~p~n", [F]),
