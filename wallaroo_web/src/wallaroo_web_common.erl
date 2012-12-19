@@ -1,5 +1,5 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6, dump_json/3, generic_to_json/4, generic_from_json/5, generic_from_json/6]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6]).
 
 
 -record(ww_ctx, {show_all=false, name, commit, branch, via, head}). 
@@ -37,10 +37,10 @@ generic_entity_exists_nc(ReqData,  #ww_ctx{show_all=true}=Ctx, _, _) ->
 generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
     EntityName = wrq:path_info(name, ReqData),
     case LookupFun(EntityName) of
-	Fail when fail =:= find_failed orelse fail =:= none ->
+	Fail when Fail =:= find_failed orelse Fail =:= none ->
 	    {false, ReqData, Ctx};
 	Head ->
-	    {true, ReqData, Ctx#ww_ctx={head={What, Head}}}
+	    {true, ReqData, Ctx#ww_ctx{head={What, Head}}}
     end.
 
 
@@ -58,6 +58,18 @@ generic_find(Commit, FindFunc, DumpFunc, Name, ReqData, Ctx) ->
 		Result ->
 		    DumpFunc(Result, ReqData, Ctx)
 	    end
+    end.
+
+
+generic_find_nc(FindFunc, Name, ReqData, Ctx) ->
+    generic_find_nc(FindFunc, fun dump_json/3, Name, ReqData, Ctx).
+
+generic_find_nc(FindFunc, DumpFunc, Name, ReqData, Ctx) ->
+    case FindFunc(Name) of 
+	none ->
+	    {{halt, 404}, ReqData, Ctx};
+	Result ->
+	    DumpFunc(Result, ReqData, Ctx)
     end.
 
 get_starting_commit(ReqData, Ctx) ->
@@ -85,15 +97,20 @@ get_starting_commit(ReqData, Ctx) ->
 	    {Commit, Ctx#ww_ctx{via=commit}}
     end.
 
-generic_to_json(ReqData, #ww_ctx{show_all=true}=Ctx, ListFun, _GetFun) ->
+generic_to_json(ReqData, Ctx, ListFun, GetFun) ->
+    generic_to_json(ReqData, Ctx, ListFun, GetFun, true).
+
+generic_to_json(ReqData, #ww_ctx{show_all=true}=Ctx, ListFun, _GetFun, CommitMatters) ->
     {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
-    {Payload, _, _} = case Commit of 
-		  none -> dump_json([], ReqData, NewCtx);
+    {Payload, _, _} = case {generic_to_json, Commit, CommitMatters} of 
+		  {generic_to_json, none, true} -> dump_json([], ReqData, NewCtx);
 		  _ -> dump_json(ListFun(Commit), ReqData, NewCtx)
 	      end,
     {Payload, ReqData, NewCtx};
-generic_to_json(ReqData, #ww_ctx{name=Name, commit=Commit}=Ctx, _ListFun, GetFun) ->
-    wallaroo_web_common:generic_find(Commit, GetFun, Name, ReqData, Ctx).
+generic_to_json(ReqData, #ww_ctx{name=Name, commit=Commit}=Ctx, _ListFun, GetFun, true) ->
+    wallaroo_web_common:generic_find(Commit, GetFun, Name, ReqData, Ctx);
+generic_to_json(ReqData, #ww_ctx{name=Name}=Ctx, _ListFun, GetFun, false) ->
+    wallaroo_web_common:generic_find_nc(GetFun, Name, ReqData, Ctx).
 
 stringize_sha(<<CommitNum:160/big-unsigned-integer>>) ->
     lists:flatten(io_lib:format("~40.16.0b", [CommitNum])).
@@ -142,25 +159,40 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 	    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
     end.
 
+orddict_default_fetch(key, Dict, Default) ->
+    case orddict:find(key, Dict) of
+	{ok, V} ->
+	    V;
+	error ->
+	    Default
+    end.
 
-from_json_helper(Data, ReqData, Ctx, NewFunc, tag, PathPart, ValidFunc) ->
+from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
     Name = orddict:fetch(name, Data),
     SHA = orddict:fetch(commit, Data),
-    Meta = orddict:fetch(meta, Data),
-    Annotation = orddict:fetch(annotation, Data),
+    Meta = orddict_default_fetch(meta, Data, []),
+    Annotation = orddict_default_fetch(annotation, Data, []),
     error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
     case {tag_fjh, wallaroo:put_tag(Name, SHA, Annotation, Meta)} of
 	{tag_fjh, {fail, Failure}} ->
 	    ResponseBody = wrq:append_to_response(mochijson:binary_encode([Failure]), ReqData),
-	    {{halt, 400}, ResponseBody, NewCtx};
+	    {{halt, 400}, ResponseBody, Ctx};
 	_ ->
-	    {true, ReqData, Ctx}
+	    NewLocation = io_lib:format("/~s/~s", [PathPart, Name]),
+	    error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
+	    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
+	    {true, Redir, Ctx}
     end;
-from_json_helper(Data, ReqData, Ctx, NewFunc, branch, PathPart, ValidFunc) ->
+from_json_helper(Data, ReqData, Ctx, _NewFunc, branch, PathPart, _ValidFunc) ->
     Name = orddict:fetch(name, Data),
     SHA = orddict:fetch(commit, Data),
-    wallaroo:put_branch(Name, SHA),
-    {true, ReqData, Ctx};
+    Meta = orddict_default_fetch(meta, Data, []),
+    Annotation = orddict_default_fetch(annotation, Data, []),
+    wallaroo:put_branch(Name, SHA, Annotation, Meta),
+    NewLocation = io_lib:format("/~s/~s", [PathPart, Name]),
+    error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
+    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
+    {true, Redir, Ctx};
 from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
     {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
     Name = orddict:fetch(name, Data),
