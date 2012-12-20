@@ -46,6 +46,9 @@ list_entities(Kind, Commit) when ?VALID_ENTITY_KIND(Kind) ->
 list_tags() ->
     gen_server:call(?SERVER, {list_tags}).
 
+list_branches() ->
+    gen_server:call(?SERVER, {list_branches}).
+
 get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
     case get_tag(<<"current">>) of
 	find_failed ->
@@ -106,6 +109,8 @@ handle_cast(stop, State) ->
 
 handle_call({list_tags}, _From, {StoreMod}=State) ->
     {reply, StoreMod:tags(), State};
+handle_call({list_branches}, _From, {StoreMod}=State) ->
+    {reply, StoreMod:branches(), State};
 handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
@@ -133,7 +138,7 @@ handle_call({get_tag, Name}, _From, {StoreMod}=State) ->
     TagObj = StoreMod:find_tag(Name),
     {reply, TagObj, State};
 handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
-    Obj = StoreMod:store_branch(Name, wallaroo_branch:new(Name, Commit, Anno, Meta)),
+    Obj = StoreMod:store_branch(Name, wallaroo_branch:new(Commit, Anno, Meta)),
     {reply, Obj, State};
 handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(Commit, StoreMod),
