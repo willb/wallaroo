@@ -159,8 +159,8 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 	    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
     end.
 
-orddict_default_fetch(key, Dict, Default) ->
-    case orddict:find(key, Dict) of
+orddict_default_fetch(Key, Dict, Default) ->
+    case orddict:find(Key, Dict) of
 	{ok, V} ->
 	    V;
 	error ->
@@ -175,7 +175,7 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
     error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
     case {tag_fjh, wallaroo:put_tag(Name, SHA, Annotation, Meta)} of
 	{tag_fjh, {fail, Failure}} ->
-	    ResponseBody = wrq:append_to_response(mochijson:binary_encode([Failure]), ReqData),
+	    ResponseBody = wrq:append_to_response_body(mochijson:binary_encode([Failure]), ReqData),
 	    {{halt, 400}, ResponseBody, Ctx};
 	_ ->
 	    NewLocation = io_lib:format("/~s/~s", [PathPart, Name]),
