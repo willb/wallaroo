@@ -10,6 +10,9 @@ new(Commit, Annotation, Meta) when is_binary(Commit) ->
     OrderedMeta = orddict:from_list(Meta),
     {?TAG_TUPLE_TAG, {Commit, Annotation, OrderedMeta}}.
 
+store(Name, {?TAG_TUPLE_TAG, {_C, _A, _M}}=Tag, StoreMod) ->
+    store(Name, Tag, StoreMod, none).
+
 store(Name, {?TAG_TUPLE_TAG, {CommitHash, _A, _M}}=Tag, StoreMod, Validator) when is_function(Validator, 2) ->
     Commit = StoreMod:find_commit(CommitHash),
     Tree = wallaroo_commit:get_tree(Commit, StoreMod),
