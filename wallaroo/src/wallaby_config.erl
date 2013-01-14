@@ -39,8 +39,7 @@ handle_cast(stop, State) ->
     {stop, normal, State}.
 
 handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
-    
-    {reply, [], State}.
+    {reply, generic_find(Kind, Name, Commit, State), State}.
 
 handle_info(_X, State) ->
     {noreply, State}.
@@ -108,7 +107,7 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=
     %% get feature object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
     %% apply included feature configs to empty config; these should already be in the cache
-    BaseConfig = lists:foldl(apply_factory(true, State), [], [cache_find(Kind, Included, Commit, State) || Included <- lists:reverse(wallaby_feature:includes(EntityObj))]),
+    BaseConfig = lists:foldl(apply_factory(true, State), [], [cache_fetch(Kind, Included, Commit, State) || Included <- lists:reverse(wallaby_feature:includes(EntityObj))]),
     %% resolve "defaulted" parameters
     MyConfig = orddict:map(fun(Param, 0) ->
 				   {value, PObj} = wallaroo_tree:get_path([path_for_kind(parameter), Param], Tree, StoreMod),
@@ -123,14 +122,14 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=
     %% get group object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
     %% apply installed feature configs to empty config; these should already be in the cache
-    BaseConfig = lists:foldl(apply_factory(true, State), [], [cache_find(feature, Installed, Commit, State) || Installed <- lists:reverse(wallaby_group:features(EntityObj))]),
+    BaseConfig = lists:foldl(apply_factory(true, State), [], [cache_fetch(feature, Installed, Commit, State) || Installed <- lists:reverse(wallaby_group:features(EntityObj))]),
     %% apply my parameters to the base config
     cache_store(Kind, Name, Commit, apply_to(BaseConfig, wallaby_group:parameters(EntityObj), true, State), State); 
 calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=StoreMod}=State) 
   when Kind =:= 'node' ->
     %% get node object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
-    Config = lists:foldl(apply_factory(false, State), [], [cache_find(group, Membership, Commit, State) || Membership <- lists:reverse(wallaby_node:all_memberships(EntityObj))]),
+    Config = lists:foldl(apply_factory(false, State), [], [cache_fetch(group, Membership, Commit, State) || Membership <- lists:reverse(wallaby_node:all_memberships(EntityObj))]),
     cache_store(Kind, Name, Commit, Config, State).
     
     
@@ -188,12 +187,22 @@ cache_store(Kind, Name, Commit, Config, #cstate{table=Cache}) ->
     Config.
 
 cache_find(Kind, Name, Commit, #cstate{table=Cache}) ->
-    ok.
-
-generic_find(Kind, Name, Commit, #cstate{table=Cache}) ->
     case ets:match(Cache, {{Kind, Name, Commit}, '$1'}) of
 	[[Config]] ->
-	    Config;
+	    {value, Config};
 	 _ ->
 	    find_failed
+    end.
+
+cache_fetch(Kind, Name, Commit, State) ->
+    {value, Result} = cache_find(Kind, Name, Commit, State),
+    Result.
+
+generic_find(Kind, Name, Commit, State) ->
+    case cache_find(Kind, Name, Commit, State) of
+	{value, Config} ->
+	    {value, Config};
+	 find_failed ->
+	    calc_configs(Commit, State),
+	    cache_fetch(Kind, Name, Commit, State)
     end.
