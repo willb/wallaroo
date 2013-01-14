@@ -24,6 +24,7 @@ empty() ->
 -spec new(parents(), tree_id(), changes(), meta()) -> commit().
 new([_|_]=Parents, Tree, Changes, Meta) 
   when is_list(Changes), is_list(Parents), is_list(Meta) ->
+    error_logger:warning_msg("Parents = ~p~nTree = ~p~nChanges = ~p~nMeta = ~p~n", [Parents, Tree, Changes, Meta]),
     OrderedParents = lists:sort(Parents),
     OrderedMeta = orddict:from_list(Meta),
     {?COMMIT_TUPLE_TAG, {OrderedParents, Tree, Changes, OrderedMeta}}.

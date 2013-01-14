@@ -1,6 +1,6 @@
 -module(wallaroo_tree).
 % XXX:  should store/3 and friends be exported?
--export([empty/0, store/3, find/2, has/2, get_path/3, put_path/4, del_path/3, put_tree/2, diff/2, resolve/3, children/2]).
+-export([empty/0, store/3, find/2, has/2, get_path/3, fetch_path/3, put_path/4, del_path/3, put_tree/2, diff/2, resolve/3, children/2]).
 
 -define(DEBUG, yes).
 
@@ -160,8 +160,15 @@ get_path(Path, Tree, StoreMod) ->
 	[#res_none{}|_] ->
 	    none;
 	[#res_some{kv={_,V}}|_] ->
-	    unwrap_object(V)
+	    {value, unwrap_object(V)}
     end.
+
+%% @doc returns the result of looking up a path when that path is known to exist (fails otherwise)
+-spec fetch_path([binary()|atom()], _, atom()) -> find_result().
+fetch_path(Path, Tree, StoreMod) ->
+    {fetch_path, {value, V}} = {fetch_path, get_path(Path, Tree, StoreMod)},
+    V.
+		     
 
 %% @doc stores Val in Tree at PathPart, assuming that no component of PathPart is already in Tree; returns hash for updated Tree
 fold_absent([Key], {?TAG_OBJECT, _}=Val, {?TAG_BUCKETED_TREE, _, _}=Tree, _, StoreMod) ->
@@ -299,30 +306,30 @@ simple_test_() ->
       fun() -> test_setup(), first_fixture() end,
       fun(_) -> test_teardown() end,
       [?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t0), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t0), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t1), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t1), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t2), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t2), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t3), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t3), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
-		    wallaroo_tree:get_path([a,b,c,d,0], find_fixture_tree(t4), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T1", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t1), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,e], find_fixture_tree(t1), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T2", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t2), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,e], find_fixture_tree(t2), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T2", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t3), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,e], find_fixture_tree(t3), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/e for T2", 
-		    wallaroo_tree:get_path([a,b,c,d,e], find_fixture_tree(t4), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,c,d,e], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertEqual("a/b/x for T3", 
-		    wallaroo_tree:get_path([a,b,x], find_fixture_tree(t3), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,x], find_fixture_tree(t3), wallaroo_store_ets)),
       ?_assertEqual("a/b/x for T3", 
-		    wallaroo_tree:get_path([a,b,x], find_fixture_tree(t4), wallaroo_store_ets)),
+		    wallaroo_tree:fetch_path([a,b,x], find_fixture_tree(t4), wallaroo_store_ets)),
       ?_assertEqual("a/b/y for T4", 
-		    wallaroo_tree:get_path([a,b,y], find_fixture_tree(t4), wallaroo_store_ets)),
-      ?_assertNot("a/b/y for T4" =:=
+		    wallaroo_tree:fetch_path([a,b,y], find_fixture_tree(t4), wallaroo_store_ets)),
+      ?_assertNot({value, "a/b/y for T4"} =:=
 		       wallaroo_tree:get_path([a,b,y], find_fixture_tree(t1), wallaroo_store_ets))]}}.
 
 splitting_test_() ->
@@ -330,7 +337,7 @@ splitting_test_() ->
      {setup,
       fun() -> test_setup(), second_fixture() end,
       fun(_) -> test_teardown() end,
-      [?_assertEqual(X, wallaroo_tree:get_path([x,y,z,list_to_atom("element_" ++ integer_to_list(X))], find_fixture_tree(sft), wallaroo_store_ets)) || X <- lists:seq(1,?BIG_TEST_SIZE)]}}.
+      [?_assertEqual(X, wallaroo_tree:fetch_path([x,y,z,list_to_atom("element_" ++ integer_to_list(X))], find_fixture_tree(sft), wallaroo_store_ets)) || X <- lists:seq(1,?BIG_TEST_SIZE)]}}.
 	      
 
 -endif.

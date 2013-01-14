@@ -1,10 +1,10 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
+%% @author William Benton <willb@redhat.com>
+%% @copyright 2011 Red Hat, Inc., and William C. Benton
 
 %% @doc Supervisor for the wallaroo_web application.
 
 -module(wallaroo_web_sup).
--author('author <author@example.com>').
+-author('William Benton <willb@redhat.com>').
 
 -behaviour(supervisor).
 
@@ -53,5 +53,8 @@ init([]) ->
     Web = {webmachine_mochiweb,
            {webmachine_mochiweb, start, [WebConfig]},
            permanent, 5000, worker, dynamic},
-    Processes = [Web],
+    Wallaroo = {wallaroo_sup,
+           {wallaroo_sup, start_link, []},
+           permanent, 5000, supervisor, [wallaroo]},
+    Processes = [Wallaroo, Web],
     {ok, { {one_for_one, 10, 10}, Processes} }.

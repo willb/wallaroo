@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, put_entity/3, put_entity/4, put_tag/2, list_entities/1, list_entities/2, list_tags/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0, list_branches/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -46,6 +46,9 @@ list_entities(Kind, Commit) when ?VALID_ENTITY_KIND(Kind) ->
 list_tags() ->
     gen_server:call(?SERVER, {list_tags}).
 
+list_branches() ->
+    gen_server:call(?SERVER, {list_branches}).
+
 get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
     case get_tag(<<"current">>) of
 	find_failed ->
@@ -61,9 +64,23 @@ get_entity(Name, Kind, Commit) ->
 get_tag(Name) ->
     gen_server:call(?SERVER,  {get_tag, Name}).
 
-put_tag(Name, C) ->
+get_branch(Name) ->
+    gen_server:call(?SERVER,  {get_branch, Name}).
+
+put_branch(Name, Commit) ->
+    put_branch(Name, Commit, [], []).
+
+put_branch(Name, C, Anno, Meta) ->
     Commit = canonicalize_hash(C),
-    gen_server:call(?SERVER,  {put_tag, Name, Commit}).
+    gen_server:call(?SERVER,  {put_branch, Name, Commit, Anno, Meta}).
+
+
+put_tag(Name, C) ->
+    put_tag(Name, C, [], []).
+
+put_tag(Name, C, Anno, Meta) ->
+    Commit = canonicalize_hash(C),
+    gen_server:call(?SERVER,  {put_tag, Name, Commit, Anno, Meta}).
 
 value_check(node, {wallaby_node, _}) ->
     ok;
@@ -92,6 +109,8 @@ handle_cast(stop, State) ->
 
 handle_call({list_tags}, _From, {StoreMod}=State) ->
     {reply, StoreMod:tags(), State};
+handle_call({list_branches}, _From, {StoreMod}=State) ->
+    {reply, StoreMod:branches(), State};
 handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
@@ -112,12 +131,28 @@ handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) w
 handle_call({put, What, Name, Value}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     Tree = wallaroo_tree:empty(),
     {reply, put_path(What, Name, Value, Tree, StoreMod, empty), State};
+handle_call({get_branch, Name}, _From, {StoreMod}=State) ->
+    Obj = StoreMod:find_branch(Name),
+    {reply, Obj, State};
 handle_call({get_tag, Name}, _From, {StoreMod}=State) ->
     TagObj = StoreMod:find_tag(Name),
     {reply, TagObj, State};
-handle_call({put_tag, Name, Commit}, _From, {StoreMod}=State) ->
-    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, [], [])),
-    {reply, TagObj, State}.
+handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
+    Obj = StoreMod:store_branch(Name, wallaroo_branch:new(Commit, Anno, Meta)),
+    {reply, Obj, State};
+handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
+    CommitObj = get_commit(Commit, StoreMod),
+    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+    V = wallaroo_validators:pcompose(wallaby_validators:make_activate_validators(Tree, StoreMod)),
+    case V(Tree, StoreMod) of
+	ok ->
+	    error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
+	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, Anno, Meta)),
+	    {reply, TagObj, State};
+	{fail, _}=F ->
+	    error_logger:warning_msg("put_tag FAILURE because ~p~n", [F]),
+	    {reply, F, State}
+    end.
 
 handle_info(_X, State) ->
     {noreply, State}.
