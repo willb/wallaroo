@@ -21,7 +21,7 @@ module Wallaroo
       
       [:name, :identity_group, :memberships].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
-        declare_attribute what, :readonly
+        declare_attribute what
       end
       
       declare_attribute :provisioned
