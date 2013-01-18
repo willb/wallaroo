@@ -33,10 +33,10 @@ module Wallaroo
         end
       end
       
-      [[:depends, "depend on"], [:conflicts, "conflict with"]].each do |what, explain|
-        define_method "modify#{Util.camelcase(what.to_s)}" do |command, fset, *options|
+      [[:depends, "depends on"], [:conflicts, "conflicts with"]].each do |what, explain|
+        define_method "modify#{Util.camelcase(what.to_s)}" do |command, pset, *options|
           options = options[0] || {}
-          modify_arcs(command,fset,options,what,"#{what}=",:explain=>explain)
+          modify_arcs(command,pset,options,what,"#{what}=",:explain=>explain)
           update!
         end
       end
