@@ -16,7 +16,7 @@ require 'wallaroo/client'
 
 module Wallaroo
   module Client
-    class Feature
+    class Group
       include ::Wallaroo::Client::Proxying      
       
       [:name, :features, :parameters].each do |what|
