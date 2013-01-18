@@ -18,12 +18,48 @@ module Wallaroo
   module Client
     class Feature
       include ::Wallaroo::Client::Proxying      
+      include ::Wallaroo::Client::ArcUtils
       
       [:name, :includes, :conflicts, :depends, :parameters].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
         declare_attribute what
       end
+      
+      alias included_features includes
+      alias included_features= includes=
 
+      [:name].each do |what|
+        define_method "set#{Util.camelcase(what.to_s)}" do |val|
+          self.attr_vals[what] = val
+          self.update!
+          self.refresh
+        end
+      end
+
+      [[:included_features, "includes", true], 
+       [:depends, "depends on", false], 
+       [:conflicts, "conflicts with", false]].each do |what, explain, order_preserving|
+        define_method "modify#{Util.camelcase(what.to_s)}" do |command, fset, *options|
+          options = options[0] || {}
+          modify_arcs(command,fset,options,what,"#{what}=",:explain=>explain, :preserve_order=>order_preserving)
+          update!
+        end
+      end
+
+      def modifyParams(command, params, options=nil)
+        options ||= {}
+        case command.upcase
+        when "ADD" then
+          self.parameters = self.parameters.merge(params)
+        when "REMOVE" then
+          self.parameters = self.parameters.reject {|k,v| params.include?(k) }
+        when "REPLACE" then
+          self.parameters = params
+        else 
+          fail(Errors.make(Errors::BAD_COMMAND, errwhat), "Invalid command #{command}")
+        end
+        update!
+      end
     end
   end
 end

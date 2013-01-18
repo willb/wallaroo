@@ -24,6 +24,13 @@ module Wallaroo
         declare_attribute what
       end
 
+      alias params parameters
+
+      def modifyParams(command, pset, options=nil)
+        options ||= {}
+        modify_arcs(command,pset,options,:parameters,:parameters=,:explain=>"is interested in")
+        update!
+      end
     end
   end
 end

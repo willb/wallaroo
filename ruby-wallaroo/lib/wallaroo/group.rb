@@ -18,13 +18,41 @@ module Wallaroo
   module Client
     class Group
       include ::Wallaroo::Client::Proxying      
+      include ::Wallaroo::Client::ArcUtils
       
       [:name, :features, :parameters].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
         declare_attribute what
       end
 
+      def explain
+        not_implemented
+      end
+      
+      def getConfig
+        not_implemented
+      end
+
+      def modifyFeatures(command, fset, options=nil)
+        options ||= {}
+        modify_arcs(command,fset,options,:features,:features=,:explain=>explain)
+        update!
+      end
+
+      def modifyParams(command, params, options=nil)
+        options ||= {}
+        case command.upcase
+        when "ADD" then
+          self.parameters = self.parameters.merge(params)
+        when "REMOVE" then
+          self.parameters = self.parameters.reject {|k,v| params.include?(k) }
+        when "REPLACE" then
+          self.parameters = params
+        else 
+          fail(Errors.make(Errors::BAD_COMMAND, errwhat), "Invalid command #{command}")
+        end
+        update!
+      end
     end
   end
 end
-      
