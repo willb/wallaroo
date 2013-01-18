@@ -31,7 +31,7 @@ to_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(Commit) -> wallaroo:list_entities(subsystem, Commit) end, fun(Name, Commit) -> wallaroo:get_entity(Name, subsystem, Commit) end).
 
 from_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_subsystem:new(Nm, true) end, subsystem, "subsystems", fun validate/2).
+    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_subsystem:new(Nm) end, subsystem, "subsystems", fun validate/2).
 
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)

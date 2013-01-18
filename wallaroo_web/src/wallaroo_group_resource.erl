@@ -31,7 +31,7 @@ to_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(Commit) -> wallaroo:list_entities(group, Commit) end, fun(Name, Commit) -> wallaroo:get_entity(Name, group, Commit) end).
 
 from_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_group:new(Nm, true) end, group, "groups", fun validate/2).
+    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_group:new(Nm) end, group, "groups", fun validate/2).
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
 validate({wallaby_group, _}=Group, none) ->

@@ -31,7 +31,7 @@ to_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(Commit) -> wallaroo:list_entities(parameter, Commit) end, fun(Name, Commit) -> wallaroo:get_entity(Name, parameter, Commit) end).
 
 from_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_parameter:new(Nm, true) end, parameter, "parameters", fun validate/2).
+    wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_parameter:new(Nm) end, parameter, "parameters", fun validate/2).
 
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
@@ -41,6 +41,7 @@ validate({wallaby_parameter, _}=Parameter, none) ->
     case [Fail || Fail={_, Ls} <- [Depends, Conflicts], Ls =/= []] of
 	[] -> ok;
 	Ls ->
+	    error_logger:warning_msg("param validation failed; errors are ~p~n", [Ls]),
 	    {error, Ls}
     end;
 validate({wallaby_parameter, _}=Parameter, Commit) ->
@@ -49,5 +50,6 @@ validate({wallaby_parameter, _}=Parameter, Commit) ->
     case [Fail || Fail={_, Ls} <- [BadDepends, BadConflicts], Ls =/= []] of
 	[] -> ok;
 	Ls ->
+	    error_logger:warning_msg("param validation failed; errors are ~p~n", [Ls]),
 	    {error, Ls}
     end.
