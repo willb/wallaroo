@@ -34,12 +34,12 @@ module Wallaroo
     end
     
     class ConnectionMeta
-      DEFAULTS = {:host=>"localhost", :port=>8080, :scheme=>"http", :username=>"", :pw=>""}
+      DEFAULTS = {:host=>"localhost", :port=>8000, :scheme=>"http", :username=>"", :pw=>""}
 
       attr_reader :host, :port, :scheme, :username, :pw, :how
       def initialize(options=nil)
         options ||= {}
-        options = options.merge(DEFAULTS)
+        options = DEFAULTS.merge(options)
         %w{host port scheme username pw}.each do |attribute|
           self.instance_variable_set("@#{attribute}", options[attribute.to_sym])
         end
@@ -66,9 +66,9 @@ module Wallaroo
         end
         
         def update!(sha)
-          return if how == :branch
-          how = :commit
-          what = sha
+          return if how == :branch          
+          self.how = :commit
+          self.what = sha
         end
       end
       
@@ -76,21 +76,26 @@ module Wallaroo
         [:branch, :tag, :commit].map do |kind| 
           what = options[kind] 
           what ? How.new(kind, what) : nil
-        end.find(How.new(:tag, "current")) {|v| v != nil }
+        end.find(Proc.new {How.new(:tag, "current")}) {|v| v != nil }
       end
       
       module CM
         def declare_attribute(name, readonly=nil)
           ensure_accessors
           attributes << name.to_s
-          (class << self ; self ; end).class_eval do
-            define_method name do
+          getter_name = "#{name}".to_sym
+          setter_name = "#{name}=".to_sym
+          
+          self.class_eval do
+            define_method getter_name do
               attr_vals[name]
             end
             
-            define_method "#{name}=" do |new_val|
-              attr_vals[name] = new_val
-            end unless readonly
+            unless readonly
+              define_method setter_name do |new_val|
+                attr_vals[name] = new_val
+              end
+            end
           end
         end
         
@@ -117,7 +122,7 @@ module Wallaroo
         end
       
         def refresh
-          response = Net::HTTP.get_response(url.to_s)
+          response = Net::HTTP.get_response(url)
           unless response.code == "200"
             # XXX: improve error handling to be on par with QMF client
             fatal response.body, response.code
@@ -126,7 +131,7 @@ module Wallaroo
           hash = JSON.parse(response.body)
           
           self.class.attributes.each do |name|
-            attr_vals[name] = hash[name]
+            attr_vals[name.to_sym] = hash[name]
           end
           
           self
@@ -161,8 +166,11 @@ module Wallaroo
             fatal response.body, response.code
           end
 
+          puts "response.header['location'] is #{response.header["location"]}"
+
           update_commit(response.header["location"])
           @url = nil
+          url
           self
         end
         
@@ -177,9 +185,14 @@ module Wallaroo
         end
         
         def update_commit(location)
+          puts "location is '#{location}'"
+          
           match = location.match(/.*?(commit)=([0-9a-f]+)/)
+          
+          puts "match is #{match}"
+          
           if match
-            cm.how.update(match[2])
+            cm.how.update!(match[2])
           end
         end
       end
@@ -188,6 +201,7 @@ module Wallaroo
         receiver.extend CM
         receiver.send :include, IM
         receiver.send :include, ::Wallaroo::Client::Util
+        receiver.send :attr_accessor, :cm, :path
       end
     end   
   end
