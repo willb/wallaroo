@@ -59,7 +59,6 @@ module Wallaroo
       def make_proxy_object(kind, name)
         klazz = ::Wallaroo::Client.const_get(kind.to_s.capitalize)
         result = klazz.new("/#{kind.to_s.downcase}s/#{name}", self)
-        result.name = name
         result
       end
     end
@@ -123,9 +122,10 @@ module Wallaroo
       
       module IM
         def initialize(path, cm)
-          @path = path
+          pathparts = path.split("/")
+          @path = pathparts.map {|elt| URI.encode(elt)}.join("/")
           @cm = cm
-          @attr_vals = {}
+          @attr_vals = {:name=>pathparts[-1]}
         end
 
         def exists?
@@ -134,6 +134,7 @@ module Wallaroo
         end
       
         def refresh
+          @url = nil
           response = Net::HTTP.get_response(url)
           unless response.code == "200"
             # XXX: improve error handling to be on par with QMF client
@@ -162,8 +163,7 @@ module Wallaroo
           end
 
           update_commit(response.header["location"])
-          @url = nil
-          self
+          self.refresh
         end
         
         def create!
@@ -181,9 +181,7 @@ module Wallaroo
           puts "response.header['location'] is #{response.header["location"]}"
 
           update_commit(response.header["location"])
-          @url = nil
-          url
-          self
+          self.refresh
         end
         
         def attr_vals
@@ -192,7 +190,6 @@ module Wallaroo
 
         private
         def url
-          # XXX invalidate this
           @url ||= URI::HTTP.new(cm.scheme, nil, cm.host, cm.port, nil, path, nil, cm.how.to_q, nil) 
         end
         
