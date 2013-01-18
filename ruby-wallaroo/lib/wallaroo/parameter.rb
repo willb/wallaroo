@@ -18,12 +18,28 @@ module Wallaroo
   module Client
     class Parameter
       include ::Wallaroo::Client::Proxying      
+      include ::Wallaroo::Client::ArcUtils
       
-      [:name, :depends, :conflicts, :kind, :description, :default_val, :must_change].each do |what|
+      [:name, :depends, :conflicts, :kind, :description, :default_val, :must_change, :visibility_level, :requires_restart].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
         declare_attribute what
       end
-
+      
+      [:name, :kind, :description, :default_val, :must_change, :visibility_level, :requires_restart].each do |what|
+        define_method "set#{Util.camelcase(what.to_s)}" do |val|
+          self.attr_vals[what] = val
+          self.update!
+          self.refresh
+        end
+      end
+      
+      [[:depends, "depend on"], [:conflicts, "conflict with"]].each do |what, explain|
+        define_method "modify#{Util.camelcase(what.to_s)}" do |command, fset, *options|
+          options = options[0] || {}
+          modify_arcs(command,fset,options,what,"#{what}=",:explain=>explain)
+          update!
+        end
+      end
     end
   end
 end
