@@ -19,15 +19,16 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 	undefined ->
 	    {false, ReqData, NewCtx};
 	[_|_]=Name ->
+	    BName = list_to_binary(Name),
 	    case Commit of 
 		none ->
 		    {false, ReqData, NewCtx};
 		_ ->
-		    case LookupFun(Name, Commit) of
+		    case LookupFun(BName, Commit) of
 			none ->
 			    {false, ReqData, NewCtx};
 			_ ->
-			    {true, ReqData, NewCtx#ww_ctx{name=Name,commit=Commit}}
+			    {true, ReqData, NewCtx#ww_ctx{name=BName,commit=Commit}}
 		    end
 	    end
     end.
@@ -55,7 +56,7 @@ generic_find(Commit, FindFunc, DumpFunc, Name, ReqData, Ctx) ->
 	    case FindFunc(Name, Commit) of 
 		none ->
 		    {{halt, 404}, ReqData, Ctx};
-		Result ->
+		{value, Result} ->
 		    DumpFunc(Result, ReqData, Ctx)
 	    end
     end.
@@ -68,7 +69,7 @@ generic_find_nc(FindFunc, DumpFunc, Name, ReqData, Ctx) ->
     case FindFunc(Name) of 
 	none ->
 	    {{halt, 404}, ReqData, Ctx};
-	Result ->
+	{value, Result} ->
 	    DumpFunc(Result, ReqData, Ctx)
     end.
 
@@ -135,7 +136,13 @@ jsonify_entry(X) ->
 
 -spec fix_json({atom(), orddict:orddict()}) -> {struct, orddict:orddict()}.
 fix_json({_Kind, EntityDict}) ->
-    {struct, [jsonify_entry(Entry) || Entry <- EntityDict]}.
+    {struct, [jsonify_entry(Entry) || Entry <- EntityDict]};
+fix_json(<<Str/binary>>) ->
+    Str;
+fix_json(Str) when is_list(Str) ->
+    error_logger:warning_msg("called fix_json(\"~s\") with list instead of binary~n", [Str]),
+    list_to_binary(Str).
+
 
 generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart) ->
     generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, fun(_,_) -> ok end).
@@ -154,8 +161,11 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 		{ok, _} ->
 		    from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
 	    end;
-        Name ->
+        Name when is_binary(Name) ->
 	    NamedData = orddict:store(name, Name, Data),
+	    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc);
+	Name when is_list(Name) ->
+	    NamedData = orddict:store(name, list_to_binary(Name), Data),
 	    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
     end.
 
