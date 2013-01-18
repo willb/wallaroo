@@ -11,7 +11,7 @@
 
 -spec new(binary()) -> group().
 new(Name) when is_binary(Name) ->
-    Dict = orddict:from_list([{name, Name}, {features, []}, {parameters, nil}]),
+    Dict = orddict:from_list([{name, Name}, {features, []}, {parameters, []}]),
     {?GROUP_TUPLE_TAG, Dict}.
 
 -spec name(group()) -> binary().
