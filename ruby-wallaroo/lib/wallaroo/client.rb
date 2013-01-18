@@ -24,6 +24,11 @@ module Wallaroo
         raise "#{message}, #{code}"
       end
       
+      # for backwards-compatibility with ported Wallaby code
+      def fail(code, message)
+        fatal(message, code)
+      end
+      
       def current_caller
         caller[1] =~ /`([^']*)'/ and $1
       end
@@ -31,6 +36,11 @@ module Wallaroo
       def not_implemented
         fatal "#{self.class.name}##{current_caller} is not implemented"
       end
+      
+      def self.camelcase(str)
+        str.capitalize.gsub(/_([a-z])/) {|match| match[1].chr.upcase}
+      end
+      
     end
     
     class ConnectionMeta
@@ -48,7 +58,9 @@ module Wallaroo
       
       def make_proxy_object(kind, name)
         klazz = ::Wallaroo::Client.const_get(kind.to_s.capitalize)
-        klazz.new("/#{kind.to_s.downcase}s/#{name}", self)
+        result = klazz.new("/#{kind.to_s.downcase}s/#{name}", self)
+        result.name = name
+        result
       end
     end
     
@@ -139,7 +151,7 @@ module Wallaroo
       
         def update!
           http = Net::HTTP.new(url.host, url.port)
-          request = Net::HTTP::Post.new(url.request_uri)
+          request = Net::HTTP::Put.new(url.request_uri)
           request.body = attr_vals.to_json
           request.content_type = "application/json"
           
@@ -200,6 +212,7 @@ module Wallaroo
       def self.included(receiver)
         receiver.extend CM
         receiver.send :include, IM
+
         receiver.send :include, ::Wallaroo::Client::Util
         receiver.send :attr_accessor, :cm, :path
       end

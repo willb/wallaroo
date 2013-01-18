@@ -13,6 +13,8 @@
 # limitations under the License.
 
 require 'wallaroo/client'
+require 'wallaroo/errors'
+require 'wallaroo/arc_utils'
 require 'wallaroo/node'
 require 'wallaroo/feature'
 require 'wallaroo/parameter'
