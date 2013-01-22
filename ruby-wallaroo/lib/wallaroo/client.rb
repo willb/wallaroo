@@ -19,6 +19,10 @@ require 'uri'
 module Wallaroo
   module Client
     module Util
+      def self.camelcase(str)
+        str.capitalize.gsub(/_([a-z])/) {|match| match[1].chr.upcase}
+      end
+      
       private
       def fatal(message, code=nil)
         raise "#{message}, #{code}"
@@ -35,12 +39,7 @@ module Wallaroo
           
       def not_implemented
         fatal "#{self.class.name}##{current_caller} is not implemented"
-      end
-      
-      def self.camelcase(str)
-        str.capitalize.gsub(/_([a-z])/) {|match| match[1].chr.upcase}
-      end
-      
+      end      
     end
     
     class ConnectionMeta
@@ -67,13 +66,13 @@ module Wallaroo
       class How
         attr_accessor :how, :what
         
-        def initialize(how, what)
+        def initialize(how, what=nil)
           @how = how
           @what = what
         end
         
         def to_q
-          "#{how.to_s}=#{URI.encode(what)}"
+          how == :none ? nil : "#{how.to_s}=#{URI.encode(what)}"
         end
         
         def update!(sha)
@@ -84,7 +83,7 @@ module Wallaroo
       end
       
       def self.mk_how(options)
-        [:branch, :tag, :commit].map do |kind| 
+        [:branch, :tag, :commit, :none].map do |kind| 
           what = options[kind] 
           what ? How.new(kind, what) : nil
         end.find(Proc.new {How.new(:tag, "current")}) {|v| v != nil }
@@ -126,6 +125,10 @@ module Wallaroo
           @path = pathparts.map {|elt| URI.encode(elt)}.join("/")
           @cm = cm
           @attr_vals = {:name=>pathparts[-1]}
+        end
+        
+        def inspect
+          "<#{self.class.name.to_s}: #{self.name rescue self.object_id}>"
         end
 
         def exists?
@@ -190,7 +193,9 @@ module Wallaroo
 
         private
         def url
-          @url ||= URI::HTTP.new(cm.scheme, nil, cm.host, cm.port, nil, path, nil, cm.how.to_q, nil) 
+          @url ||= URI::HTTP.new(cm.scheme, nil, cm.host, cm.port, nil, path, nil, cm.how.to_q, nil)
+          puts "just made a URL:  #{@url}"
+          @url
         end
         
         def update_commit(location)
