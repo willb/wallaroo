@@ -181,7 +181,7 @@ module Wallaroo
             fatal response.body, response.code
           end
 
-          puts "response.header['location'] is #{response.header["location"]}"
+          puts "response.header['location'] is #{response.header["location"]}" if $WALLAROO_CLIENT_DEBUG
 
           update_commit(response.header["location"])
           self.refresh
@@ -194,16 +194,16 @@ module Wallaroo
         private
         def url
           @url ||= URI::HTTP.new(cm.scheme, nil, cm.host, cm.port, nil, path, nil, cm.how.to_q, nil)
-          puts "just made a URL:  #{@url}"
+          puts "just made a URL:  #{@url}"  if $WALLAROO_CLIENT_DEBUG
           @url
         end
         
         def update_commit(location)
-          puts "location is '#{location}'"
+          puts "location is '#{location}'"  if $WALLAROO_CLIENT_DEBUG
           
           match = location.match(/.*?(commit)=([0-9a-f]+)/)
           
-          puts "match is #{match}"
+          puts "match is #{match}"  if $WALLAROO_CLIENT_DEBUG
           
           if match
             cm.how.update!(match[2])
