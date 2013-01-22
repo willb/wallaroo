@@ -60,6 +60,12 @@ module Wallaroo
         result = klazz.new("/#{kind.to_s.downcase}s/#{name}", self)
         result
       end
+      
+      def fetch_json_resource(path)
+        url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, self.how.to_q, nil)
+        response = Net::HTTP.get_response(url)
+        JSON.parse(response.body)
+      end
     end
     
     module Proxying

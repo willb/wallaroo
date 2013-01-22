@@ -46,9 +46,10 @@ module Wallaroo
       end
       
       def getConfig(options=nil)
-        # TODO
         options ||= {}
-        not_implemented
+        not_implemented unless options.empty?
+        
+        cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}")
       end
       
       def whatChanged(old_version, new_version)
@@ -68,4 +69,3 @@ module Wallaroo
     end
   end
 end
-      
