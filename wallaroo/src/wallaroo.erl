@@ -15,6 +15,7 @@
 
 start_link() ->
     error_logger:info_msg("entering WALLAROO start_link/0 ~n", []),
+    %% XXX: initialize non-ETS storage here
     wallaroo_store_ets:init([]),
     Result = try 
 		 gen_server:start_link({local, ?SERVER}, ?MODULE, [], [])
@@ -25,9 +26,21 @@ start_link() ->
     Result.
 
 init([]) ->
-    {ok, {wallaroo_store_ets}};
+    init([{storemod, wallaroo_store_ets}]);
 init([{storemod, StoreMod}]) ->
+    case StoreMod:find_tag(<<"empty">>) of
+	find_failed ->
+	    setup_empty(StoreMod);
+	_ ->
+	    pass
+    end,
     {ok, {StoreMod}}.
+
+setup_empty(StoreMod) ->
+    EmptyCommitSHA = wallaroo_commit:store(wallaroo_commit:empty(), StoreMod),
+    {EmptyTreeSHA, _} = wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod),
+    SHA = wallaroo_commit:store(wallaroo_commit:new([EmptyCommitSHA], EmptyTreeSHA, [], []), StoreMod),
+    wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 %%% API functions
 
@@ -113,6 +126,7 @@ handle_call({list_branches}, _From, {StoreMod}=State) ->
     {reply, StoreMod:branches(), State};
 handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
+%    error_logger:warning_msg("list/2 StartingCommit=~p, CommitObj=~p~n", [StartingCommit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     case wallaroo_tree:get_path([xlate_what(Kind)], Tree, StoreMod) of
 	{value, Entities} ->
@@ -122,10 +136,12 @@ handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     end;
 handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
+%    error_logger:warning_msg("get/3 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     {reply, get_path(What, Name, Tree, StoreMod), State};
 handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
+%    error_logger:warning_msg("put/4 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     {reply, put_path(What, Name, Value, Tree, StoreMod, StartingCommit), State};
 handle_call({put, What, Name, Value}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
@@ -142,6 +158,7 @@ handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     {reply, Obj, State};
 handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(Commit, StoreMod),
+%    error_logger:warning_msg("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     V = wallaroo_validators:pcompose(wallaby_validators:make_activate_validators(Tree, StoreMod)),
     case V(Tree, StoreMod) of
