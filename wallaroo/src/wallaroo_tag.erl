@@ -15,6 +15,7 @@ store(Name, {?TAG_TUPLE_TAG, {_C, _A, _M}}=Tag, StoreMod) ->
 
 store(Name, {?TAG_TUPLE_TAG, {CommitHash, _A, _M}}=Tag, StoreMod, Validator) when is_function(Validator, 2) ->
     Commit = StoreMod:find_commit(CommitHash),
+    error_logger:warning_msg("wallaroo_tag:store/4:  Name=~p, Tag=~p, Commit=~p~n", [Name, Tag, Commit]),
     Tree = wallaroo_commit:get_tree(Commit, StoreMod),
     case Validator(Tree, StoreMod) of
 	ok -> 
