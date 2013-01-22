@@ -79,17 +79,18 @@ get_starting_commit(ReqData, Ctx) ->
     Tag=list_to_binary(mochiweb_util:unquote(wrq:get_qs_value("tag", "", ReqData))),
     Commit=mochiweb_util:unquote(wrq:get_qs_value("commit", "", ReqData)),
     Branch=list_to_binary(mochiweb_util:unquote(wrq:get_qs_value("branch", "", ReqData))),
+    error_logger:warning_msg("wallaroo_web_common:get_starting_commit/2 Tag=~p, Commit=~p, Branch=~p~n", [Tag, Commit, Branch]),
     case {get_starting_commit, Branch, Tag, Commit} of
-    	{get_starting_commit, [], [], []} ->
+    	{get_starting_commit, <<>>, <<>>, []} ->
 	    {none, Ctx};
-	{get_starting_commit, _, [], []} ->
+	{get_starting_commit, _, <<>>, []} ->
 	    case wallaroo:get_branch(Branch) of
 		{wallaroo_branch, _}=TTerm ->
 		    {wallaroo_branch:get_commit(TTerm), Ctx#ww_ctx{via={branch, Branch}}};
 		find_failed ->
 		    {none, Ctx}
 	    end;
-	{get_starting_commit, [], _, []} ->
+	{get_starting_commit, <<>>, _, []} ->
 	    case wallaroo:get_tag(Tag) of
 		{wallaroo_tag, _}=TTerm ->
 		    {wallaroo_tag:get_commit(TTerm), Ctx#ww_ctx{via={tag, Tag}}};
