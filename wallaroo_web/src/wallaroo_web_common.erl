@@ -1,11 +1,15 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6, config_for/1]).
 
 
--record(ww_ctx, {show_all=false, name, commit, branch, via, head}). 
+-record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for}). 
 -define(DO_TRACE, {trace, "priv"}).
 
+config_for(#ww_ctx{config_for=Kind}) ->
+    Kind.
 
+generic_init([{config_for, Kind}]) ->
+    {?DO_TRACE, #ww_ctx{config_for=Kind}};
 generic_init([{show_all}]) ->
     {?DO_TRACE, #ww_ctx{show_all=true}};
 generic_init(_) ->
