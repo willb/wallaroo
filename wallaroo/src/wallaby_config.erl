@@ -8,7 +8,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--export([for/3]).
+-export([has/3, for/3, cache_dump/0]).
 
 -compile([export_all]).
 
@@ -39,24 +39,29 @@ init(_) ->
 has(Kind, Name, Commit) ->
     gen_server:call(?SERVER, {has_config, Kind, Name, Commit}).
 
-
 for(Kind, Name, Commit) ->
     gen_server:call(?SERVER, {config_for, Kind, Name, Commit}).
+
+cache_dump() ->
+    gen_server:call(?SERVER, {cache_dump}).
 
 %%% gen_server callbacks
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+handle_call({cache_dump}, _From, #cstate{table=C}=State) ->
+    {reply, ets:tab2list(C), State};
 handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=State) ->
     Result = generic_lookup(Kind, Name, Commit, State, false),
     case Result of
-	Config when is_list(Config) ->
+	{value, Config} when is_list(Config) ->
 	    {reply, true, State};
 	_ ->
 	    {reply, Result, State}
     end;
 handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
-    {reply, generic_lookup(Kind, Name, Commit, State, []), State}.
+    {value, Config} = generic_lookup(Kind, Name, Commit, State, []),
+    {reply, Config, State}.
 
 handle_info(_X, State) ->
     {noreply, State}.
@@ -73,7 +78,7 @@ generic_lookup(Kind, Name, Commit, #cstate{storage=StoreMod}=State, Default) ->
     CommitObj = StoreMod:find_commit(canonicalize_hash(Commit)),
     case CommitObj of
 	{wallaroo_commit, _} ->
-	    generic_find(Kind, Name, CommitObj, State, Default);
+	    generic_find(Kind, Name, Commit, CommitObj, State, Default);
 	_ ->
 	    {error, {bad_commit, Commit, CommitObj}}
     end.
@@ -112,8 +117,8 @@ interesting_install_vertex(_) ->
 %% interesting_value_edge(X) ->
 %%     interesting_install_edge(X).
 
-calc_configs(Commit, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
-    Tree = wallaby_commit:get_tree(Commit, StoreMod),
+calc_configs(Commit, CommitObj, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
+    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     {Entities, Relationships} = wallaby_graph:extract_graph(Tree, StoreMod),
     Installs = digraph:new([private]),
     [digraph:add_vertex(Installs, Ent) || Ent <- Entities, interesting_install_vertex(Ent)],
@@ -150,6 +155,7 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=
     cache_store(Kind, Name, Commit, apply_to(BaseConfig, MyConfig, true, State), State);
 calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=StoreMod}=State) 
   when Kind =:= 'group' ->
+    error_logger:warning_msg("wallaby_config:calc_one_config/4:  {~p,~p}, ~p, ~p~n", [Kind, Name, Tree, Commit]),
     %% get group object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
     %% apply installed feature configs to empty config; these should already be in the cache
@@ -218,6 +224,7 @@ cache_store(Kind, Name, Commit, Config, #cstate{table=Cache}) ->
     Config.
 
 cache_find(Kind, Name, Commit, #cstate{table=Cache}) ->
+    error_logger:warning_msg("cache_find/4 Kind=~p, Name=~p, Commit=~p~n", [Kind, Name, Commit]),
     case ets:match(Cache, {{Kind, Name, Commit}, '$1'}) of
 	[[Config]] ->
 	    {value, Config};
@@ -237,14 +244,14 @@ cache_fetch(Kind, Name, Commit, State, Default) ->
 	    Default
     end.
 
-generic_find(Kind, Name, Commit, State) ->
-    generic_find(Kind, Name, Commit, State, []).
+generic_find(Kind, Name, Commit, CommitObj, State) ->
+    generic_find(Kind, Name, Commit, CommitObj, State, []).
 
-generic_find(Kind, Name, Commit, State, Default) ->
+generic_find(Kind, Name, Commit, CommitObj, State, Default) ->
     case cache_find(Kind, Name, Commit, State) of
 	{value, Config} ->
 	    {value, Config};
 	 find_failed ->
-	    calc_configs(Commit, State),
+	    calc_configs(Commit, CommitObj, State),
 	    cache_fetch(Kind, Name, Commit, State, Default)
     end.
