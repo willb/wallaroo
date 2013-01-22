@@ -38,8 +38,10 @@ init([{storemod, StoreMod}]) ->
 
 setup_empty(StoreMod) ->
     EmptyCommitSHA = wallaroo_commit:store(wallaroo_commit:empty(), StoreMod),
-    {EmptyTreeSHA, _} = wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod),
-    SHA = wallaroo_commit:store(wallaroo_commit:new([EmptyCommitSHA], EmptyTreeSHA, [], []), StoreMod),
+    {BasicTreeSHA, _} = lists:foldl(fun(Group, {_, T}) ->
+					    wallaroo_tree:put_path([<<"groups">>, Group], wallaby_group:new(Group), T, StoreMod)
+				    end, wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod), [<<"+++SKEL">>, <<"+++DEFAULT">>]),
+    SHA = wallaroo_commit:store(wallaroo_commit:new([EmptyCommitSHA], BasicTreeSHA, [], []), StoreMod),
     wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 %%% API functions
@@ -106,10 +108,23 @@ value_check(parameter, {wallaby_parameter, _}) ->
 value_check(subsystem, {wallaby_subsystem, _}) ->
     ok.
 
+
+put_entity(Name, node, Value) ->
+    value_check(node, Value),
+    IdGroup = wallaby_node:identity_group(Value),
+    Whence = canonicalize_hash(put_entity(IdGroup, group, wallaby_group:new(IdGroup))),
+    gen_server:call(?SERVER,  {put, node, Name, Value, Whence});
 put_entity(Name, Kind, Value) when ?VALID_ENTITY_KIND(Kind) ->
     value_check(Kind, Value),
     gen_server:call(?SERVER,  {put, Kind, Name, Value}).
 
+
+put_entity(Name, node, Value, SuppliedCommit) ->
+    value_check(node, Value),
+    IdGroup = wallaby_node:identity_group(Value),
+    C = canonicalize_hash(SuppliedCommit),
+    Whence = canonicalize_hash(put_entity(IdGroup, group, wallaby_group:new(IdGroup), C)),
+    gen_server:call(?SERVER,  {put, node, Name, Value, Whence});
 put_entity(Name, Kind, Value, SuppliedCommit) when ?VALID_ENTITY_KIND(Kind) ->
     value_check(Kind, Value),
     C = canonicalize_hash(SuppliedCommit),
