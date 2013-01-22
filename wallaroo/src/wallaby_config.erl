@@ -16,6 +16,11 @@
 
 -define(SERVER, ?MODULE).
 
+start_link() ->
+    Result = gen_server:start_link({local, ?SERVER}, ?MODULE, [], []),
+    error_logger:info_msg("wallaby_config:start_link result ~p~n", [Result]),
+    Result.
+
 init(Options) when is_list(Options) ->
     {ok, RE} = re:compile(list_to_binary("(?-mix:^(?:(>=|&&=|\\?=|\\|\\|=)\\s*)+(.*?)\\s*$)")),
     Table = ets:new(config, []),
@@ -31,6 +36,10 @@ init(_) ->
 
 %%% API functions
 
+has(Kind, Name, Commit) ->
+    gen_server:call(?SERVER, {has_config, Kind, Name, Commit}).
+
+
 for(Kind, Name, Commit) ->
     gen_server:call(?SERVER, {config_for, Kind, Name, Commit}).
 
@@ -38,8 +47,16 @@ for(Kind, Name, Commit) ->
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=State) ->
+    Result = generic_lookup(Kind, Name, Commit, State, false),
+    case Result of
+	Config when is_list(Config) ->
+	    {reply, true, State};
+	_ ->
+	    {reply, Result, State}
+    end;
 handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
-    {reply, generic_find(Kind, Name, Commit, State), State}.
+    {reply, generic_lookup(Kind, Name, Commit, State, []), State}.
 
 handle_info(_X, State) ->
     {noreply, State}.
@@ -52,8 +69,22 @@ code_change(_, State, _) ->
 
 %%% helpers
 
+generic_lookup(Kind, Name, Commit, #cstate{storage=StoreMod}=State, Default) ->
+    CommitObj = StoreMod:find_commit(canonicalize_hash(Commit)),
+    case CommitObj of
+	{wallaroo_commit, _} ->
+	    generic_find(Kind, Name, CommitObj, State, Default);
+	_ ->
+	    {error, {bad_commit, Commit, CommitObj}}
+    end.
 
-%% XXX: refactor me plz
+
+%% XXX: refactor dupes plz
+canonicalize_hash(String) when is_list(String) ->
+    wallaroo_hash:hash_to_bitstring(String);
+canonicalize_hash(BS) when is_binary(BS) ->
+    BS.
+
 transitively_reachable(Graph, StartNode) ->
     ordsets:from_list(digraph_utils:reachable_neighbours([StartNode], Graph)).
 
@@ -194,15 +225,26 @@ cache_find(Kind, Name, Commit, #cstate{table=Cache}) ->
 	    find_failed
     end.
 
+%% XXX:  after changing how cache_fetch works, there's no reason to keep both it and _find
 cache_fetch(Kind, Name, Commit, State) ->
-    {value, Result} = cache_find(Kind, Name, Commit, State),
-    Result.
+    cache_fetch(Kind, Name, Commit, State, []).
+
+cache_fetch(Kind, Name, Commit, State, Default) ->
+    case cache_find(Kind, Name, Commit, State) of
+	{value, Result} ->
+	    Result;
+	find_failed ->
+	    Default
+    end.
 
 generic_find(Kind, Name, Commit, State) ->
+    generic_find(Kind, Name, Commit, State, []).
+
+generic_find(Kind, Name, Commit, State, Default) ->
     case cache_find(Kind, Name, Commit, State) of
 	{value, Config} ->
 	    {value, Config};
 	 find_failed ->
 	    calc_configs(Commit, State),
-	    cache_fetch(Kind, Name, Commit, State)
+	    cache_fetch(Kind, Name, Commit, State, Default)
     end.
