@@ -1,12 +1,16 @@
 -module(wallaroo_web_common).
 -export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6, config_for/1]).
-
+-export([known_meta_atoms/0]).
 
 -record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for}). 
 -define(DO_TRACE, {trace, "priv"}).
 
 config_for(#ww_ctx{config_for=Kind}) ->
     Kind.
+
+%% returns a list of atoms we will recognize in tag and branch metadata
+known_meta_atoms() ->
+    [validated].
 
 generic_init([{config_for, Kind}]) ->
     {?DO_TRACE, #ww_ctx{config_for=Kind}};
@@ -40,12 +44,12 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 generic_entity_exists_nc(ReqData,  #ww_ctx{show_all=true}=Ctx, _, _) ->
     {true, ReqData, Ctx};
 generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
-    EntityName = wrq:path_info(name, ReqData),
+    EntityName = ensure_str_format(wrq:path_info(name, ReqData), binary),
     case LookupFun(EntityName) of
 	Fail when Fail =:= find_failed orelse Fail =:= none ->
 	    {false, ReqData, Ctx};
 	Head ->
-	    {true, ReqData, Ctx#ww_ctx{head={What, Head}}}
+	    {true, ReqData, Ctx#ww_ctx{head={What, Head}, name=EntityName}}
     end.
 
 
@@ -73,9 +77,9 @@ generic_find_nc(FindFunc, Name, ReqData, Ctx) ->
 generic_find_nc(FindFunc, DumpFunc, Name, ReqData, Ctx) ->
     error_logger:warning_msg("in generic_find_nc and name is ~p~n", [Name]),
     case FindFunc(Name) of 
-	none ->
+	Fail when Fail =:= none orelse Fail =:= find_failed ->
 	    {{halt, 404}, ReqData, Ctx};
-	{value, Result} ->
+	Result ->
 	    DumpFunc(Result, ReqData, Ctx)
     end.
 
@@ -141,7 +145,9 @@ jsonify_entry({BTV, Ls}) when is_list(Ls), BTV =:= meta orelse BTV =:= annotatio
 jsonify_entry(X) ->
     X.
 
--spec fix_json({atom(), orddict:orddict()}) -> {struct, orddict:orddict()}.
+-spec fix_json({atom(), any()|orddict:orddict()}) -> {struct, orddict:orddict()}.
+fix_json({Head, {SHA, Anno, Meta}}) when Head =:= wallaroo_tag orelse Head =:= wallaroo_branch ->
+    {struct, [{commit, ensure_str_format(wallaroo_hash:bitstring_to_string(SHA), binary)}, {annotation, Anno}, {meta, {struct, [jsonify_entry(Entry) || Entry <- Meta]}}]};
 fix_json({_Kind, EntityDict}) ->
     {struct, [jsonify_entry(Entry) || Entry <- EntityDict]};
 fix_json(<<Str/binary>>) ->
@@ -182,10 +188,34 @@ orddict_default_fetch(Key, Dict, Default) ->
 	    Default
     end.
 
+ensure_str_format(Str, list) when is_list(Str) ->
+    Str;
+ensure_str_format(Str, binary) when is_list(Str) ->
+    list_to_binary(Str);
+ensure_str_format(Bin, list) when is_binary(Bin) ->
+    binary_to_list(Bin);
+ensure_str_format(Bin, binary) when is_binary(Bin) ->
+    Bin.
+
+atomize_pair({K, V}) when is_list(K) orelse is_binary(K) ->
+    BK = ensure_str_format(K, binary),
+    case catch binary_to_existing_atom(BK, latin1) of
+	AK when is_atom(AK) ->
+	    {AK, V};
+	_ ->
+	    {BK, V}
+    end;
+atomize_pair({K, V}) ->
+    {K, V}.
+
+atomize_meta(Dict) ->
+    error_logger:warning_msg("atomize_meta/1:  Dict=~p~n", [Dict]),
+    [atomize_pair(Pair) || Pair <- Dict].
+
 from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
-    Name = orddict:fetch(name, Data),
-    SHA = orddict:fetch(commit, Data),
-    Meta = orddict_default_fetch(meta, Data, []),
+    Name = ensure_str_format(orddict:fetch(name, Data), binary),
+    SHA = ensure_str_format(orddict:fetch(commit, Data), list),
+    Meta = atomize_meta(orddict_default_fetch(meta, Data, [])),
     Annotation = orddict_default_fetch(annotation, Data, []),
     error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
     case {tag_fjh, wallaroo:put_tag(Name, SHA, Annotation, Meta)} of
@@ -199,9 +229,9 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
 	    {true, Redir, Ctx}
     end;
 from_json_helper(Data, ReqData, Ctx, _NewFunc, branch, PathPart, _ValidFunc) ->
-    Name = orddict:fetch(name, Data),
-    SHA = orddict:fetch(commit, Data),
-    Meta = orddict_default_fetch(meta, Data, []),
+    Name = ensure_str_format(orddict:fetch(name, Data), binary),
+    SHA = ensure_str_format(orddict:fetch(commit, Data), list),
+    Meta = atomize_meta(orddict_default_fetch(meta, Data, [])),
     Annotation = orddict_default_fetch(annotation, Data, []),
     wallaroo:put_branch(Name, SHA, Annotation, Meta),
     NewLocation = io_lib:format("/~s/~s", [PathPart, mochiweb_util:quote_plus(Name)]),
@@ -239,9 +269,9 @@ from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 	    {{halt, 400}, ResponseBody, NewCtx}
     end.
 
-peel({struct, [_|_]=UnpeeledDict}) ->
+peel({struct, UnpeeledDict}) when is_list(UnpeeledDict) ->
     Dict = [{K,peel(V)} || {K,V} <- UnpeeledDict],
     orddict:from_list(Dict);
-peel({array, [_|_]=Ls}) ->
+peel({array, Ls}) when is_list(Ls) ->
     [peel(Elt) || Elt <- Ls];
 peel(X) -> X.

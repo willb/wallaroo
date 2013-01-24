@@ -173,9 +173,14 @@ handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     {reply, Obj, State};
 handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(Commit, StoreMod),
-%    error_logger:warning_msg("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
+    error_logger:warning_msg("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    V = wallaroo_validators:pcompose(wallaby_validators:make_activate_validators(Tree, StoreMod)),
+    V = case orddict:find(validated, Meta) of
+	    {ok, true} ->
+		wallaroo_validators:pcompose(wallaby_validators:make_activate_validators(Tree, StoreMod));
+	    _ ->
+		fun(_,_) -> ok end
+	end,
     case V(Tree, StoreMod) of
 	ok ->
 	    error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
