@@ -209,7 +209,6 @@ atomize_pair({K, V}) ->
     {K, V}.
 
 atomize_meta(Dict) ->
-    error_logger:warning_msg("atomize_meta/1:  Dict=~p~n", [Dict]),
     [atomize_pair(Pair) || Pair <- Dict].
 
 from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
