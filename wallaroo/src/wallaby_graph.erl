@@ -108,8 +108,8 @@ extract_group_entities(GroupObjects) when is_list(GroupObjects) ->
 			Name = {'group', wallaby_group:name(Group)},
 			InstalledFeatures = ordsets:from_list([{'installs', Name, {'feature', F}} || F <- wallaby_group:features(Group)]),
 			PVPairs = ordsets:from_list([{{'parameter', P}, V} || {P, V} <- wallaby_group:parameters(Group)]),
-			ParamValues = ordsets:from_list([{'param_value}', Name, PV} || PV <- PVPairs]),
-			InstalledParams = ordsets:from_list([{'sets_param', Name, {'parameter', P}} || {P, _} <- PVPairs]),
+			ParamValues = ordsets:from_list([{'param_value', Name, PV} || PV <- PVPairs]),
+			InstalledParams = ordsets:from_list([{'sets_param', Name, P} || {P, _} <- PVPairs]),
 			{ordsets:union([[Name],PVPairs, Entities]), ordsets:union([InstalledFeatures,InstalledParams,ParamValues,Relationships])}
 			 end, {[], []}, GroupObjects).
 
@@ -120,8 +120,8 @@ extract_feature_entities(FeatureObjects) when is_list(FeatureObjects) ->
 			Deps = ordsets:from_list([{'depends_on', Name, {feature, F}} || F <- wallaby_feature:depends(Feature)]),
 			Cnfs = ordsets:from_list([{'conflicts_with', Name, {feature, F}} || F <- wallaby_feature:depends(Feature)]),
 			PVPairs = ordsets:from_list([{{'parameter', P}, V} || {P, V} <- wallaby_feature:parameters(Feature)]),
-			ParamValues = ordsets:from_list([{'param_value}', Name, PV} || PV <- PVPairs]),
-			InstalledParams = [{'sets_param', Name, {'parameter', P}} || {P, _} <- PVPairs],
+			ParamValues = ordsets:from_list([{'param_value', Name, PV} || PV <- PVPairs]),
+			InstalledParams = [{'sets_param', Name, P} || {P, _} <- PVPairs],
 			{ordsets:union([[Name], PVPairs, Entities]), ordsets:union([Incs,Deps,Cnfs,InstalledParams,ParamValues,Relationships])}
 			 end, {[], []}, FeatureObjects).
 
