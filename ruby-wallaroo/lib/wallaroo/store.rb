@@ -176,8 +176,7 @@ module Wallaroo
       end
 
       def removeSubsys(name)
-        check_result(@qmfo.removeSubsys(name))
-        nil
+        not_implemented
       end
         
       def activateConfig

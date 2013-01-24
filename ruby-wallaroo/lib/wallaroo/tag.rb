@@ -13,13 +13,21 @@
 # limitations under the License.
 
 require 'wallaroo/client'
-require 'wallaroo/errors'
-require 'wallaroo/arc_utils'
-require 'wallaroo/node'
-require 'wallaroo/feature'
-require 'wallaroo/parameter'
-require 'wallaroo/group'
-require 'wallaroo/subsystem'
-require 'wallaroo/tag'
-require 'wallaroo/branch'
-require 'wallaroo/store'
+
+module Wallaroo
+  module Client
+    class Tag
+      include ::Wallaroo::Client::Proxying
+      
+      [:name, :commit, :annotation, :meta].each do |what|
+        # XXX: distinguish sensibly between readonly and read-write attributes
+        declare_attribute what
+      end
+      
+      private
+      def skip_q
+        true
+      end
+    end
+  end
+end

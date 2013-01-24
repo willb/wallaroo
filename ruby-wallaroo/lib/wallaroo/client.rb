@@ -66,6 +66,20 @@ module Wallaroo
         response = Net::HTTP.get_response(url)
         JSON.parse(response.body)
       end
+      
+      def put_json_resource(path, object, skip_q=false)
+        url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, skip_q ? nil : self.how.to_q, nil)
+        http = Net::HTTP.new(url.host, url.port)
+        request = Net::HTTP::Put.new(url.request_uri)
+        request.body = object.to_json
+        request.content_type = "application/json"
+          
+        response = http.request(request)
+          
+        unless response.code =~ /^2/
+          fatal response.body, response.code
+        end
+      end
     end
     
     module Proxying
@@ -199,9 +213,13 @@ module Wallaroo
 
         private
         def url
-          @url ||= URI::HTTP.new(cm.scheme, nil, cm.host, cm.port, nil, path, nil, cm.how.to_q, nil)
+          @url ||= URI::HTTP.new(cm.scheme, nil, cm.host, cm.port, nil, path, nil, skip_q ? nil : cm.how.to_q, nil)
           puts "just made a URL:  #{@url}"  if $WALLAROO_CLIENT_DEBUG
           @url
+        end
+        
+        def skip_q
+          false
         end
         
         def update_commit(location)
