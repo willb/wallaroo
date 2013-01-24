@@ -28,9 +28,7 @@ finish_request(ReqData, Ctx) ->
     {true, ReqData, Ctx}.
 
 to_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(_) -> wallaroo:list_tags() end, fun(Name, _) -> wallaroo:get_tag(Name) end, false).
+    wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(_) -> [Name || {Name, _} <- wallaroo:list_tags()] end, fun(Name) -> wallaroo:get_tag(Name) end, false).
 			      
 from_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(_) -> ok end, tag, "tags").
-
-								
