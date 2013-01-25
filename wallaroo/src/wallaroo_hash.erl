@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_hash).
--export([as_bitstring/1, as_string/1, as_num/1, hash_to_bitstring/1, hash_to_num/1]).
+-export([as_bitstring/1, as_string/1, as_num/1, hash_to_bitstring/1, hash_to_num/1, bitstring_to_string/1]).
 -export_type([bin/0, hexdigit/0, hexstring/0]).
 
 -type bin() :: <<_:160>>.
@@ -30,6 +30,10 @@ hash_to_bitstring(S) ->
 
 hash_to_num(S) ->
     generic_to_num(S, fun wallaroo_hash:hash_to_bitstring/1).
+
+bitstring_to_string(B) ->
+    <<SHA:160/big-unsigned-integer>> = B,
+    lists:flatten(io_lib:format("~40.16.0b", [SHA])).
 
 hexdigit_to_int(I) when I =< $9 andalso I >= $0 ->
     I - $0;

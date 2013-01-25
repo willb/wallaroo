@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_tag).
--compile(export_all).
+-export([new/3, store/3, get_meta/2, get_annotation/1, get_commit/1, store_without_validating/3, store/4]).
 
 -define(TAG_TUPLE_TAG, wallaroo_tag).
 
@@ -10,8 +10,12 @@ new(Commit, Annotation, Meta) when is_binary(Commit) ->
     OrderedMeta = orddict:from_list(Meta),
     {?TAG_TUPLE_TAG, {Commit, Annotation, OrderedMeta}}.
 
+store(Name, {?TAG_TUPLE_TAG, {_C, _A, _M}}=Tag, StoreMod) ->
+    store(Name, Tag, StoreMod, none).
+
 store(Name, {?TAG_TUPLE_TAG, {CommitHash, _A, _M}}=Tag, StoreMod, Validator) when is_function(Validator, 2) ->
     Commit = StoreMod:find_commit(CommitHash),
+    error_logger:warning_msg("wallaroo_tag:store/4:  Name=~p, Tag=~p, Commit=~p~n", [Name, Tag, Commit]),
     Tree = wallaroo_commit:get_tree(Commit, StoreMod),
     case Validator(Tree, StoreMod) of
 	ok -> 

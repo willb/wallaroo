@@ -1,10 +1,10 @@
-%% @author author <author@example.com>
-%% @copyright YYYY author.
+%% @author William C. Benton <willb@redhat.com>
+%% @copyright 2012 Red Hat, Inc. and William C. Benton.
 
 %% @doc Callbacks for the wallaroo_web application.
 
 -module(wallaroo_web_app).
--author('author <author@example.com>').
+-author('William C. Benton <willb@redhat.com>').
 
 -behaviour(application).
 -export([start/2,stop/1]).

@@ -28,8 +28,9 @@ start_link() ->
 
 init(_) ->
     error_logger:info_msg("in WALLAROO SUP init callback ~n", []),
-    Server = ?CHILD(wallaroo, worker),
-    Children = [Server],
+    APIServer = ?CHILD(wallaroo, worker),
+    ConfigServer = ?CHILD(wallaby_config, worker),
+    Children = [APIServer, ConfigServer],
     RestartStrategy = {one_for_one, 1, 60},
     Result = {ok, {RestartStrategy, Children}},
     error_logger:info_msg("returning ~p from WALLAROO SUP init callback ~n", [Result]),
