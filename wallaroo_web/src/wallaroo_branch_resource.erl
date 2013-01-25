@@ -28,7 +28,7 @@ finish_request(ReqData, Ctx) ->
     {true, ReqData, Ctx}.
 
 to_json(ReqData, Ctx) ->
-    wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(_) -> wallaroo:list_branches() end, fun(Name, _) -> wallaroo:get_branch(Name) end, false).
+    wallaroo_web_common:generic_to_json(ReqData, Ctx, fun(_) -> [Name || {Name, _} <- wallaroo:list_branches()] end, fun(Name) -> wallaroo:get_branch(Name) end, false).
 			      
 from_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(_) -> ok end, branch, "branches").

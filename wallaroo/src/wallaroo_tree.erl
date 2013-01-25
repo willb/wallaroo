@@ -201,7 +201,7 @@ fold_present(ResolvedPath, {H, _}=Val, StoreMod) when is_bitstring(H) ->
     lists:foldl(FF, Val, KTs).
 
 %% @doc stores a value at a given path
--spec put_path([binary()|atom()], object() | binary(), tree(), atom()) -> {binary(), any()}.
+-spec put_path([binary()|atom()], any() | binary(), tree(), atom()) -> {binary(), any()}.
 put_path(Path, {?TAG_OBJECT, _}=Object, Tree, StoreMod) when is_list(Path) ->
     ResolvedPath = resolve(Path, Tree, StoreMod),
     case ResolvedPath of
