@@ -27,11 +27,8 @@ module Wallaroo
       
       [:Feature, :Group, :Node, :Parameter, :Subsystem].each do |klass|
         mname = "check#{klass}Validity".to_sym
-        # XXX: probably best to use REST API list-entity support
         define_method mname.to_sym do |eset|
-          eset.collect([]) do |entity, acc| 
-            acc << entity unless cm.make_proxy_object(klass, entity).exists?
-          end
+          eset.sort - cm.list_objects(klass).sort
         end
       end
         
@@ -43,7 +40,7 @@ module Wallaroo
       
       [:Feature, :Group, :Node, :Parameter, :Subsystem].each do |klass|
         define_method "#{klass.to_s.downcase}s" do
-          not_implemented
+          cm.list_objects(klass)
         end
       end
       

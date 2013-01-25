@@ -57,8 +57,13 @@ module Wallaroo
       
       def make_proxy_object(kind, name)
         klazz = ::Wallaroo::Client.const_get(kind.to_s.capitalize)
-        result = klazz.new("/#{kind.to_s.downcase}s/#{name}", self)
+        result = klazz.new("/#{klazz.respond_to?(:plural_name) ? klazz.plural_name : (kind.to_s.downcase + "s")}/#{name}", self)
         result
+      end
+      
+      def list_objects(kind)
+        klazz = ::Wallaroo::Client.const_get(kind.to_s.capitalize)
+        fetch_json_resource("/#{klazz.respond_to?(:plural_name) ? klazz.plural_name : (kind.to_s.downcase + "s")}")
       end
       
       def fetch_json_resource(path)
@@ -127,6 +132,10 @@ module Wallaroo
               end
             end
           end
+        end
+        
+        def plural_name
+          (name.split("::").pop.downcase + "s").sub(/hs$/, "hes")
         end
         
         def ensure_accessors
