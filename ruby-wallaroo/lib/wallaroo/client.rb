@@ -23,6 +23,20 @@ module Wallaroo
         str.capitalize.gsub(/_([a-z])/) {|match| match[1].chr.upcase}
       end
       
+      def self.sha_for(cm)
+        return cm.how.what if cm.how.how == :commit
+        where = nil
+
+        if cm.how == :none
+          where = cm.make_proxy_object(:tag, "empty")
+        else
+          where = cm.make_proxy_object(cm.how.how, cm.how.what)
+        end
+        
+        where.refresh
+        where.commit
+      end
+      
       private
       def fatal(message, code=nil)
         raise "#{message}, #{code}"
@@ -39,7 +53,7 @@ module Wallaroo
           
       def not_implemented
         fatal "#{self.class.name}##{current_caller} is not implemented"
-      end      
+      end
     end
     
     class ConnectionMeta
@@ -84,6 +98,10 @@ module Wallaroo
         unless response.code =~ /^2/
           fatal response.body, response.code
         end
+      end
+      
+      def visit!(what, name)
+        @how = Proxying.mk_how({what=>name})
       end
     end
     
