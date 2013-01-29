@@ -1,5 +1,3 @@
-# Wallaroo client infrastructure
-
 # Copyright (c) 2013 Red Hat, Inc.
 # Author:  William Benton (willb@redhat.com)
 
@@ -15,8 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .cmeta import ConnectionMeta
-from .node import node
-from .feature import feature
-from .group import group
-from .parameter import parameter
+def camelcase(value):
+  def ccgen():
+    yield type(value).lower
+    while True:
+       yield type(value).capitalize
+  gen = ccgen()
+  return "".join(gen.next()(x) if x else '_' for x in value.split("_"))

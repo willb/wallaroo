@@ -47,8 +47,14 @@ def proxied_attr_set(name):
 def proxied_attr_getset(name):
     return [proxied_attr_get(name), proxied_attr_set(name)]
 
+def proxied_attr_update(name):
+    def pu(self, val):
+        self.attr_vals[name] = val
+        self.update()
+    pu
+
 class Proxy(object):
-    __metaclass__=Proxying
+    __metaclass__ = Proxying
     
     def __init__(self, path, cm):
         self.path = path
