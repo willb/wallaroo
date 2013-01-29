@@ -14,11 +14,17 @@
 # limitations under the License.
 
 from .how import How
+import urlparse
+import requests
+import json
 
 def mk_how(options):
     PREFERRED_ORDER = ["branch", "tag", "commit", "none"]
     hows = [How(k, options[k]) for k in PREFERRED_ORDER if options.has_key(k)]
     return len(hows) > 0 and hows[0] or How("tag", "current")
+    
+def mk_url(cm, path):
+    return urlparse.urlunparse((cm.scheme, "%s:%d" % (cm.host, cm.port), path, None, None, None))
 
 class ConnectionMeta(object):
     DEFAULTS = {"host":"localhost", "port":8000, "scheme":"http", "username":None, "pw":None}
@@ -38,3 +44,7 @@ class ConnectionMeta(object):
     def list_objects(self, kind):
         klazz = getattr(wallaroo.client, kind)
         self.fetch_json_resource("/%s" % klazz.plural_name, self)
+    
+    def fetch_json_resource(self, path, query=None):
+        q = query and query or self.how.to_q()
+        return requests.get(mk_url(self, path), params=q).json()
