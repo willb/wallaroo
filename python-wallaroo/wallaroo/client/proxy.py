@@ -76,7 +76,7 @@ class Proxy(object):
     
     def refresh(self):
         self.__url = None
-        response = requests.get(self.url, params=self.query)
+        response = requests.get(self.url, params=(self.skip_q and {} or self.query))
         
         if response.status_code != 200:
             raise RuntimeError("Error %d:  %s" % (response.status_code, response.text))
@@ -86,7 +86,7 @@ class Proxy(object):
     def update(self):
         payload = json.dumps(dict([(k,v) for (k,v) in self.attr_vals.iteritems() if v]))
         headers = {'content-type' : 'application/json'}
-        response = requests.put(self.url, params=self.query, data=payload, headers=headers)
+        response = requests.put(self.url, params=(self.skip_q and {} or self.query), data=payload, headers=headers)
         
         if response.status_code < 200 or response.status_code > 399:
             raise RuntimeError("Error %d:  %s" % (response.status_code, response.text))
@@ -105,4 +105,7 @@ class Proxy(object):
         m = re.match(".*?(commit)=([0-9a-f]+)", location)
         if m is not None:
             self.cm.how.update(m.groups()[1])
+    
+    def skip_q(self):
+        False
 

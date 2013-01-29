@@ -1,5 +1,3 @@
-# Wallaroo client infrastructure
-
 # Copyright (c) 2013 Red Hat, Inc.
 # Author:  William Benton (willb@redhat.com)
 
@@ -15,10 +13,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .cmeta import ConnectionMeta
-from .node import node
-from .feature import feature
-from .group import group
-from .parameter import parameter
-from .subsystem import subsystem
-from .heads import tag, branch
+from .proxy import Proxy, proxied_attr, proxied_attr_update
+from .proxy import proxied_attr_get as pag, proxied_attr_set as pas, proxied_attr_getset as pags
+
+class branch(Proxy):
+    pass
+
+class tag(Proxy):
+    pass
+
+for klass in [branch, tag]:
+    for attr in ["name", "commit", "annotation", "meta"]:
+        setattr(klass, "skip_q", lambda slf : True)
+        setattr(klass, attr, property(*pags(attr)))
+        proxied_attr(klass, attr)
