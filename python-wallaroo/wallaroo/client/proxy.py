@@ -25,11 +25,27 @@ class Proxying(type):
     
     def mkpa(cls):
         if 'proxattrs' not in dir(cls):
-            cls.proxattrs = []
+            cls.proxattrs = set([])
         return cls.proxattrs
     
     plural_name = property(pn)
     proxied_attributes = property(mkpa)
+
+def proxied_attr(klass, name):
+    klass.proxied_attributes.add(name)
+
+def proxied_attr_get(name):
+    def aget(self):
+        return self.attr_vals.has_key(name) and self.attr_vals[name] or None
+    return aget
+
+def proxied_attr_set(name):
+    def aset(self, val):
+        self.attr_vals[name] = val
+    return aset
+
+def proxied_attr_getset(name):
+    return [proxied_attr_get(name), proxied_attr_set(name)]
 
 class Proxy(object):
     __metaclass__=Proxying
@@ -40,17 +56,6 @@ class Proxy(object):
         self.__url = None
         self.attr_vals = dict([[k, None] for k in self.__class__.proxied_attributes])
         self.attr_vals["name"] = string.split(path, "/")[-1]
-    
-    def __getattr__(self, name):
-        if name in self.__class__.proxied_attributes:
-            return self.attr_vals[name]
-        raise AttributeError(name)
-        
-    def __setattr__(self, name, val):
-        if name in self.__class__.proxied_attributes:
-            self.attr_vals[name] = val
-            return
-        super(Proxy, self).__setattr__(name, val)
     
     def mkurl(self):
         if self.__url is None:
