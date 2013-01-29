@@ -27,8 +27,6 @@ def mk_url(cm, path):
     return urlparse.urlunparse((cm.scheme, "%s:%d" % (cm.host, cm.port), path, None, None, None))
 
 class ConnectionMeta(object):
-    DEFAULTS = {"host":"localhost", "port":8000, "scheme":"http", "username":None, "pw":None}
-    
     def __init__(self, host="localhost", port=8000, scheme="http", username=None, pw=None, **kwargs):
         self.host = host
         self.port = port
@@ -38,12 +36,12 @@ class ConnectionMeta(object):
         self.client = __import__("wallaroo").client
     
     def make_proxy_object(self, kind, name):
-        klazz = getattr(self.client, kind)
+        klazz = type(kind) is str and getattr(self.client, kind) or kind
         return klazz("/%s/%s" % (klazz.plural_name, name), self)
     
     def list_objects(self, kind):
-        klazz = getattr(wallaroo.client, kind)
-        self.fetch_json_resource("/%s" % klazz.plural_name, self)
+        klazz = getattr(wallaroo.client, kind.lower())
+        self.fetch_json_resource("/%s" % klazz.plural_name)
     
     def fetch_json_resource(self, path, query=None):
         q = query and query or self.how.to_q()

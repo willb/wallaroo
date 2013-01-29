@@ -13,10 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import re
+
 def camelcase(value):
-  def ccgen():
-    yield type(value).lower
-    while True:
-       yield type(value).capitalize
-  gen = ccgen()
-  return "".join(gen.next()(x) if x else '_' for x in value.split("_"))
+    def ccgen():
+        yield type(value).lower
+        while True:
+            yield type(value).capitalize
+    gen = ccgen()
+    return "".join(gen.next()(x) if x else '_' for x in value.split("_"))
+
+def pluralize(val):
+    return re.sub("hs$", "hes", ("%ss" % val).lower())

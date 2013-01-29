@@ -18,10 +18,11 @@ import json
 import requests
 import urlparse
 import string
+from util import pluralize
 
 class Proxying(type):
     def pn(cls): 
-       return re.sub("hs$", "hes", ("%ss" % cls.__name__).lower())
+       return pluralize(cls.__name__)
     
     def mkpa(cls):
         if 'proxattrs' not in dir(cls):
@@ -36,7 +37,10 @@ def proxied_attr(klass, name):
 
 def proxied_attr_get(name):
     def aget(self):
-        return self.attr_vals.has_key(name) and self.attr_vals[name] or None
+        if self.attr_vals.has_key(name):
+            return self.attr_vals[name]
+        else:
+            return None
     return aget
 
 def proxied_attr_set(name):
@@ -51,7 +55,7 @@ def proxied_attr_update(name):
     def pu(self, val):
         self.attr_vals[name] = val
         self.update()
-    pu
+    return pu
 
 class Proxy(object):
     __metaclass__ = Proxying

@@ -18,10 +18,16 @@ from errors import fail
 import itertools
 
 def default_get(d, key, default=None):
-    return d.has_key(key) and d[key] or default
+    if d.has_key(key):
+        return d[key]
+    else: 
+        return default
 
 def default_getattr(o, key, default=None):
-    return hasattr(o,key) and getattr(o,key) or default
+    if hasattr(o,key):
+        return getattr(o,key)
+    else: 
+        return default
 
 def uniq(ls):
     def gen_check_and_add(seen):
