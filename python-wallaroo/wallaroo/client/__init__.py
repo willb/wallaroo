@@ -18,3 +18,4 @@
 from .cmeta import ConnectionMeta
 from .node import node
 from .feature import feature
+from .group import group
