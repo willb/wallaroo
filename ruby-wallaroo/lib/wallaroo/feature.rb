@@ -56,7 +56,7 @@ module Wallaroo
         when "REPLACE" then
           self.parameters = params
         else 
-          fail(Errors.make(Errors::BAD_COMMAND, errwhat), "Invalid command #{command}")
+          fail(Errors.make(Errors::BAD_COMMAND, Errors::FEATURE), "Invalid command #{command}")
         end
         update!
       end
