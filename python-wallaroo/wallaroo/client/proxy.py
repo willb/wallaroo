@@ -81,7 +81,7 @@ class Proxy(object):
             raise RuntimeError("Error %d:  %s" % (response.status_code, response.text))
         
         self.update_commit(response.headers['location'])
-        self.refresh
+        self.refresh()
     
     def create(self):
         self.update()
