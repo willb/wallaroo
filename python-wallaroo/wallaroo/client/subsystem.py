@@ -1,5 +1,3 @@
-# Wallaroo client infrastructure
-
 # Copyright (c) 2013 Red Hat, Inc.
 # Author:  William Benton (willb@redhat.com)
 
@@ -15,9 +13,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .cmeta import ConnectionMeta
-from .node import node
-from .feature import feature
-from .group import group
-from .parameter import parameter
-from .subsystem import subsystem
+from .proxy import Proxy, proxied_attr, proxied_attr_update
+from .proxy import proxied_attr_get as pag, proxied_attr_set as pas, proxied_attr_getset as pags
+
+from .arc_utils import arcmethod, uniq
+
+import errors
+from errors import not_implemented, fail
+
+from util import camelcase
+
+class subsystem(Proxy):
+    name = property(*pags("name"))
+    parameters = property(*pags("parameters"))
+    
+    setName = proxied_attr_update("name")
+    
+    modifyParams = arcmethod(*pags("parameters"), explain="depends on", preserve_order=False, heterogeneous=True)
+
+for attr in ["name", "parameters"]:
+    proxied_attr(subsystem, attr)
