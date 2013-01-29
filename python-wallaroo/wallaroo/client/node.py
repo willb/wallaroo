@@ -21,7 +21,6 @@ from .arc_utils import arcmethod
 import errors
 from errors import not_implemented, fail
 
-
 class node(Proxy):
     name = property(pag("name"))
     memberships = property(*pags("memberships"))
