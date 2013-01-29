@@ -13,11 +13,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .proxy import Proxy
+from .proxy import Proxy, proxied_attr
+from .proxy import proxied_attr_get as pag, proxied_attr_set as pas, proxied_attr_getset as pags
+
+from .arc_utils import arcmethod
+
+import errors
+from errors import not_implemented, fail
+
 
 class node(Proxy):
-    pass
+    name = property(pag("name"))
+    memberships = property(*pags("memberships"))
+    identity_group = property(pag("identity_group"))
+    provisioned = property(*pags("provisioned"))
+    
+    modifyMemberships = arcmethod(pag("memberships"), pas("memberships"), heterogeneous=True, preserve_order=True)
+    
+    def getConfig(self, **options):
+        if len(options) > 0:
+            not_implemented()
+        return self.cm.fetch_json_resource("/config/node/%s" % self.name)
+    
+    def makeProvisioned(self):
+        self.provisioned = True
+        self.update()
+    
+    def explain(self):
+        not_implemented()
+    
+    def whatChanged(old, new):
+        not_implemented()
 
-node.proxied_attributes.append("name")
-node.proxied_attributes.append("memberships")
-node.proxied_attributes.append("identity_group")
+proxied_attr(node, "name")
+proxied_attr(node, "memberships")
+proxied_attr(node, "identity_group")
+proxied_attr(node, "provisioned")
