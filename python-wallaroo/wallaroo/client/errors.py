@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import inspect
+
 FAILURE = 1
   
 # Kinds of failure
@@ -46,3 +48,9 @@ def make(*error_kinds):
 
 def fail(how, msg="no further information"):
     raise RuntimeError("failed with error %d (%s)" % (how, msg))
+
+def not_implemented(msg=""):
+    whence = inspect.stack()[1][3]
+    if len(msg) > 0:
+        msg = " (%s)" % msg
+    raise RuntimeError("%s not implemented%s" % (whence, msg))
