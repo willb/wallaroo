@@ -45,47 +45,49 @@ def union_collections(f, s):
 def diff_collections(f, s):
     return (f | s) - (f & s)
 
-def modify_arcs(self, command, dests, options, getmsg, setmsg, **kwargs):
+def arcmethod(getfun, setfun, **kwargs):
     explain = default_get(kwargs, "explain", "have an arc to")
-    what = default_get(kwargs, "what", self.__class__.__name__.lower())
-    errwhat = default_getattr(errors, what.upper(), errors.UNKNOWN)
-    keyfun = self.name
-    getfun = getattr(self, getmsg)
-    setfun = getattr(self, setmsg)
     preserve_order = default_get(kwargs, "preserve_order", False)
-    command = command.upper()
+    heterogeneous = default_get(kwargs, "heterogeneous", False)
     
-    if command == "ADD":
-        old_dests = preserve_order and getfun() or set(getfun())
-        new_dests = preserve_order and dests or set(dests)
-        if keyfun() in new_dests:
-            fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
+    def modify_arcs(self, command, dests, options):
+        keyfun = self.name
+        command = command.upper()
+        what = default_get(kwargs, "what", self.__class__.__name__.lower())
+        errwhat = default_getattr(errors, what.upper(), errors.UNKNOWN)
         
-        setfun(uniq(itertools.chain(old, new)))
-        self.update()
-    elif command == "REPLACE":
-        new_dests = preserve_order and dests or set(dests)
-        if keyfun() in new_dests:
-            fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
-        
-        setfun(new_dests)
-        self.update()
-    elif command == "REMOVE":
-        setfun([dest for new_dests in getfun() if not dest in set(dests)])
-        self.update()
-    elif command in ["INTERSECT", "DIFF", "UNION"]:
-        if preserve_order:
-            fail(errors.make(errors.INTERNAL_ERROR, errors.NOT_IMPLEMENTED, errwhat), "%s not implemented for order-preserving relations" % command)
-        
-        op = globals()["%s_collections" % command.lower()]
-        old_dests = getfun()
-        supplied_dests = set(dests)
-        new_dests = op(old_dests, supplied_dests)
-        
-        if keyfun() in new_dests:
-            fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
-        
-        setfun(new_dests)
-        self.update()
-    else:
-        fail(errors.make(errors.BAD_COMMAND, errwhat), "Invalid command %s" % command)
+        if command == "ADD":
+            old_dests = preserve_order and getfun() or set(getfun())
+            new_dests = preserve_order and dests or set(dests)
+            if keyfun() in new_dests and not heterogeneous:
+                fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
+            
+            setfun(uniq(itertools.chain(old, new)))
+            self.update()
+        elif command == "REPLACE":
+            new_dests = preserve_order and dests or set(dests)
+            if keyfun() in new_dests and not heterogeneous:
+                fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
+            
+            setfun(new_dests)
+            self.update()
+        elif command == "REMOVE":
+            setfun([dest for new_dests in getfun() if not dest in set(dests)])
+            self.update()
+        elif command in ["INTERSECT", "DIFF", "UNION"]:
+            if preserve_order:
+                fail(errors.make(errors.INTERNAL_ERROR, errors.NOT_IMPLEMENTED, errwhat), "%s not implemented for order-preserving relations" % command)
+            
+            op = globals()["%s_collections" % command.lower()]
+            old_dests = getfun()
+            supplied_dests = set(dests)
+            new_dests = op(old_dests, supplied_dests)
+            
+            if keyfun() in new_dests and not heterogeneous:
+                fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
+            
+            setfun(new_dests)
+            self.update()
+        else:
+            fail(errors.make(errors.BAD_COMMAND, errwhat), "Invalid command %s" % command)
+    return modify_arcs
