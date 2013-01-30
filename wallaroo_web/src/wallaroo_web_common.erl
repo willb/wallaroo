@@ -3,7 +3,8 @@
 -export([known_meta_atoms/0]).
 
 -record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for}). 
--define(DO_TRACE, {trace, "priv"}).
+% -define(DO_TRACE, {trace, "priv"}).
+-define(DO_TRACE, ok).
 
 config_for(#ww_ctx{config_for=Kind}) ->
     Kind.
@@ -57,7 +58,7 @@ generic_find(Commit, FindFunc, Name, ReqData, Ctx) ->
     generic_find(Commit, FindFunc, fun dump_json/3, Name, ReqData, Ctx).
 
 generic_find(Commit, FindFunc, DumpFunc, Name, ReqData, Ctx) ->
-    error_logger:warning_msg("in generic_find and name is ~p~n", [Name]),
+    %error_logger:warning_msg("in generic_find and name is ~p~n", [Name]),
     case Commit of
 	none ->
 	    {{halt, 404}, ReqData, Ctx};
@@ -75,7 +76,7 @@ generic_find_nc(FindFunc, Name, ReqData, Ctx) ->
     generic_find_nc(FindFunc, fun dump_json/3, Name, ReqData, Ctx).
 
 generic_find_nc(FindFunc, DumpFunc, Name, ReqData, Ctx) ->
-    error_logger:warning_msg("in generic_find_nc and name is ~p~n", [Name]),
+    % error_logger:warning_msg("in generic_find_nc and name is ~p~n", [Name]),
     case FindFunc(Name) of 
 	Fail when Fail =:= none orelse Fail =:= find_failed ->
 	    {{halt, 404}, ReqData, Ctx};
@@ -87,7 +88,7 @@ get_starting_commit(ReqData, Ctx) ->
     Tag=list_to_binary(mochiweb_util:unquote(wrq:get_qs_value("tag", "", ReqData))),
     Commit=mochiweb_util:unquote(wrq:get_qs_value("commit", "", ReqData)),
     Branch=list_to_binary(mochiweb_util:unquote(wrq:get_qs_value("branch", "", ReqData))),
-    error_logger:warning_msg("wallaroo_web_common:get_starting_commit/2 Tag=~p, Commit=~p, Branch=~p~n", [Tag, Commit, Branch]),
+    % error_logger:warning_msg("wallaroo_web_common:get_starting_commit/2 Tag=~p, Commit=~p, Branch=~p~n", [Tag, Commit, Branch]),
     case {get_starting_commit, Branch, Tag, Commit} of
     	{get_starting_commit, <<>>, <<>>, []} ->
 	    {none, Ctx};
@@ -128,10 +129,10 @@ stringize_sha(<<CommitNum:160/big-unsigned-integer>>) ->
     lists:flatten(io_lib:format("~40.16.0b", [CommitNum])).
 
 dump_json(Entities, ReqData, Ctx) when is_list(Entities) ->
-    error_logger:warning_msg("Entities are ~p~n", [Entities]),
+    % error_logger:warning_msg("Entities are ~p~n", [Entities]),
     {mochijson:binary_encode({array, [fix_json(Entity) || Entity <- Entities]}), ReqData, Ctx};
 dump_json({_Kind, _Dict}=Entity, ReqData, Ctx) ->
-    error_logger:warning_msg("Entity is ~p~n", [Entity]),
+    % error_logger:warning_msg("Entity is ~p~n", [Entity]),
     {mochijson:binary_encode(fix_json(Entity)), ReqData, Ctx}.
 
 jsonify_entry({LVK, Ls}) when LVK =:= memberships; LVK =:= features; LVK =:= features;  LVK =:= includes;  LVK =:= depends;  LVK =:= conflicts; LVK =:= ss_params ->
@@ -161,11 +162,11 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart) ->
     generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, fun(_,_) -> ok end).
 
 generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
-    error_logger:warning_msg("Ctx is is ~p~n", [Ctx]),
+    % error_logger:warning_msg("Ctx is is ~p~n", [Ctx]),
     Body = wrq:req_body(ReqData),
-    error_logger:warning_msg("Body is is ~p~n", [Body]),
+    % error_logger:warning_msg("Body is is ~p~n", [Body]),
     Data = [{list_to_atom(binary_to_list(K)), V} || {K, V} <- (mochijson:binary_decoder([{object_hook, fun peel/1}]))(wrq:req_body(ReqData))],
-    error_logger:warning_msg("Data is is ~p~n", [Data]),
+    % error_logger:warning_msg("Data is is ~p~n", [Data]),
     case wrq:path_info(name, ReqData) of
         undefined ->
 	    case orddict:find(name, Data) of
@@ -216,14 +217,14 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
     SHA = ensure_str_format(orddict:fetch(commit, Data), list),
     Meta = atomize_meta(orddict_default_fetch(meta, Data, [])),
     Annotation = orddict_default_fetch(annotation, Data, []),
-    error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
+    % error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
     case {tag_fjh, wallaroo:put_tag(Name, SHA, Annotation, Meta)} of
 	{tag_fjh, {fail, Failure}} ->
 	    ResponseBody = wrq:append_to_response_body(mochijson:binary_encode({struct, [{failure, list_to_binary(io:format("~p", [Failure]))}]}), ReqData),
 	    {{halt, 400}, ResponseBody, Ctx};
 	_ ->
 	    NewLocation = io_lib:format("/~s/~s", [PathPart, mochiweb_util:quote_plus(Name)]),
-	    error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
+	    % error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
 	    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
 	    {true, Redir, Ctx}
     end;
@@ -234,7 +235,7 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, branch, PathPart, _ValidFunc) ->
     Annotation = orddict_default_fetch(annotation, Data, []),
     wallaroo:put_branch(Name, SHA, Annotation, Meta),
     NewLocation = io_lib:format("/~s/~s", [PathPart, mochiweb_util:quote_plus(Name)]),
-    error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
+    % error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
     Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
     {true, Redir, Ctx};
 from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
@@ -250,7 +251,7 @@ from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 			    Whence ->
 				wallaroo:put_entity(Name, PutKind, Entity, Whence)
 			end,
-	    error_logger:info_msg("NewCommit is ~p~n", [NewCommit]),
+	    % error_logger:info_msg("NewCommit is ~p~n", [NewCommit]),
 	    case NewCtx of
 		#ww_ctx{via={branch, Branch}} ->
 		    wallaroo:put_branch(Branch, NewCommit);
@@ -260,7 +261,7 @@ from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
 	    <<CommitNum:160/big-unsigned-integer>> = NewCommit,
 	    NewCommitStr = lists:flatten(io_lib:format("~40.16.0b", [CommitNum])),
 	    NewLocation = io_lib:format("/~s/~s?commit=~s", [PathPart, mochiweb_util:quote_plus(Name), NewCommitStr]),
-	    error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
+	    % error_logger:info_msg("NewLocation is ~p~n", [NewLocation]),
 	    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
 	    {true, Redir, NewCtx};
 	{error, Why} ->

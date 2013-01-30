@@ -18,7 +18,7 @@ allowed_methods(ReqData, Ctx) ->
 resource_exists(ReqData, Ctx) ->
     wallaroo_web_common:generic_entity_exists(ReqData, Ctx, fun(Name, Commit) -> 
 								    Res = wallaroo:get_entity(Name, group, Commit),
-								    error_logger:warning_msg("looking for group ~p; got ~p~n", [Name, Res]),
+								    % error_logger:warning_msg("looking for group ~p; got ~p~n", [Name, Res]),
 								    Res
 							    end).
 
