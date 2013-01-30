@@ -306,6 +306,7 @@ module Wallaroo
           if memberships.size > 0
             flmemberships = listify(memberships)
             @callbacks << lambda do
+              node = @store.getNode(name)
               log.info("Setting memberships for node #{name}")
               log.debug("Node #{name} has memberships #{flmemberships.inspect}")
               node.modifyMemberships("ADD", flmemberships, {})
@@ -329,6 +330,7 @@ module Wallaroo
           if old_group.features.size > 0
             flfeatures = listify(old_group.features)
             @callbacks << lambda do
+              group=@store.getGroup({"NAME"=>name})
               log.info("Setting features for group #{name}")
               log.debug("Group #{name} has features #{flfeatures.inspect}")
               group.modifyFeatures("ADD", flfeatures, {})
@@ -337,6 +339,7 @@ module Wallaroo
           
           if old_group.params.size > 0
             @callbacks << lambda do
+              group=@store.getGroup({"NAME"=>name})
               log.info("Setting params for group #{name}")
               log.debug("Group #{name} has params #{old_group.params.inspect}")
               group.modifyParams("ADD", old_group.params, {})
@@ -349,9 +352,9 @@ module Wallaroo
       
       def create_params
         @params.each do |name, old_param|
+          param = @store.cm.make_proxy_object(:parameter, name)
           log.info "Creating parameter '#{name}'"
           
-          param = @store.addParam(name)
           param.setKind(old_param.kind)
           param.setDefault(old_param.default_val) unless old_param.must_change
           param.setDescription(old_param.description)
@@ -359,13 +362,16 @@ module Wallaroo
           param.setVisibilityLevel(old_param.level)
           param.setRequiresRestart(old_param.needs_restart)
           param.setAnnotation(old_param.annotation) rescue nil
+          param.create!
 
           {:conflicts=>:modifyConflicts,:depends=>:modifyDepends}.each do |get,set|
             if old_param.send(get).size > 0
               @callbacks << lambda do
+                param = @store.getParam(name)
                 log.info "Setting #{get} for parameter #{name}"
                 log.debug "#{get.to_s.capitalize} for parameter #{name} are #{old_param.send(get).inspect}"
-                param.send(set, "ADD", setify(old_param.send(get)), {"skip_validation"=>"true"})
+                params = setify(old_param.send(get))
+                param.send(set, "ADD", params, {"skip_validation"=>"true"})
               end
             end
           end
@@ -380,6 +386,7 @@ module Wallaroo
           [[:params, :modifyParams, :skk, "parameters"],[:included, :modifyIncludedFeatures, :listify, "included features"],[:conflicts, :modifyConflicts, :setify, "conflicting features"],[:depends, :modifyDepends, :listify, "feature dependencies"]].each do |get,set,xform,desc|
             if old_feature.send(get).size > 0
               @callbacks << lambda do
+                feature = @store.getFeature(name)
                 log.info "Setting #{desc} for #{name}"
                 log.debug "#{desc.capitalize} for #{name} are #{old_feature.send(get).inspect}"
                 feature.send(set, "ADD", self.send(xform, old_feature.send(get)), {"skip_validation"=>"true"})
@@ -396,6 +403,7 @@ module Wallaroo
           subsys.setAnnotation(old_ss.annotation)  rescue nil
           if old_ss.params.size > 0
             @callbacks << lambda do
+              subsys = @store.getSubsys(name)
               log.info "Setting parameters for subsystem #{name}"
               log.debug "Subsystem #{name} has parameters #{old_ss.params.inspect}"
               subsys.modifyParams("ADD", setify(old_ss.params), {})
