@@ -45,7 +45,7 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 generic_entity_exists_nc(ReqData,  #ww_ctx{show_all=true}=Ctx, _, _) ->
     {true, ReqData, Ctx};
 generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
-    EntityName = ensure_str_format(wrq:path_info(name, ReqData), binary),
+    EntityName = ensure_str_format(mochiweb_util:unquote(wrq:path_info(name, ReqData)), binary),
     case LookupFun(EntityName) of
 	Fail when Fail =:= find_failed orelse Fail =:= none ->
 	    {false, ReqData, Ctx};
@@ -149,6 +149,8 @@ jsonify_entry(X) ->
 -spec fix_json({atom(), any()|orddict:orddict()}) -> {struct, orddict:orddict()}.
 fix_json({Head, {SHA, Anno, Meta}}) when Head =:= wallaroo_tag orelse Head =:= wallaroo_branch ->
     {struct, [{commit, ensure_str_format(wallaroo_hash:bitstring_to_string(SHA), binary)}, {annotation, Anno}, {meta, {struct, [jsonify_entry(Entry) || Entry <- Meta]}}]};
+fix_json({wallaby_subsystem, EntityDict}) ->
+    {struct, [jsonify_entry({K,V}) || {K,V} <- EntityDict, K =/= parameters] ++ [{parameters,{array, V}} || {parameters, V} <- EntityDict] };
 fix_json({_Kind, EntityDict}) ->
     {struct, [jsonify_entry(Entry) || Entry <- EntityDict]};
 fix_json(<<Str/binary>>) ->
