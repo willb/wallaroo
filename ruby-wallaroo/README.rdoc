@@ -1,6 +1,6 @@
 = wallaroo-client
 
-Description goes here.
+This is a Ruby client for the Wallaroo (REST) implementation of the Wallaby configuration service.
 
 == Contributing to wallaroo-client
  
@@ -16,9 +16,8 @@ Description goes here.
 
 * HTTP proxies aren't currently supported
 * Authentication isn't supported
+* Some API methods aren't implemented yet.  Some of these (in particular `Node#explain` and `Group#explain`) are likely to be deprecated with Wallaroo.
 
 == Copyright
 
-Copyright (c) 2013 Red Hat, Inc. and William Benton. See LICENSE.txt for
-further details.
-
+Copyright (c) 2013 Red Hat, Inc. and William Benton. See LICENSE.txt for further details.
