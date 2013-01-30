@@ -40,6 +40,8 @@ module Wallaroo
           update!
         end
       end
+      
+      alias setDefault setDefaultVal
     end
   end
 end

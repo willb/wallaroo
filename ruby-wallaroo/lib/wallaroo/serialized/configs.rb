@@ -210,9 +210,10 @@ module Wallaroo
     module ConfigTextParsing
       def parse(ymltxt)
         begin
+          
           yrepr = YAML::parse(ymltxt).transform
           
-          raise RuntimeError.new("serialized object not of the correct type") if not yrepr.is_a?(::Mrg::Grid::SerializedConfigs::Store) or yrepr.is_a?(::Wallaroo::SerializedConfigs::Store)
+          raise RuntimeError.new("serialized object not of the correct type") if not (yrepr.is_a?(::Mrg::Grid::SerializedConfigs::Store) or yrepr.is_a?(::Wallaroo::SerializedConfigs::Store))
           
           @nodes = dictify(yrepr.nodes)
           @groups = dictify(yrepr.groups)

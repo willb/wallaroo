@@ -14,6 +14,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+require 'wallaroo/serialized/configs'
+
 module Wallaroo
   module Shell
     module LoadSupport
@@ -61,7 +63,7 @@ module Wallaroo
               raise OptionParser::InvalidOption.new("Error:  --quiet and --verbose are incompatible options")
             end
             @verbosity = :quiet
-            Mrg::Grid::SerializedConfigs::ConfigLoader.log = nil
+            Wallaroo::SerializedConfigs::ConfigLoader.log = nil
           end
 
           opts.on("-v", "--verbose", "provide more progress on load feedback") do
@@ -70,13 +72,13 @@ module Wallaroo
               raise OptionParser::InvalidOption.new("Error:  --quiet and --verbose are incompatible options")
             end
             @verbosity = :verbose
-            Mrg::Grid::SerializedConfigs::ConfigLoader.log = LoadSupport::SimpleLog.new(:info, :debug)
+            Wallaroo::SerializedConfigs::ConfigLoader.log = LoadSupport::SimpleLog.new(:info, :debug)
           end
         end
       end
 
       def init_log(*args)
-        Mrg::Grid::SerializedConfigs::ConfigLoader.log = LoadSupport::SimpleLog.new(:info)
+        Wallaroo::SerializedConfigs::ConfigLoader.log = LoadSupport::SimpleLog.new(:info)
       end
       
       register_callback :before_option_parsing, :init_log
@@ -95,7 +97,7 @@ module Wallaroo
         
         store.storeinit("resetdb"=>"yes")
 
-        s = Mrg::Grid::SerializedConfigs::ConfigLoader.new(store, @input.read)
+        s = Wallaroo::SerializedConfigs::ConfigLoader.new(store, @input.read)
 
         s.load
 
