@@ -22,7 +22,7 @@ from .group import group
 from .parameter import parameter
 from .subsystem import subsystem
 from .heads import tag, branch
-from .util import pluralize
+from .util import pluralize, sha_for
 
 import errors
 from errors import not_implemented, fail
@@ -136,8 +136,28 @@ class store(object):
         result = self.cm.make_proxy_object(subsystem, name)
         result.refresh()
         return result
+        
+    def removeSubsys(self, name):
+        not_implemented()
+    
+    def activateConfig(self):
+        tago = self.cm.make_proxy_object(tag, "current")
+        tago.meta = {"validated" : True}
+        tago.commit = sha_for(self.cm)
+        tago.exists() and tago.update() or tago.create()
+    
+    def makeSnapshotWithOptions(self, name, **options):
+        tago = self.cm_make_proxy_object(tag, name)
+        tago.commit = sha_for(cm)
+        if options.has_key["annotation"]:
+            tago.annotation = options["annotation"]
+        if options.has_key["meta"]:
+            tago.meta = options["meta"]
+        tago.exists() and tago.update() or tago.create()
+        return tago
 
 store.addNodeWithOptions = store.addNode
+store.activateConfiguration = store.activateConfig
 
 for klass in ["Feature", "Group", "Node", "Parameter", "Subsystem", "Branch", "Tag"]:
     def cv(self, eset):

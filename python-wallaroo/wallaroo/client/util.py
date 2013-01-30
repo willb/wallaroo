@@ -25,3 +25,16 @@ def camelcase(value):
 
 def pluralize(val):
     return re.sub("hs$", "hes", ("%ss" % val).lower())
+    
+def sha_for(cm):
+    if cm.how.how == "commit":
+        return cm.how.what
+    where = None
+    
+    if cm.how == "none":
+        where = cm.make_proxy_object("tag", "empty")
+    else:
+        where = cm.make_proxy_object(cm.how.how, cm.how.what)
+    
+    where.refresh()
+    return where.commit()
