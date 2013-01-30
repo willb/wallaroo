@@ -181,7 +181,7 @@ module Wallaroo
 
         def exists?
           response = Net::HTTP.get_response(url)
-          return response.code != "404"
+          return response.code.to_i < 400
         end
       
         def refresh
