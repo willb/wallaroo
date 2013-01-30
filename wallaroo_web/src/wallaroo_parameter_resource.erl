@@ -50,6 +50,6 @@ validate({wallaby_parameter, _}=Parameter, Commit) ->
     case [Fail || Fail={_, Ls} <- [BadDepends, BadConflicts], Ls =/= []] of
 	[] -> ok;
 	Ls ->
-	    error_logger:warning_msg("param validation failed; errors are ~p~n", [Ls]),
+	    error_logger:warning_msg("param validation failed for ~p at ~p; errors are ~p~n", [Parameter, Commit, Ls]),
 	    {error, Ls}
     end.

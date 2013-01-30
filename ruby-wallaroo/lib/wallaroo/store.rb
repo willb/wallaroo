@@ -211,6 +211,10 @@ module Wallaroo
         nil
       end
       
+      def objects_of_type(klassname)
+        kls = klassname.downcase.to_sym
+        cm.list_objects(klassname).map {|kln| cm.make_proxy_object(kls, kln)}
+      end
     end
   end
 end

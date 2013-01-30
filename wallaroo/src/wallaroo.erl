@@ -175,7 +175,7 @@ handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     {reply, Obj, State};
 handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(Commit, StoreMod),
-    error_logger:warning_msg("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
+    % error_logger:warning_msg("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     V = case orddict:find(validated, Meta) of
 	    {ok, true} ->
@@ -185,7 +185,7 @@ handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
 	end,
     case V(Tree, StoreMod) of
 	ok ->
-	    error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
+	    % error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
 	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, Anno, Meta)),
 	    {reply, TagObj, State};
 	{fail, _}=F ->

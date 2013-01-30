@@ -15,6 +15,7 @@
 require 'json'
 require 'net/http'
 require 'uri'
+require 'cgi'
 
 module Wallaroo
   module Client
@@ -115,7 +116,7 @@ module Wallaroo
         end
         
         def to_q
-          how == :none ? nil : "#{how.to_s}=#{URI.encode(what)}"
+          how == :none ? nil : "#{how.to_s}=#{CGI.escape(what)}"
         end
         
         def update!(sha)
@@ -169,7 +170,7 @@ module Wallaroo
       module IM
         def initialize(path, cm)
           pathparts = path.split("/")
-          @path = pathparts.map {|elt| URI.encode(elt)}.join("/")
+          @path = pathparts.map {|elt| CGI.escape(elt)}.join("/")
           @cm = cm
           @attr_vals = {:name=>pathparts[-1]}
         end
@@ -180,7 +181,7 @@ module Wallaroo
 
         def exists?
           response = Net::HTTP.get_response(url)
-          return response.code != "404"
+          return response.code.to_i < 400
         end
       
         def refresh
