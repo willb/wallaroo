@@ -153,7 +153,9 @@ handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VA
     CommitObj = get_commit(StartingCommit, StoreMod),
 %    error_logger:warning_msg("get/3 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    {reply, get_path(What, Name, Tree, StoreMod), State};
+    GetResult = get_path(What, Name, Tree, StoreMod),
+    error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
+    {reply, add_last_updated(StartingCommit, GetResult), State};
 handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
 %    error_logger:warning_msg("put/4 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
@@ -201,6 +203,11 @@ code_change(_, State, _) ->
     {ok, State}.
 
 %%% Helpers
+
+add_last_updated(Commit, {value, {wallaby_node, Dict}}) ->
+    {value, {wallaby_node, orddict:store(last_updated_version, list_to_binary(wallaroo_hash:bitstring_to_string(Commit)), Dict)}};
+add_last_updated(_, _=Val) ->
+    Val.
 
 canonicalize_hash(String) when is_list(String) ->
     wallaroo_hash:hash_to_bitstring(String);

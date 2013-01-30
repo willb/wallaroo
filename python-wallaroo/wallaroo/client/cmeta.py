@@ -15,6 +15,7 @@
 
 from .how import How
 import urlparse
+import urllib
 import requests
 import json
 
@@ -35,9 +36,12 @@ class ConnectionMeta(object):
         self.how = mk_how(kwargs)
         self.client = __import__("wallaroo").client
     
-    def make_proxy_object(self, kind, name):
+    def make_proxy_object(self, kind, name, refresh=False):
         klazz = type(kind) is str and getattr(self.client, kind) or kind
-        return klazz("/%s/%s" % (klazz.plural_name, name), self)
+        retval = klazz("/%s/%s" % (klazz.plural_name, urllib.quote_plus(name)), self)
+        if refresh:
+            retval.refresh()
+        return retval
     
     def list_objects(self, kind):
         klazz = getattr(wallaroo.client, kind.lower())
