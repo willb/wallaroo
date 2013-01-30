@@ -154,7 +154,7 @@ handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VA
 %    error_logger:warning_msg("get/3 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     GetResult = get_path(What, Name, Tree, StoreMod),
-    error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
+    % error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
     {reply, add_last_updated(StartingCommit, GetResult), State};
 handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
