@@ -176,7 +176,7 @@ module Wallaroo
       end
 
       def full_target_type
-        Mrg::Grid::Config.constants.grep(/^#{target_type.capitalize}/).select {|x| Mrg::Grid::Config.const_get(x).ancestors.include?(::SPQR::Manageable) }[0]
+        Wallaroo::Client.constants.grep(/^#{target_type.capitalize}/).select {|x| Wallaroo::Client.const_get(x).ancestors.include?(::Wallaroo::Client::Proxying) }[0]
       end
 
       def verify_target
@@ -184,7 +184,7 @@ module Wallaroo
       end
 
       def verify_names
-        t = Mrg::Grid::Config.constants.grep(/^#{name_type.slice(0,5).capitalize}/).select {|x| Mrg::Grid::Config.const_get(x).ancestors.include?(::SPQR::Manageable) }[0]
+        t = Wallaroo::Client.constants.grep(/^#{name_type.slice(0,5).capitalize}/).select {|x| Wallaroo::Client.const_get(x).ancestors.include?(::Wallaroo::Client::Proxying) }[0]
         n = @names
         n = @names.keys if @names.class == Hash
         if t == nil
@@ -196,18 +196,19 @@ module Wallaroo
 
       def act
         verify_input
-        cname = Mrg::Grid::Config.constants.grep(/^#{target_type.capitalize}/).select {|x| Mrg::Grid::Config.const_get(x).ancestors.include?(::SPQR::Manageable) }[0]
-        smethod = Mrg::Grid::MethodUtils.find_store_method("get#{cname.slice(0,5)}")
-        obj = store.send(smethod, @target)
+        cname = Wallaroo::Client.constants.grep(/^#{target_type.capitalize}/).select {|x| Wallaroo::Client.const_get(x).ancestors.include?(::Wallaroo::Client::Proxying) }[0]
+        obj = store.cm.make_proxy_object(cname.downcase, @target)
+        obj.refresh
+        
         if cname == "Node" and sub_group_for_node
           obj = obj.identity_group
           cname = "Group"
         end
-        cmethod = Mrg::Grid::MethodUtils.find_method(name_type.slice(0,5).capitalize, cname).select {|m| m if m.index("modify") != nil}[0]
+        cmethod = find_method(name_type.slice(0,5).capitalize, cname).select {|m| m if m.index("modify") != nil}[0]
         if (@priority == nil) || (command != "ADD")
           obj.send(cmethod, command, @names, {})
         else
-          get = Mrg::Grid::Config.const_get(cname).get_from_set(cmethod.to_sym)
+          get = get_from_set(cmethod.to_sym)
           cur = obj.send(get)
           cnt = 0
           @names.select {|x| cur.include?(x)}.each {|y| cnt += 1 if cur.index(y) < @priority}
@@ -218,6 +219,23 @@ module Wallaroo
           obj.send(cmethod, "REPLACE", cur, {})
         end
         return 0
+      end
+      
+      private
+      def find_method(sn, type="Store")
+        ::Wallaroo::Client.const_get(type).instance_methods(false).map {|m| m.to_s}.grep(/#{sn}/)
+      end
+      
+      def get_from_set(set_m)
+        set_m.to_s =~ /^set(.+)/
+        if $1 == nil
+          set_m.to_s =~ /^modify(.+)/
+        end
+        if $1 == nil
+          raise RuntimeError.new("Invalid set accessor #{set_m.inspect}")
+        end
+        getter = $1.gsub(/([A-Z][a-z]*)/, '\1_').chop
+        getter.downcase.to_sym
       end
     end
 
