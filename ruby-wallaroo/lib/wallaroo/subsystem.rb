@@ -18,6 +18,7 @@ module Wallaroo
   module Client
     class Subsystem
       include ::Wallaroo::Client::Proxying      
+      include ::Wallaroo::Client::ArcUtils
       
       [:name, :parameters].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
