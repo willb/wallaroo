@@ -140,6 +140,8 @@ jsonify_entry({DVK, Ls}) when DVK =:= parameters ->
     {DVK, {struct, Ls}};
 jsonify_entry({commit, <<_:160/big-unsigned-integer>>=SHA}) ->
     {commit, stringize_sha(SHA)};
+jsonify_entry({last_updated_version, <<_:160/big-unsigned-integer>>=SHA}) ->
+    {last_updated_version, stringize_sha(SHA)};
 jsonify_entry({BTV, Ls}) when is_list(Ls), BTV =:= meta orelse BTV =:= annotation ->
     {BTV, {struct, Ls}};
 jsonify_entry(X) ->

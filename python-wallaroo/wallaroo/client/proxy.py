@@ -17,6 +17,7 @@ import re
 import json
 import requests
 import urlparse
+import urllib
 import string
 from util import pluralize
 
@@ -65,7 +66,7 @@ class Proxy(object):
         self.cm = cm
         self.__url = None
         self.attr_vals = dict([[k, None] for k in self.__class__.proxied_attributes])
-        self.attr_vals["name"] = string.split(path, "/")[-1]
+        self.attr_vals["name"] = urllib.unquote_plus(string.split(path, "/")[-1])
     
     def mkurl(self):
         if self.__url is None:

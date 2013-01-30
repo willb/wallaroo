@@ -24,8 +24,9 @@ from errors import not_implemented, fail
 class node(Proxy):
     name = property(pag("name"))
     memberships = property(*pags("memberships"))
-    identity_group = property(pag("identity_group"))
+    identity_group = property(lambda self : self.cm.make_proxy_object("group", self.attr_vals["identity_group"], refresh=True))
     provisioned = property(*pags("provisioned"))
+    last_updated_version = property(pag("last_updated_version"))
     
     modifyMemberships = arcmethod(pag("memberships"), pas("memberships"), heterogeneous=True, preserve_order=True)
     

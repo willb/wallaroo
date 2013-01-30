@@ -19,12 +19,22 @@ module Wallaroo
     class Node
       include ::Wallaroo::Client::Proxying      
       
-      [:name, :identity_group, :memberships].each do |what|
+      [:name, :memberships].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
         declare_attribute what
       end
       
       declare_attribute :provisioned
+      
+      def identity_group
+        result = cm.make_proxy_object(:group, attr_vals["identity_group"])
+        result.refresh
+        result
+      end
+      
+      def last_updated_version
+        attr_vals["last_updated_version"]
+      end
       
       def modifyMemberships(command, groups, options=nil)
         options ||= {}

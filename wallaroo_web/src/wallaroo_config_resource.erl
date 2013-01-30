@@ -39,4 +39,13 @@ finish_request(ReqData, Ctx) ->
 
 to_json(ReqData, Ctx) ->
     Kind = wallaroo_web_common:config_for(Ctx),
-    wallaroo_web_common:generic_to_json(ReqData, Ctx, nonsense_function, fun(Name, Commit) -> {value, {struct, wallaby_config:for(Kind, Name, Commit)}} end).
+    wallaroo_web_common:generic_to_json(ReqData, Ctx, nonsense_function, 
+					fun(Name, Commit) -> 
+						RawConf = wallaby_config:for(Kind, Name, Commit),
+						Config = case Kind of
+							     node ->
+								 orddict:store(<<"WALLABY_CONFIG_VERSION">>, list_to_binary(wallaroo_hash:bitstring_to_string(Commit)), RawConf);
+							     _ ->
+								 RawConf
+							 end,
+						{value, {struct, Config}} end).
