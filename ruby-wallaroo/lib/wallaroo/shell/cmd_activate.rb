@@ -14,56 +14,52 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-module Mrg
-  module Grid
-    module Config
-      module Shell
-        class Activate < Command
-          def self.opname
-            "activate"
-          end
+module Wallaroo      
+  module Shell
+    class Activate < Command
+      def self.opname
+        "activate"
+      end
 
-          def self.description
-            "Activates pending changes to the pool configuration."
+      def self.description
+        "Activates pending changes to the pool configuration."
+      end
+      
+      def init_option_parser
+        # Edit this method to generate a method that parses your command-line options.
+        OptionParser.new do |opts|
+          opts.banner = "Usage:  wallaby #{self.class.opname}\n#{self.class.description}"
+          
+          opts.on("-h", "--help", "displays this message") do
+            puts @oparser
+            exit
           end
           
-          def init_option_parser
-            # Edit this method to generate a method that parses your command-line options.
-            OptionParser.new do |opts|
-              opts.banner = "Usage:  wallaby #{self.class.opname}\n#{self.class.description}"
-              
-              opts.on("-h", "--help", "displays this message") do
-                puts @oparser
-                exit
-              end
-              
-              opts.on("-f", "--force", "forces activation of new config across the pool") do
-                @force = true
-              end
-            end
+          opts.on("-f", "--force", "forces activation of new config across the pool") do
+            @force = true
           end
-          
-          def act
-            force_update if @force
-            explain = store.activateConfig
-            if explain != {}
-              puts "Failed to activate configuration; please correct the following errors."
-              explain.each do |node, node_explain|
-                puts "#{node}:"
-                node_explain.each do |reason, ls|
-                  puts "  #{reason}: #{ls.inspect}"
-                end
-              end
-              return 1
-            end
-            0
-          end
-        end
-
-        def force_update
-          store.getDefaultGroup.modifyParams("REPLACE", store.getDefaultGroup.params, {})
         end
       end
+      
+      def act
+        force_update if @force
+        explain = store.activateConfig
+        if explain != {}
+          puts "Failed to activate configuration; please correct the following errors."
+          explain.each do |node, node_explain|
+            puts "#{node}:"
+            node_explain.each do |reason, ls|
+              puts "  #{reason}: #{ls.inspect}"
+            end
+          end
+          return 1
+        end
+        0
+      end
+    end
+
+    def force_update
+      store.getDefaultGroup.modifyParams("REPLACE", store.getDefaultGroup.params, {})
     end
   end
 end

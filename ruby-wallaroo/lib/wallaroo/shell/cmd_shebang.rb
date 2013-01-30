@@ -30,78 +30,74 @@ module Wallaby
   end
 end
 
-module Mrg
-  module Grid
-    module Config
-      module Shell
-        class Shebang < Command
-          documented_if_environment_has :WALLABY_TECH_PREVIEW
+module Wallaroo
+  module Shell
+    class Shebang < Command
+      documented_if_environment_has :WALLABY_TECH_PREVIEW
+      
+      def self.opname
+        "shebang"
+      end
+      
+      def self.description
+        "Provides an interpreter for wallaby scripts."
+      end
+      
+      def init_option_parser
+        @loadfiles = []
+        OptionParser.new do |opts|
           
-          def self.opname
-            "shebang"
+          opname = "shebang"
+          
+          opts.banner = "Usage:  wallaby #{opname} [-h] SCRIPT [SCRIPT_OPTIONS...]\nWallaby script interpreter.  SCRIPT_OPTIONS are passed directly to SCRIPT."
+          
+          opts.on("-h", "--help", "displays this message") do
+            puts @oparser
+            exit
           end
-          
-          def self.description
-            "Provides an interpreter for wallaby scripts."
-          end
-          
-          def init_option_parser
-            @loadfiles = []
-            OptionParser.new do |opts|
-              
-              opname = "shebang"
-              
-              opts.banner = "Usage:  wallaby #{opname} [-h] SCRIPT [SCRIPT_OPTIONS...]\nWallaby script interpreter.  SCRIPT_OPTIONS are passed directly to SCRIPT."
-              
-              opts.on("-h", "--help", "displays this message") do
-                puts @oparser
-                exit
-              end
-            end
-          end
-                    
-          def partition_args(*args)
-            nonscript_args = []
-            @script_args = []
-            while (args[0] == "-h" || args[0] == "--help")
-              nonscript_args << args.shift
-            end
-            
-            @script_args.replace(args)
-            args.replace(nonscript_args.uniq)
-            args
-          end
-          
-          def set_evalfile(*ignored)
-            args = @script_args
-            unless args.size > 0
-              exit!(1, "You must provide a script file name.")
-            end
-            
-            unless File.exists?(args[0])
-              exit!(1, "You must provide a valid script file name; #{args[0]} does not exist.")
-            end
-            
-            @evalfile = args[0]
-            ARGV.replace(args)
-          end
-          
-          register_callback :preprocess_options, :partition_args          
-          register_callback :after_option_parsing, :set_evalfile
-          
-          def act
-            ::Wallaby::store = store
-            begin
-              load @evalfile
-              0
-            rescue Exception=>e
-              puts "#{@evalfile} failed with #{e}"
-              puts e.backtrace.join("\n")
-              1
-            end
-          end          
         end
       end
+                
+      def partition_args(*args)
+        nonscript_args = []
+        @script_args = []
+        while (args[0] == "-h" || args[0] == "--help")
+          nonscript_args << args.shift
+        end
+        
+        @script_args.replace(args)
+        args.replace(nonscript_args.uniq)
+        args
+      end
+      
+      def set_evalfile(*ignored)
+        args = @script_args
+        unless args.size > 0
+          exit!(1, "You must provide a script file name.")
+        end
+        
+        unless File.exists?(args[0])
+          exit!(1, "You must provide a valid script file name; #{args[0]} does not exist.")
+        end
+        
+        @evalfile = args[0]
+        ARGV.replace(args)
+      end
+      
+      register_callback :preprocess_options, :partition_args          
+      register_callback :after_option_parsing, :set_evalfile
+      
+      def act
+        ::Wallaby::store = store
+        begin
+          load @evalfile
+          0
+        rescue Exception=>e
+          puts "#{@evalfile} failed with #{e}"
+          puts e.backtrace.join("\n")
+          1
+        end
+      end          
     end
   end
 end

@@ -30,65 +30,61 @@ module Wallaby
   end
 end
 
-module Mrg
-  module Grid
-    module Config
-      module Shell
-        class Console < Command
-          def self.opname
-            "console"
-          end
+module Wallaroo      
+  module Shell
+    class Console < Command
+      def self.opname
+        "console"
+      end
+      
+      def self.description
+        "Provides an interactive wallaby environment."
+      end
+      
+      def init_option_parser
+        @loadfiles = []
+        OptionParser.new do |opts|
           
-          def self.description
-            "Provides an interactive wallaby environment."
-          end
+          opname = "console"
           
-          def init_option_parser
-            @loadfiles = []
-            OptionParser.new do |opts|
-              
-              opname = "console"
-              
-              opts.banner = "Usage:  wallaby #{opname} [SCRIPT...]\ninteractive wallaby environment."
-              
-              opts.on("-h", "--help", "displays this message") do
-                puts @oparser
-                exit
-              end
+          opts.banner = "Usage:  wallaby #{opname} [SCRIPT...]\ninteractive wallaby environment."
+          
+          opts.on("-h", "--help", "displays this message") do
+            puts @oparser
+            exit
+          end
 
-              opts.on("-r", "--require-file FILE", "require FILE before doing anything else") do |file|
-                @loadfiles << file
-              end
+          opts.on("-r", "--require-file FILE", "require FILE before doing anything else") do |file|
+            @loadfiles << file
+          end
 
-            end
-          end
-          
-          def set_evalfiles(*args)
-            @evalfiles = args.dup
-          end
-          
-          register_callback :after_option_parsing, :set_evalfiles
-          
-          def act
-            ARGV.clear
-            ::Wallaby::store = store
-            @loadfiles.each {|f| require f }
-            if @evalfiles.size > 0
-              begin
-                @evalfiles.each {|f| load f }
-                0
-              rescue Exception=>e
-                puts "script failed; #{e}"
-                puts e.backtrace.join("\n")
-                1
-              end
-            else
-              ::IRB.start
-            end
-          end
-          
         end
       end
+      
+      def set_evalfiles(*args)
+        @evalfiles = args.dup
+      end
+      
+      register_callback :after_option_parsing, :set_evalfiles
+      
+      def act
+        ARGV.clear
+        ::Wallaby::store = store
+        @loadfiles.each {|f| require f }
+        if @evalfiles.size > 0
+          begin
+            @evalfiles.each {|f| load f }
+            0
+          rescue Exception=>e
+            puts "script failed; #{e}"
+            puts e.backtrace.join("\n")
+            1
+          end
+        else
+          ::IRB.start
+        end
+      end
+      
     end
   end
 end

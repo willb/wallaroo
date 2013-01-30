@@ -14,150 +14,146 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'mrg/grid/config/shell/entity_ops'
+require 'wallaroo/shell/entity_ops'
 
-module Mrg
-  module Grid
-    module Config
-      module Shell
-        module GroupOps
-          def api_messages
-            @api_messages ||= {:name=>:setName, :annotation=>:setAnnotation}.freeze
-          end
+module Wallaroo
+  module Shell
+    module GroupOps
+      def api_messages
+        @api_messages ||= {:name=>:setName, :annotation=>:setAnnotation}.freeze
+      end
 
-          def api_accessors
-            @api_accessors ||= [:name, :membership, :features, :params, :annotation]
-          end
+      def api_accessors
+        @api_accessors ||= [:name, :membership, :features, :params, :annotation]
+      end
 
-          def accessor_options
-            @accessor_options ||= {:annotation=>String}
-          end
-          
+      def accessor_options
+        @accessor_options ||= {:annotation=>String}
+      end
+      
+    end
+
+    class AddGroup < Command
+      include EntityOps
+      include GroupOps
+      
+      def self.opname
+        "add-group"
+      end
+
+      def self.description
+        "Adds a group to the store."
+      end
+
+      def storeop
+        :addExplicitGroup
+      end
+
+      register_callback :after_option_parsing, :post_arg_callback
+    end
+
+    class ModifyGroup < Command
+      include EntityOps
+      include GroupOps
+      
+      def self.opname
+        "modify-group"
+      end
+      
+      def self.description
+        "Alters metadata for a group in the store."
+      end
+      
+      def storeop
+        :getGroupByName
+      end
+      
+      def supports_options
+        true
+      end
+      
+      def multiple_targets
+        false
+      end
+
+      register_callback :after_option_parsing, :post_arg_callback
+    end
+   
+    class RemoveGroup < Command
+      include EntityOps
+      include GroupOps
+      
+      def self.opname
+        "remove-group"
+      end
+      
+      def self.description
+        "Deletes a group from the store."
+      end
+
+      def storeop
+        :removeGroup
+      end
+
+      register_callback :after_option_parsing, :post_arg_callback
+    end
+    
+    class ShowGroup < Command
+      include EntityOps
+      include GroupOps
+      documented_only_if_default_name
+      
+      def self.opname
+        "show-group"
+      end
+      
+      def self.description
+        "Displays the properties of a group."
+      end
+      
+      def storeop
+        :getGroupByName
+      end
+      
+      def entity_callback(group)
+        puts "#{group.name}"
+        api_accessors.each do |k|
+          puts "  #{k}:  #{group.send(k).inspect}"
         end
+      end
 
-        class AddGroup < Command
-          include EntityOps
-          include GroupOps
-          
-          def self.opname
-            "add-group"
-          end
+      register_callback :after_option_parsing, :post_arg_callback
 
-          def self.description
-            "Adds a group to the store."
-          end
+      Wallaroo::Shell.register_command(self, opname + "s")
+    end
 
-          def storeop
-            :addExplicitGroup
-          end
+    class ListGroup < Command
+      include EntityOps
+      include GroupOps
+      
+      def self.opname
+        "list-groups"
+      end
 
-          register_callback :after_option_parsing, :post_arg_callback
-        end
+      def self.opargs
+        ""
+      end
 
-        class ModifyGroup < Command
-          include EntityOps
-          include GroupOps
-          
-          def self.opname
-            "modify-group"
-          end
-          
-          def self.description
-            "Alters metadata for a group in the store."
-          end
-          
-          def storeop
-            :getGroupByName
-          end
-          
-          def supports_options
-            true
-          end
-          
-          def multiple_targets
-            false
-          end
+      def self.description
+        "Lists all the group names in the store."
+      end
 
-          register_callback :after_option_parsing, :post_arg_callback
-        end
-       
-        class RemoveGroup < Command
-          include EntityOps
-          include GroupOps
-          
-          def self.opname
-            "remove-group"
-          end
-          
-          def self.description
-            "Deletes a group from the store."
-          end
-
-          def storeop
-            :removeGroup
-          end
-
-          register_callback :after_option_parsing, :post_arg_callback
-        end
-        
-        class ShowGroup < Command
-          include EntityOps
-          include GroupOps
-          documented_only_if_default_name
-          
-          def self.opname
-            "show-group"
-          end
-          
-          def self.description
-            "Displays the properties of a group."
-          end
-          
-          def storeop
-            :getGroupByName
-          end
-          
-          def entity_callback(group)
-            puts "#{group.name}"
-            api_accessors.each do |k|
-              puts "  #{k}:  #{group.send(k).inspect}"
+      def act
+        store.console.objects(:class=>"Group").each do |group|
+          if not group.is_identity_group
+            if group.name =~ /^[+]{3}/
+              puts "#{group.display_name} #{group.name}"
+            else
+              puts "#{group.name}"
             end
           end
-
-          register_callback :after_option_parsing, :post_arg_callback
-
-          Mrg::Grid::Config::Shell.register_command(self, opname + "s")
         end
-
-        class ListGroup < Command
-          include EntityOps
-          include GroupOps
-          
-          def self.opname
-            "list-groups"
-          end
-
-          def self.opargs
-            ""
-          end
-
-          def self.description
-            "Lists all the group names in the store."
-          end
-
-          def act
-            store.console.objects(:class=>"Group").each do |group|
-              if not group.is_identity_group
-                if group.name =~ /^[+]{3}/
-                  puts "#{group.display_name} #{group.name}"
-                else
-                  puts "#{group.name}"
-                end
-              end
-            end
-            0
-          end
-        end
+        0
       end
     end
   end
