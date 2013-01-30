@@ -91,6 +91,7 @@ module Wallaroo
       port = (ENV['WALLAROO_PORT'] || 8000).to_i
       username = ENV['WALLAROO_USER']
       password = ENV['WALLAROO_PASSWORD']
+      scheme = ENV['WALLAROO_SCHEME'] || "http"
 
       saveas = ENV['WALLAROO_SAVEAS'] || "#{ENV['LOGNAME']}@#{Socket.gethostname}"
       how = nil
@@ -173,7 +174,7 @@ module Wallaroo
         options[:username] = username
         options[:pw] = password
         
-        cm = ConnectionMeta.new(options)
+        cm = ::Wallaroo::Client::ConnectionMeta.new(options)
         
         $WALLAROO_STORE = ::Wallaroo::Client::Store.new(cm)
         $WALLAROO_STORE

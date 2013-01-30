@@ -137,7 +137,7 @@ module Wallaroo
       end
 
       def act
-        store.console.objects(:class=>"Snapshot").each do |snap|
+        store.objects_of_type("Snapshot").each do |snap|
           puts "#{snap.name}"
         end
         0

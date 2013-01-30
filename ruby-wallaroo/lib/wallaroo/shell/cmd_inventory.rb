@@ -77,7 +77,7 @@ module Wallaroo
       end
 
       def act
-        nodes = store.console.objects(:class=>"Node")
+        nodes = store.objects_of_type("Node")
 
         ::Fixnum.class_eval do
           def minute_ago

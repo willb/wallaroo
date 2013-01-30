@@ -154,7 +154,7 @@ module Wallaroo
 
         private
         def inherited(klass)
-          Command_LIST << klass
+          COMMAND_LIST << klass
         end
 
         def init_callbacks

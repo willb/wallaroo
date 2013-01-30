@@ -122,7 +122,7 @@ module Wallaroo
       end
 
       def act
-        store.console.objects(:class=>"Subsystem").each do |subsys|
+        store.objects_of_type("Subsystem").each do |subsys|
           puts "#{subsys.name}"
         end
         0

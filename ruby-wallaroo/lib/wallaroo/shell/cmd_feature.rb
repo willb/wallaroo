@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'mrg/grid/config/shell/entity_ops'
+require 'wallaroo/shell/entity_ops'
 
 module Wallaroo
   module Shell
@@ -144,7 +144,7 @@ module Wallaroo
       end
       
       def act
-        store.console.objects(:class=>"Feature").each do |feature|
+        store.objects_of_type("Feature").each do |feature|
           puts "#{feature.name}"
         end
         0

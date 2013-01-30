@@ -153,7 +153,7 @@ module Wallaroo
       end
 
       def act
-        store.console.objects(:class=>"Parameter").each do |param|
+        store.objects_of_type("Parameter").each do |param|
           puts "#{param.name}"
         end
         0

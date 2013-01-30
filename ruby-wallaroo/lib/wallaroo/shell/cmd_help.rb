@@ -55,10 +55,10 @@ module Wallaroo
       end
 
       def describe_commands
-        CommandS.keys.sort.each do |cmd|
-          command = CommandS[cmd]
+        COMMANDS.keys.sort.each do |cmd|
+          command = COMMANDS[cmd]
           if command.is_documented?(cmd)
-            puts "#{cmd}:  #{CommandS[cmd].description rescue ""}"
+            puts "#{cmd}:  #{COMMANDS[cmd].description rescue ""}"
           end
         end
       end
@@ -68,7 +68,7 @@ module Wallaroo
       def act
         command = @args[0].downcase
         
-        cklass = CommandS[command]
+        cklass = COMMANDS[command]
         
         if cklass
           puts cklass.new(nil, nil, nil).oparser

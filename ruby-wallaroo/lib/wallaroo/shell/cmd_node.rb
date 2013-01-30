@@ -214,7 +214,7 @@ module Wallaroo
       end
 
       def act
-        store.console.objects(:class=>"Node").each do |node|
+        store.objects_of_type("Node").each do |node|
           puts "#{node.name}"
         end
         0

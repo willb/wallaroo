@@ -144,7 +144,7 @@ module Wallaroo
       end
 
       def act
-        store.console.objects(:class=>"Group").each do |group|
+        store.objects_of_type("Group").each do |group|
           if not group.is_identity_group
             if group.name =~ /^[+]{3}/
               puts "#{group.display_name} #{group.name}"
