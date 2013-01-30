@@ -93,6 +93,7 @@ split({?TAG_ACCESSIBLE_TREE=Tag, Tree}, Depth, StoreMod)  ->
 	true -> 
 	    {Tag, Tree};
 	false ->
+	    error_logger:warning_msg("splitting an accessible tree with ~p nodes~n", [gb_trees:size(Tree)]),
 	    RawTree = map_pairs(gb_trees:to_list(Tree), Depth),
 	    StoreFunc = fun(_HashPart, Subtree) -> element(1, wallaroo_db:hash_and_store({?TAG_ACCESSIBLE_TREE, Subtree}, StoreMod)) end,
 	    NewTree = gb_trees:map(StoreFunc, RawTree),
