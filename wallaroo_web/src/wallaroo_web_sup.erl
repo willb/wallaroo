@@ -58,6 +58,5 @@ init([]) ->
            {wallaroo_sup, start_link, []},
            permanent, 5000, supervisor, [wallaroo]},
     Processes = [Wallaroo, Web],
-    %% XXX: fix this version number
-    application:set_env(webmachine, server_name, "Wallaroo 0.0.1 (http://getwallaby.com/)"),
+    application:set_env(webmachine, server_name, "Wallaroo " ++ wallaroo:version_string() ++ " (http://getwallaby.com/)"),
     {ok, { {one_for_one, 10, 10}, Processes} }.
