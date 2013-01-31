@@ -6,12 +6,18 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0, list_branches/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
 -define(VALID_ENTITY_KIND(Kind), Kind=:='node' orelse Kind=:='feature' orelse Kind =:= 'subsystem' orelse Kind=:='group' orelse Kind=:='parameter').
+-define(VERSION,[
+		 {major, 0},
+		 {minor, 0},
+		 {patch, 1},
+		 {build, ""}
+		]).
 
 start_link() ->
     error_logger:info_msg("entering WALLAROO start_link/0 ~n", []),
@@ -45,6 +51,19 @@ setup_empty(StoreMod) ->
     wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 %%% API functions
+
+version() ->
+    ?VERSION.
+
+version_string() ->
+    VList = [proplists:get_value(Key, version()) || Key <- [major, minor, patch, build]],
+    Format = case proplists:get_value(build, version()) of
+		 "" ->
+		     "~B.~B.~B~s";
+		 _ ->
+		     "~B.~B.~B-~s"
+	     end,
+    binary_to_list(iolist_to_binary(io_lib:format(Format, VList))).
 
 list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
     case get_tag(<<"current">>) of
@@ -88,7 +107,6 @@ put_branch(Name, Commit) ->
 put_branch(Name, C, Anno, Meta) ->
     Commit = canonicalize_hash(C),
     gen_server:call(?SERVER,  {put_branch, Name, Commit, Anno, Meta}).
-
 
 put_tag(Name, C) ->
     put_tag(Name, C, [], []).
