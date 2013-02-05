@@ -39,6 +39,7 @@ from_json(ReqData, Ctx) ->
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
 validate({wallaby_group, _}=Group, none) ->
+    error_logger:warning_msg("validating ~p for no commit~n", [Group]),
     Features = {nonexistent_features, wallaby_group:features(Group)},
     Parameters = {nonexistent_parameters, [P || {P, _} <- wallaby_group:parameters(Group)]},
     case [Fail || Fail={_, Ls} <- [Features, Parameters], Ls =/= []] of
@@ -47,7 +48,8 @@ validate({wallaby_group, _}=Group, none) ->
 	    {error, Ls}
     end;
 validate({wallaby_group, _}=Group, Commit) ->
-    BadFeatures = {nonexistent_features, [F || F <- wallaby_group:features(Group), wallaroo:get_entity(F, group, Commit) =:= none]},
+    error_logger:warning_msg("validating ~p for commit~p~n", [Group, Commit]),
+    BadFeatures = {nonexistent_features, [F || F <- wallaby_group:features(Group), wallaroo:get_entity(F, feature, Commit) =:= none]},
     BadParameters = {nonexistent_parameters, [P || {P, _} <- wallaby_group:parameters(Group), wallaroo:get_entity(P, parameter, Commit) =:= none]},
     case [Fail || Fail={_, Ls} <- [BadFeatures, BadParameters], Ls =/= []] of
 	[] -> ok;
