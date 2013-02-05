@@ -8,7 +8,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, start_link/0]).
 
--export([for_commit/1, for_commit/2, cache_dump/0]).
+-export([for_commit/1, for_commit/2, cache_dump/0, reset/0]).
 
 -record(vcstate, {table, storage}).
 
@@ -20,7 +20,7 @@ start_link() ->
     Result.
 
 init(Options) when is_list(Options) ->
-    Table = ets:new(vcache, []),
+    Table = init_table(),
     % XXX: use application env here
     StoreMod = case orddict:find(storage_module, Options) of
 		   {ok, Mod} ->
@@ -32,6 +32,8 @@ init(Options) when is_list(Options) ->
 init(_) ->
     init([]).
 
+init_table() -> ets:new(vcache, []).
+
 %%% API functions
 
 for_commit(Commit) ->
@@ -42,10 +44,17 @@ for_commit(Commit, VFun) ->
 cache_dump() ->
     gen_server:call(?SERVER, {cache_dump}).
 
+reset() ->
+    gen_server:call(?SERVER, {reset}).
+
 %%% gen_server callbacks
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+handle_call({reset}, _From, #vcstate{table=C}=OldState) ->
+    ets:delete(C),
+    State = OldState#vcstate{table=init_table()},
+    {reply, ok, State};
 handle_call({cache_dump}, _From, #vcstate{table=C}=State) ->
     {reply, ets:tab2list(C), State};
 handle_call({for_commit, Commit, VFun}, _From, State) ->
