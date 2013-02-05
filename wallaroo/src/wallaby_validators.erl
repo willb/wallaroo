@@ -203,6 +203,3 @@ make_activate_validators(DirtyNodes, Tree, StoreMod) when is_list(DirtyNodes) ->
     make_activate_validators(wallaby_graph:extract_graph(Tree, StoreMod, DirtyNodes), ignored, ignored);
 make_activate_validators(all, Tree, StoreMod) ->
     make_activate_validators(wallaby_graph:extract_graph(Tree, StoreMod), ignored, ignored).
-
-
-     
