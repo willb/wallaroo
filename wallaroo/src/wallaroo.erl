@@ -201,7 +201,7 @@ handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
 	    _ ->
 		fun(_,_) -> ok end
 	end,
-    case V(Tree, StoreMod) of
+    case wallaby_vcache:for_commit(Commit, V) of
 	ok ->
 	    % error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
 	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, Anno, Meta)),
