@@ -150,7 +150,7 @@ jsonify_entry(X) ->
 
 -spec fix_json({atom(), any()|orddict:orddict()}) -> {struct, orddict:orddict()}.
 fix_json({Head, {SHA, Anno, Meta}}) when Head =:= wallaroo_tag orelse Head =:= wallaroo_branch ->
-    {struct, [{commit, ensure_str_format(wallaroo_hash:bitstring_to_string(SHA), binary)}, {annotation, Anno}, {meta, {struct, [jsonify_entry(Entry) || Entry <- Meta]}}]};
+    {struct, [{commit, ensure_str_format(wallaroo_hash:stringize(SHA), binary)}, {annotation, Anno}, {meta, {struct, [jsonify_entry(Entry) || Entry <- Meta]}}]};
 fix_json({wallaby_subsystem, EntityDict}) ->
     {struct, [jsonify_entry({K,V}) || {K,V} <- EntityDict, K =/= parameters] ++ [{parameters,{array, V}} || {parameters, V} <- EntityDict] };
 fix_json({_Kind, EntityDict}) ->
