@@ -75,7 +75,7 @@ list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
     end.
 
 list_entities(Kind, Commit) when ?VALID_ENTITY_KIND(Kind) ->
-    gen_server:call(?SERVER, {list, Kind, canonicalize_hash(Commit)}).
+    gen_server:call(?SERVER, {list, Kind, wallaroo_hash:canonicalize(Commit)}).
 
 list_tags() ->
     gen_server:call(?SERVER, {list_tags}).
@@ -93,7 +93,7 @@ get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
     end.
 
 get_entity(Name, Kind, Commit) ->
-    gen_server:call(?SERVER, {get, Kind, Name, canonicalize_hash(Commit)}).
+    gen_server:call(?SERVER, {get, Kind, Name, wallaroo_hash:canonicalize(Commit)}).
 
 get_tag(Name) ->
     gen_server:call(?SERVER,  {get_tag, Name}).
@@ -105,14 +105,14 @@ put_branch(Name, Commit) ->
     put_branch(Name, Commit, [], []).
 
 put_branch(Name, C, Anno, Meta) ->
-    Commit = canonicalize_hash(C),
+    Commit = wallaroo_hash:canonicalize(C),
     gen_server:call(?SERVER,  {put_branch, Name, Commit, Anno, Meta}).
 
 put_tag(Name, C) ->
     put_tag(Name, C, [], []).
 
 put_tag(Name, C, Anno, Meta) ->
-    Commit = canonicalize_hash(C),
+    Commit = wallaroo_hash:canonicalize(C),
     gen_server:call(?SERVER,  {put_tag, Name, Commit, Anno, Meta}).
 
 value_check(node, {wallaby_node, _}) ->
@@ -130,7 +130,7 @@ value_check(subsystem, {wallaby_subsystem, _}) ->
 put_entity(Name, node, Value) ->
     value_check(node, Value),
     IdGroup = wallaby_node:identity_group(Value),
-    Whence = canonicalize_hash(put_entity(IdGroup, group, wallaby_group:new(IdGroup))),
+    Whence = wallaroo_hash:canonicalize(put_entity(IdGroup, group, wallaby_group:new(IdGroup))),
     gen_server:call(?SERVER,  {put, node, Name, Value, Whence});
 put_entity(Name, Kind, Value) when ?VALID_ENTITY_KIND(Kind) ->
     value_check(Kind, Value),
@@ -140,12 +140,12 @@ put_entity(Name, Kind, Value) when ?VALID_ENTITY_KIND(Kind) ->
 put_entity(Name, node, Value, SuppliedCommit) ->
     value_check(node, Value),
     IdGroup = wallaby_node:identity_group(Value),
-    C = canonicalize_hash(SuppliedCommit),
-    Whence = canonicalize_hash(put_entity(IdGroup, group, wallaby_group:new(IdGroup), C)),
+    C = wallaroo_hash:canonicalize(SuppliedCommit),
+    Whence = wallaroo_hash:canonicalize(put_entity(IdGroup, group, wallaby_group:new(IdGroup), C)),
     gen_server:call(?SERVER,  {put, node, Name, Value, Whence});
 put_entity(Name, Kind, Value, SuppliedCommit) when ?VALID_ENTITY_KIND(Kind) ->
     value_check(Kind, Value),
-    C = canonicalize_hash(SuppliedCommit),
+    C = wallaroo_hash:canonicalize(SuppliedCommit),
     gen_server:call(?SERVER,  {put, Kind, Name, Value, C}).
 
 %%% gen_server callbacks
@@ -223,14 +223,9 @@ code_change(_, State, _) ->
 %%% Helpers
 
 add_last_updated(Commit, {value, {wallaby_node, Dict}}) ->
-    {value, {wallaby_node, orddict:store(last_updated_version, list_to_binary(wallaroo_hash:bitstring_to_string(Commit)), Dict)}};
+    {value, {wallaby_node, orddict:store(last_updated_version, list_to_binary(wallaroo_hash:stringize(Commit)), Dict)}};
 add_last_updated(_, _=Val) ->
     Val.
-
-canonicalize_hash(String) when is_list(String) ->
-    wallaroo_hash:hash_to_bitstring(String);
-canonicalize_hash(BS) when is_binary(BS) ->
-    BS.
 
 xlate_what('node') ->
     <<"nodes">>;
