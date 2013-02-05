@@ -86,7 +86,7 @@ extract_graph(Tree, StoreMod, DirtyNodes) ->
 
 get_children(Path, Tree, StoreMod) when is_list(Path) ->
     Root = wallaroo_tree:get_path(Path, Tree, StoreMod),
-    error_logger:warning_msg("wallaby_validators:get_children:  Path=~p, Tree=~p, Root=~p~n", [Path, Tree, Root]),
+    % error_logger:warning_msg("wallaby_validators:get_children:  Path=~p, Tree=~p, Root=~p~n", [Path, Tree, Root]),
     case Root of
 	none ->
 	    [];
