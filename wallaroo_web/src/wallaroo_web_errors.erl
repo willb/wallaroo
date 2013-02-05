@@ -20,21 +20,22 @@ generic_error_body(Code, Req, Reason, HumanText) ->
     {Path, _} = webmachine_request:path(Req),
     Struct = {struct, 
 	      Dict=([{http_code, Code}, {request_path, list_to_binary(Path)}]
-	      ++ if HumanText =:= <<>> ->
+	      ++ (if HumanText =:= <<>> ->
 			 [];
 		    true ->
 			 [{explanation, HumanText}]
-		 end
-	      ++ if Reason =:= {none, none, []} ->
+		 end)
+	      ++ (if Reason =:= {none, none, []} ->
 			 [];
 		    true ->
 			 {reason, iolist_to_binary(io_lib:format("~p", [Reason]))}
-		 end)
+		 end))
 	     },
     case {Code, Reason} of
 	{_, {exit, normal, _}} ->
 	    ok;
 	{X, _} when X >= 500 ->
+	    error_logger:error_msg("error for path=~p; ~p~n", [Path, Dict]),
 	    error_logger:error_msg("error for path=~p; ~p~n", 
 				   [Path, [{K,if is_binary(V) -> binary_to_list(V) ; true -> V end} || {K, V} <- Dict]]);
 	_ ->
