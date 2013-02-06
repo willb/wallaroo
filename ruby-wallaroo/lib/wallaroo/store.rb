@@ -34,7 +34,7 @@ module Wallaroo
         
       [[:getDefaultGroup, "+++DEFAULT"], [:getSkeletonGroup, "+++SKEL"]].each do |msg, grp|
         define_method msg do
-          cm.make_proxy_object(:group, grp)
+          cm.make_proxy_object(:group, grp).refresh
         end
       end
       
