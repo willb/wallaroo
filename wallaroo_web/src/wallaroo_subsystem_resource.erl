@@ -33,19 +33,17 @@ to_json(ReqData, Ctx) ->
 from_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_subsystem:new(Nm) end, subsystem, "subsystems", fun validate/2).
 
-
-%%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
 validate({wallaby_subsystem, _}=Subsystem, none) ->
-    Parameters = {nonexistent_parameters, [P || {P, _} <- wallaby_subsystem:parameters(Subsystem)]},
-    case [Fail || Fail={_, Ls} <- [Parameters], Ls =/= []] of
+    Parameters = {nonexistent_parameters, {array, [P || {P, _} <- wallaby_subsystem:parameters(Subsystem)]}},
+    case [Fail || Fail={_, Ls} <- [Parameters], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
-	    {error, Ls}
+	    {error, {struct, Ls}}
     end;
 validate({wallaby_subsystem, _}=Subsystem, Commit) ->
-    BadParameters = {nonexistent_parameters, [P || {P, _} <- wallaby_subsystem:parameters(Subsystem), wallaroo:get_entity(P, parameter, Commit) =:= none]},
-    case [Fail || Fail={_, Ls} <- [BadParameters], Ls =/= []] of
+    BadParameters = {nonexistent_parameters, {array, [P || {P, _} <- wallaby_subsystem:parameters(Subsystem), wallaroo:get_entity(P, parameter, Commit) =:= none]}},
+    case [Fail || Fail={_, Ls} <- [BadParameters], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
-	    {error, Ls}
+	    {error, {struct, Ls}}
     end.

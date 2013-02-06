@@ -49,10 +49,10 @@ validate({wallaby_group, _}=Group, none) ->
     end;
 validate({wallaby_group, _}=Group, Commit) ->
     error_logger:warning_msg("validating ~p for commit~p~n", [Group, Commit]),
-    BadFeatures = {nonexistent_features, [F || F <- wallaby_group:features(Group), wallaroo:get_entity(F, feature, Commit) =:= none]},
-    BadParameters = {nonexistent_parameters, [P || {P, _} <- wallaby_group:parameters(Group), wallaroo:get_entity(P, parameter, Commit) =:= none]},
-    case [Fail || Fail={_, Ls} <- [BadFeatures, BadParameters], Ls =/= []] of
+    BadFeatures = {nonexistent_features, {array, [F || F <- wallaby_group:features(Group), wallaroo:get_entity(F, feature, Commit) =:= none]}},
+    BadParameters = {nonexistent_parameters, {array, [P || {P, _} <- wallaby_group:parameters(Group), wallaroo:get_entity(P, parameter, Commit) =:= none]}},
+    case [Fail || Fail={_, Ls} <- [BadFeatures, BadParameters], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
-	    {error, Ls}
+	    {error, {struct, Ls}}
     end.
