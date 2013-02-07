@@ -38,7 +38,7 @@ init([]) ->
 init([{storemod, StoreMod}]) ->
     case StoreMod:find_tag(<<"empty">>) of
 	find_failed ->
-	    setup_empty(StoreMod);
+	    setup_empty_tag(StoreMod);
 	_ ->
 	    pass
     end,
@@ -170,13 +170,13 @@ handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VA
     % error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
     {reply, add_last_updated(StartingCommit, GetResult), State};
 handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
-    CommitObj = get_commit(StartingCommit, StoreMod),
-%    error_logger:warning_msg("put/4 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
+    CommitObj = ensure_special_groups_exist(StartingCommit, get_commit(StartingCommit, StoreMod), StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     {reply, put_path(What, Name, Value, Tree, StoreMod, StartingCommit), State};
 handle_call({put, What, Name, Value}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
-    Tree = wallaroo_tree:empty(),
-    {reply, put_path(What, Name, Value, Tree, StoreMod, empty), State};
+    Parent = setup_basic_commit(StoreMod),
+    Tree = wallaroo_commit:get_tree(StoreMod:find_commit(Parent), StoreMod),
+    {reply, put_path(What, Name, Value, Tree, StoreMod, Parent), State};
 handle_call({get_branch, Name}, _From, {StoreMod}=State) ->
     Obj = StoreMod:find_branch(Name),
     {reply, Obj, State};
@@ -265,10 +265,19 @@ ensure_entities_exist({Hash, Tree}, Kind, Entities, StartingCommit, CreateFun, S
 	    wallaroo_commit:store(wallaroo_commit:new([StartingCommit], UpdatedTreeHash, [], [{automatically_generated_by,ensure_entities_exist}]), StoreMod)
     end.
 
-setup_empty(StoreMod) ->
+ensure_special_groups_exist(Commit, CommitObj, StoreMod) ->
+    Hash = wallaroo_commit:get_tree_hash(CommitObj),
+    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+    UpdatedCommit = ensure_entities_exist({Hash, Tree}, group, [<<"+++DEFAULT">>, <<"+++SKEL">>], Commit, StoreMod),
+    StoreMod:find_commit(UpdatedCommit).
+
+setup_basic_commit(StoreMod) ->
     EmptyCommitSHA = wallaroo_commit:store(wallaroo_commit:empty(), StoreMod),
     {EmptyTreeHash, EmptyTree} = wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod),
-    SHA = ensure_entities_exist({EmptyTreeHash, EmptyTree}, group, [<<"+++SKEL">>, <<"+++DEFAULT">>], EmptyCommitSHA, StoreMod),
+    ensure_entities_exist({EmptyTreeHash, EmptyTree}, group, [<<"+++SKEL">>, <<"+++DEFAULT">>], EmptyCommitSHA, StoreMod).
+
+setup_empty_tag(StoreMod) ->
+    SHA = setup_basic_commit(StoreMod),
     wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 get_path(What, Name, Tree, StoreMod) when is_atom(What) ->
