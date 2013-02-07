@@ -8,6 +8,8 @@
 -type validator() :: fun((wallaroo_tree:tree(), module()) -> validator_result()).
 -export_type([validator_result/0, validator/0]).
 
+-include("dlog.hrl").
+
 succeed(_Tree, _StoreMod) ->
     ok.
 
@@ -56,6 +58,7 @@ pcompose_loop([], [], _) ->
 pcompose_loop([], [Failure], _) ->
     Failure;
 pcompose_loop([], Failures, _) ->
+    ?D_LOG("pcompose_loop/3: failures are ~p~n", [Failures]),
     {fail, 
      {multiple_failures, 
       lists:foldl(fun({fail, {multiple_failures, Ls}}, Acc) ->
@@ -70,8 +73,10 @@ pcompose_loop(Pids, Failures, Failfast) ->
 	{result_for, Pid, ok} ->
 	    handle_success(Pid, Pids, Failures, Failfast);
 	{result_for, Pid, {fail, _}=Failure} ->
+	    ?D_LOG("got a failure:  ~p~n", [Failure]),
 	    handle_failure(Pid, Pids, Failure, Failures, Failfast);
 	X ->
+	    ?D_LOG("got something unexpected:  ~p~n", [X]),
 	    handle_failure(unknown, Pids, {fail, {other_validator_result, X}}, Failures, Failfast)	    
     end.
 
