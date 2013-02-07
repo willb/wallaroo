@@ -49,7 +49,8 @@ init([]) ->
                  {ip, Ip},
                  {port, 8000},
                  {log_dir, "priv/log"},
-                 {dispatch, Dispatch}],
+                 {dispatch, Dispatch},
+		 {error_handler, wallaroo_web_errors}],
     Web = {webmachine_mochiweb,
            {webmachine_mochiweb, start, [WebConfig]},
            permanent, 5000, worker, dynamic},
@@ -57,4 +58,5 @@ init([]) ->
            {wallaroo_sup, start_link, []},
            permanent, 5000, supervisor, [wallaroo]},
     Processes = [Wallaroo, Web],
+    application:set_env(webmachine, server_name, "Wallaroo " ++ wallaroo:version_string() ++ " (http://getwallaby.com/)"),
     {ok, { {one_for_one, 10, 10}, Processes} }.

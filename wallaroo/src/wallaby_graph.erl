@@ -86,7 +86,7 @@ extract_graph(Tree, StoreMod, DirtyNodes) ->
 
 get_children(Path, Tree, StoreMod) when is_list(Path) ->
     Root = wallaroo_tree:get_path(Path, Tree, StoreMod),
-    error_logger:warning_msg("wallaby_validators:get_children:  Path=~p, Tree=~p, Root=~p~n", [Path, Tree, Root]),
+    % error_logger:warning_msg("wallaby_validators:get_children:  Path=~p, Tree=~p, Root=~p~n", [Path, Tree, Root]),
     case Root of
 	none ->
 	    [];
@@ -118,7 +118,7 @@ extract_feature_entities(FeatureObjects) when is_list(FeatureObjects) ->
 			Name = {'feature', wallaby_feature:name(Feature)},
 			Incs = ordsets:from_list([{'includes', Name, {feature, F}} || F <- wallaby_feature:includes(Feature)]),
 			Deps = ordsets:from_list([{'depends_on', Name, {feature, F}} || F <- wallaby_feature:depends(Feature)]),
-			Cnfs = ordsets:from_list([{'conflicts_with', Name, {feature, F}} || F <- wallaby_feature:depends(Feature)]),
+			Cnfs = ordsets:from_list([{'conflicts_with', Name, {feature, F}} || F <- wallaby_feature:conflicts(Feature)]),
 			PVPairs = ordsets:from_list([{{'parameter', P}, V} || {P, V} <- wallaby_feature:parameters(Feature)]),
 			ParamValues = ordsets:from_list([{'param_value', Name, PV} || PV <- PVPairs]),
 			InstalledParams = [{'sets_param', Name, P} || {P, _} <- PVPairs],
@@ -129,7 +129,7 @@ extract_parameter_entities(ParameterObjects) when is_list(ParameterObjects) ->
     {Es,Rs} = lists:foldl(fun(Parameter, {Parameters, Relationships}) ->
 				  Name = {'parameter', wallaby_parameter:name(Parameter)},
 				  Deps = [{'depends_on', Name, {parameter, F}} || F <- wallaby_parameter:depends(Parameter)],
-				  Cnfs = [{'conflicts_with', Name, {parameter, F}} || F <- wallaby_parameter:depends(Parameter)],
+				  Cnfs = [{'conflicts_with', Name, {parameter, F}} || F <- wallaby_parameter:conflicts(Parameter)],
 				  {[Name|Parameters], Deps++Cnfs++Relationships}
 			  end, {[], []}, ParameterObjects),
     {ordsets:from_list(Es), ordsets:from_list(Rs)}.

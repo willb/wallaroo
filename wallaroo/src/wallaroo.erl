@@ -6,12 +6,20 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0, list_branches/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -define(SERVER, ?MODULE).
 -define(VALID_ENTITY_KIND(Kind), Kind=:='node' orelse Kind=:='feature' orelse Kind =:= 'subsystem' orelse Kind=:='group' orelse Kind=:='parameter').
+-define(VERSION,[
+		 {major, 0},
+		 {minor, 0},
+		 {patch, 1},
+		 {build, ""}
+		]).
+
+-include("dlog.hrl").
 
 start_link() ->
     error_logger:info_msg("entering WALLAROO start_link/0 ~n", []),
@@ -46,6 +54,19 @@ setup_empty(StoreMod) ->
 
 %%% API functions
 
+version() ->
+    ?VERSION.
+
+version_string() ->
+    VList = [proplists:get_value(Key, version()) || Key <- [major, minor, patch, build]],
+    Format = case proplists:get_value(build, version()) of
+		 "" ->
+		     "~B.~B.~B~s";
+		 _ ->
+		     "~B.~B.~B-~s"
+	     end,
+    binary_to_list(iolist_to_binary(io_lib:format(Format, VList))).
+
 list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
     case get_tag(<<"current">>) of
 	find_failed ->
@@ -56,7 +77,7 @@ list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
     end.
 
 list_entities(Kind, Commit) when ?VALID_ENTITY_KIND(Kind) ->
-    gen_server:call(?SERVER, {list, Kind, canonicalize_hash(Commit)}).
+    gen_server:call(?SERVER, {list, Kind, wallaroo_hash:canonicalize(Commit)}).
 
 list_tags() ->
     gen_server:call(?SERVER, {list_tags}).
@@ -74,7 +95,7 @@ get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
     end.
 
 get_entity(Name, Kind, Commit) ->
-    gen_server:call(?SERVER, {get, Kind, Name, canonicalize_hash(Commit)}).
+    gen_server:call(?SERVER, {get, Kind, Name, wallaroo_hash:canonicalize(Commit)}).
 
 get_tag(Name) ->
     gen_server:call(?SERVER,  {get_tag, Name}).
@@ -86,15 +107,14 @@ put_branch(Name, Commit) ->
     put_branch(Name, Commit, [], []).
 
 put_branch(Name, C, Anno, Meta) ->
-    Commit = canonicalize_hash(C),
+    Commit = wallaroo_hash:canonicalize(C),
     gen_server:call(?SERVER,  {put_branch, Name, Commit, Anno, Meta}).
-
 
 put_tag(Name, C) ->
     put_tag(Name, C, [], []).
 
 put_tag(Name, C, Anno, Meta) ->
-    Commit = canonicalize_hash(C),
+    Commit = wallaroo_hash:canonicalize(C),
     gen_server:call(?SERVER,  {put_tag, Name, Commit, Anno, Meta}).
 
 value_check(node, {wallaby_node, _}) ->
@@ -112,7 +132,7 @@ value_check(subsystem, {wallaby_subsystem, _}) ->
 put_entity(Name, node, Value) ->
     value_check(node, Value),
     IdGroup = wallaby_node:identity_group(Value),
-    Whence = canonicalize_hash(put_entity(IdGroup, group, wallaby_group:new(IdGroup))),
+    Whence = wallaroo_hash:canonicalize(put_entity(IdGroup, group, wallaby_group:new(IdGroup))),
     gen_server:call(?SERVER,  {put, node, Name, Value, Whence});
 put_entity(Name, Kind, Value) when ?VALID_ENTITY_KIND(Kind) ->
     value_check(Kind, Value),
@@ -122,12 +142,12 @@ put_entity(Name, Kind, Value) when ?VALID_ENTITY_KIND(Kind) ->
 put_entity(Name, node, Value, SuppliedCommit) ->
     value_check(node, Value),
     IdGroup = wallaby_node:identity_group(Value),
-    C = canonicalize_hash(SuppliedCommit),
-    Whence = canonicalize_hash(put_entity(IdGroup, group, wallaby_group:new(IdGroup), C)),
+    C = wallaroo_hash:canonicalize(SuppliedCommit),
+    Whence = wallaroo_hash:canonicalize(put_entity(IdGroup, group, wallaby_group:new(IdGroup), C)),
     gen_server:call(?SERVER,  {put, node, Name, Value, Whence});
 put_entity(Name, Kind, Value, SuppliedCommit) when ?VALID_ENTITY_KIND(Kind) ->
     value_check(Kind, Value),
-    C = canonicalize_hash(SuppliedCommit),
+    C = wallaroo_hash:canonicalize(SuppliedCommit),
     gen_server:call(?SERVER,  {put, Kind, Name, Value, C}).
 
 %%% gen_server callbacks
@@ -175,7 +195,7 @@ handle_call({put_branch, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     {reply, Obj, State};
 handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
     CommitObj = get_commit(Commit, StoreMod),
-    % error_logger:warning_msg("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
+    ?D_LOG("put_tag/4 Name=~p, Commit=~p, CommitObj=~p~n", [Name, Commit, CommitObj]),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
     V = case orddict:find(validated, Meta) of
 	    {ok, true} ->
@@ -183,9 +203,9 @@ handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
 	    _ ->
 		fun(_,_) -> ok end
 	end,
-    case V(Tree, StoreMod) of
+    case wallaby_vcache:for_commit(Commit, V) of
 	ok ->
-	    % error_logger:warning_msg("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
+	    ?D_LOG("put_tag SUCCESS with Name=~p; Commit=~p, CommitObj=~p, Tree=~p~n", [Name, Commit, CommitObj, Tree]),
 	    TagObj = StoreMod:store_tag(Name, wallaroo_tag:new(Commit, Anno, Meta)),
 	    {reply, TagObj, State};
 	{fail, _}=F ->
@@ -205,14 +225,9 @@ code_change(_, State, _) ->
 %%% Helpers
 
 add_last_updated(Commit, {value, {wallaby_node, Dict}}) ->
-    {value, {wallaby_node, orddict:store(last_updated_version, list_to_binary(wallaroo_hash:bitstring_to_string(Commit)), Dict)}};
+    {value, {wallaby_node, orddict:store(last_updated_version, list_to_binary(wallaroo_hash:stringize(Commit)), Dict)}};
 add_last_updated(_, _=Val) ->
     Val.
-
-canonicalize_hash(String) when is_list(String) ->
-    wallaroo_hash:hash_to_bitstring(String);
-canonicalize_hash(BS) when is_binary(BS) ->
-    BS.
 
 xlate_what('node') ->
     <<"nodes">>;

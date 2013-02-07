@@ -148,7 +148,7 @@ requirements_checker_maker(Nodes, NodeGraph, DepGraph, ConflictGraph, EntityMatc
 							    Result = {Node, 
 								      [{Entity, DepDiff} || 
 									  Entity <- Es, 
-									  (DepDiff = ordsets:subtract(gb_trees:get(Deps, Entity), Es)) =/= []]},
+									  (DepDiff = ordsets:subtract(gb_trees:get(Entity, Deps), Es)) =/= []]},
 							    [Result|Acc]
 						    end,
 						    [],
@@ -169,7 +169,7 @@ requirements_checker_maker(Nodes, NodeGraph, DepGraph, ConflictGraph, EntityMatc
 							    Result = {Node, 
 								      [{Entity, ViolatedCnfs} || 
 									  Entity <- Es, 
-									  (ViolatedCnfs = ordsets:intersection(gb_trees:get(Cnfs, Entity), Es)) =/= []]},
+									  (ViolatedCnfs = ordsets:intersection(gb_trees:get(Entity, Cnfs), Es)) =/= []]},
 							    [Result|Acc]
 						    end,
 						    [],
@@ -203,6 +203,3 @@ make_activate_validators(DirtyNodes, Tree, StoreMod) when is_list(DirtyNodes) ->
     make_activate_validators(wallaby_graph:extract_graph(Tree, StoreMod, DirtyNodes), ignored, ignored);
 make_activate_validators(all, Tree, StoreMod) ->
     make_activate_validators(wallaby_graph:extract_graph(Tree, StoreMod), ignored, ignored).
-
-
-     

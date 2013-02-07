@@ -44,7 +44,7 @@ to_json(ReqData, Ctx) ->
 						RawConf = wallaby_config:for(Kind, Name, Commit),
 						Config = case Kind of
 							     node ->
-								 orddict:store(<<"WALLABY_CONFIG_VERSION">>, list_to_binary(wallaroo_hash:bitstring_to_string(Commit)), RawConf);
+								 orddict:store(<<"WALLABY_CONFIG_VERSION">>, list_to_binary(wallaroo_hash:stringize(Commit)), RawConf);
 							     _ ->
 								 RawConf
 							 end,

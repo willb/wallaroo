@@ -75,7 +75,7 @@ code_change(_, State, _) ->
 %%% helpers
 
 generic_lookup(Kind, Name, Commit, #cstate{storage=StoreMod}=State, Default) ->
-    CommitObj = StoreMod:find_commit(canonicalize_hash(Commit)),
+    CommitObj = StoreMod:find_commit(wallaroo_hash:canonicalize(Commit)),
     case CommitObj of
 	{wallaroo_commit, _} ->
 	    generic_find(Kind, Name, Commit, CommitObj, State, Default);
@@ -85,11 +85,6 @@ generic_lookup(Kind, Name, Commit, #cstate{storage=StoreMod}=State, Default) ->
 
 
 %% XXX: refactor dupes plz
-canonicalize_hash(String) when is_list(String) ->
-    wallaroo_hash:hash_to_bitstring(String);
-canonicalize_hash(BS) when is_binary(BS) ->
-    BS.
-
 transitively_reachable(Graph, StartNode) ->
     ordsets:from_list(digraph_utils:reachable_neighbours([StartNode], Graph)).
 

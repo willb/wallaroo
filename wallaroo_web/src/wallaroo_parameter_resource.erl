@@ -36,20 +36,20 @@ from_json(ReqData, Ctx) ->
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
 validate({wallaby_parameter, _}=Parameter, none) ->
-    Depends = {nonexistent_depends, wallaby_parameter:depends(Parameter)},
-    Conflicts = {nonexistent_conflicts, wallaby_parameter:conflicts(Parameter)},
-    case [Fail || Fail={_, Ls} <- [Depends, Conflicts], Ls =/= []] of
+    Depends = {nonexistent_depends, {array, wallaby_parameter:depends(Parameter)}},
+    Conflicts = {nonexistent_conflicts, {array, wallaby_parameter:conflicts(Parameter)}},
+    case [Fail || Fail={_, Ls} <- [Depends, Conflicts], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
 	    error_logger:warning_msg("param validation failed; errors are ~p~n", [Ls]),
 	    {error, Ls}
     end;
 validate({wallaby_parameter, _}=Parameter, Commit) ->
-    BadDepends = {nonexistent_depends, [F || F <- wallaby_parameter:depends(Parameter), wallaroo:get_entity(F, parameter, Commit) =:= none]},
-    BadConflicts = {nonexistent_conflicts, [F || F <- wallaby_parameter:conflicts(Parameter), wallaroo:get_entity(F, parameter, Commit) =:= none]}, 
-    case [Fail || Fail={_, Ls} <- [BadDepends, BadConflicts], Ls =/= []] of
+    BadDepends = {nonexistent_depends, {array, [F || F <- wallaby_parameter:depends(Parameter), wallaroo:get_entity(F, parameter, Commit) =:= none]}},
+    BadConflicts = {nonexistent_conflicts, {array, [F || F <- wallaby_parameter:conflicts(Parameter), wallaroo:get_entity(F, parameter, Commit) =:= none]}}, 
+    case [Fail || Fail={_, Ls} <- [BadDepends, BadConflicts], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
 	    error_logger:warning_msg("param validation failed for ~p at ~p; errors are ~p~n", [Parameter, Commit, Ls]),
-	    {error, Ls}
+	    {error, {struct, Ls}}
     end.

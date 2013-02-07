@@ -37,7 +37,7 @@ validate({wallaby_node, _}=Node, none) ->
     case wallaby_node:memberships(Node) of
 	[] -> ok;
 	Ls ->
-	    {error, [{nonexistent_groups, Ls}]}
+	    {error, {struct, [{nonexistent_groups, {array, Ls}}]}}
     end;
 validate({wallaby_node, _}=Node, Commit) ->
     Groups = wallaby_node:memberships(Node),
@@ -47,11 +47,11 @@ validate({wallaby_node, _}=Node, Commit) ->
 	{node_validate,[],[]} ->
 	    ok;
 	{node_validate, [], Ls} ->
-	    {error, [{nonexistent_groups, Ls}]};
+	    {error, {struct, [{nonexistent_groups, {array, Ls}}]}};
 	{node_validate, Ls, []} ->
-	    {error, [{special_groups, Ls}]};
+	    {error, {struct, [{special_groups, {array, Ls}}]}};
 	{node_validate, Ls, Ls2} ->
-	    {error, [{special_groups, Ls},{nonexistent_groups, Ls2}]}
+	    {error, {struct, [{special_groups, {array, Ls}},{nonexistent_groups, {array, Ls2}}]}}
     end.
 
 special_group(<<"+++SKEL">>) ->

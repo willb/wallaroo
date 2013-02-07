@@ -36,22 +36,22 @@ from_json(ReqData, Ctx) ->
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
 validate({wallaby_feature, _}=Feature, none) ->
-    Includes = {nonexistent_includes, wallaby_feature:includes(Feature)},
-    Depends = {nonexistent_depends, wallaby_feature:depends(Feature)},
-    Conflicts = {nonexistent_conflicts, wallaby_feature:conflicts(Feature)},
-    Parameters = {nonexistent_parameters, [P || {P, _} <- wallaby_feature:parameters(Feature)]},
-    case [Fail || Fail={_, Ls} <- [Includes, Depends, Conflicts, Parameters], Ls =/= []] of
+    Includes = {nonexistent_includes, {array, wallaby_feature:includes(Feature)}},
+    Depends = {nonexistent_depends, {array, wallaby_feature:depends(Feature)}},
+    Conflicts = {nonexistent_conflicts, {array, wallaby_feature:conflicts(Feature)}},
+    Parameters = {nonexistent_parameters, {array, [P || {P, _} <- wallaby_feature:parameters(Feature)]}},
+    case [Fail || Fail={_, Ls} <- [Includes, Depends, Conflicts, Parameters], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
-	    {error, Ls}
+	    {error, {struct, Ls}}
     end;
 validate({wallaby_feature, _}=Feature, Commit) ->
-    BadIncludes = {nonexistent_includes, [F || F <- wallaby_feature:includes(Feature), wallaroo:get_entity(F, feature, Commit) =:= none]},
-    BadDepends = {nonexistent_depends, [F || F <- wallaby_feature:depends(Feature), wallaroo:get_entity(F, feature, Commit) =:= none]},
-    BadConflicts = {nonexistent_conflicts, [F || F <- wallaby_feature:conflicts(Feature), wallaroo:get_entity(F, feature, Commit) =:= none]}, 
-    BadParameters = {nonexistent_parameters, [P || {P, _} <- wallaby_feature:parameters(Feature), wallaroo:get_entity(P, parameter, Commit) =:= none]},
-    case [Fail || Fail={_, Ls} <- [BadIncludes, BadDepends, BadConflicts, BadParameters], Ls =/= []] of
+    BadIncludes = {nonexistent_includes, {array, [F || F <- wallaby_feature:includes(Feature), wallaroo:get_entity(F, feature, Commit) =:= none]}},
+    BadDepends = {nonexistent_depends, {array, [F || F <- wallaby_feature:depends(Feature), wallaroo:get_entity(F, feature, Commit) =:= none]}},
+    BadConflicts = {nonexistent_conflicts, {array, [F || F <- wallaby_feature:conflicts(Feature), wallaroo:get_entity(F, feature, Commit) =:= none]}}, 
+    BadParameters = {nonexistent_parameters, {array, [P || {P, _} <- wallaby_feature:parameters(Feature), wallaroo:get_entity(P, parameter, Commit) =:= none]}},
+    case [Fail || Fail={_, Ls} <- [BadIncludes, BadDepends, BadConflicts, BadParameters], Ls =/= {array, []}] of
 	[] -> ok;
 	Ls ->
-	    {error, Ls}
+	    {error, {struct, Ls}}
     end.

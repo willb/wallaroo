@@ -2,7 +2,7 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_hash).
--export([as_bitstring/1, as_string/1, as_num/1, hash_to_bitstring/1, hash_to_num/1, bitstring_to_string/1]).
+-export([as_bitstring/1, as_string/1, as_num/1, hash_to_bitstring/1, hash_to_num/1, stringize/1, canonicalize/1]).
 -export_type([bin/0, hexdigit/0, hexstring/0]).
 
 -type bin() :: <<_:160>>.
@@ -41,3 +41,16 @@ hexdigit_to_int(I) when I =< $f andalso I >= $a ->
     I - $a + 10;
 hexdigit_to_int(I) when I =< $F andalso I >= $A ->
     I - $A + 10.
+
+
+canonicalize(String) when is_list(String) ->
+    hash_to_bitstring(String);
+canonicalize(BS) when is_binary(BS) ->
+    BS.
+
+stringize(B) when is_binary(B) ->
+    <<SHA:160/big-unsigned-integer>> = B,
+    lists:flatten(io_lib:format("~40.16.0b", [SHA]));
+stringize(Str) when is_list(Str) ->
+    Str.
+

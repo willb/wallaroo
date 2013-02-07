@@ -35,7 +35,7 @@ module Wallaroo
 
       def modifyFeatures(command, fset, options=nil)
         options ||= {}
-        modify_arcs(command,fset,options,:features,:features=,:explain=>explain)
+        modify_arcs(command,fset,options,:features,:features=,:explain=>"installs",:preserve_order=>true,:heterogeneous=>true)
         update!
       end
 
