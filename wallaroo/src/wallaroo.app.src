@@ -11,5 +11,5 @@
                   stdlib
                  ]},
   {mod, { wallaroo_app, []}},
-  {env, []}
+  {env, [{enable_skeleton_group, true}]}
  ]}.
