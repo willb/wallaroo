@@ -44,13 +44,6 @@ init([{storemod, StoreMod}]) ->
     end,
     {ok, {StoreMod}}.
 
-setup_empty(StoreMod) ->
-    EmptyCommitSHA = wallaroo_commit:store(wallaroo_commit:empty(), StoreMod),
-    {BasicTreeSHA, _} = lists:foldl(fun(Group, {_, T}) ->
-					    wallaroo_tree:put_path([<<"groups">>, Group], wallaby_group:new(Group), T, StoreMod)
-				    end, wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod), [<<"+++SKEL">>, <<"+++DEFAULT">>]),
-    SHA = wallaroo_commit:store(wallaroo_commit:new([EmptyCommitSHA], BasicTreeSHA, [], []), StoreMod),
-    wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 %%% API functions
 
@@ -241,6 +234,42 @@ xlate_what('subsystem') ->
     <<"subsystems">>;
 xlate_what(X) when is_atom(X) ->
     list_to_binary(atom_to_list(X) ++ "s").
+
+create_what(group) ->
+    fun(Name) -> wallaby_group:new(Name) end;
+create_what(node) ->
+    fun(Name) -> wallaby_node:new(Name, true) end;
+create_what(feature) ->
+    fun(Name) -> wallaby_feature:new(Name) end;
+create_what(parameter) ->
+    fun(Name) -> wallaby_parameter:new(Name) end;
+create_what(subsystem) ->
+    fun(Name) -> wallaby_subsystem:new(Name) end.
+
+ensure_entities_exist({Hash, Tree}, Kind, Entities, StartingCommit, StoreMod) ->
+    ensure_entities_exist({Hash, Tree}, Kind, Entities, StartingCommit, create_what(Kind), StoreMod).
+ensure_entities_exist({Hash, Tree}, Kind, Entities, StartingCommit, CreateFun, StoreMod) ->
+    {UpdatedTreeHash, _} = lists:foldl(fun(Entity, {H, T}) ->
+					       Path = [xlate_what(Kind), Entity],
+					       case wallaroo_tree:get_path(Path, T, StoreMod) of
+						   none ->
+						       wallaroo_tree:put_path(Path, CreateFun(Entity), T, StoreMod);
+						   {_, _} ->
+						       {H, T}
+					       end
+				       end, {Hash, Tree}, Entities),
+    case UpdatedTreeHash of
+	Hash ->
+	    StartingCommit;
+	_ ->
+	    wallaroo_commit:store(wallaroo_commit:new([StartingCommit], UpdatedTreeHash, [], [{automatically_generated_by,ensure_entities_exist}]), StoreMod)
+    end.
+
+setup_empty(StoreMod) ->
+    EmptyCommitSHA = wallaroo_commit:store(wallaroo_commit:empty(), StoreMod),
+    {EmptyTreeHash, EmptyTree} = wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod),
+    SHA = ensure_entities_exist({EmptyTreeHash, EmptyTree}, group, [<<"+++SKEL">>, <<"+++DEFAULT">>], EmptyCommitSHA, StoreMod),
+    wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 get_path(What, Name, Tree, StoreMod) when is_atom(What) ->
     get_path(xlate_what(What), Name, Tree, StoreMod);
