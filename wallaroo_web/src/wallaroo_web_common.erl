@@ -167,8 +167,7 @@ generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart) ->
 
 generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
     % error_logger:warning_msg("Ctx is is ~p~n", [Ctx]),
-    Body = wrq:req_body(ReqData),
-    % error_logger:warning_msg("Body is is ~p~n", [Body]),
+    % error_logger:warning_msg("Body is is ~p~n", [wrq:req_body(ReqData)]),
     Data = [{list_to_atom(binary_to_list(K)), V} || {K, V} <- (mochijson:binary_decoder([{object_hook, fun peel/1}]))(wrq:req_body(ReqData))],
     % error_logger:warning_msg("Data is is ~p~n", [Data]),
     case wrq:path_info(name, ReqData) of
@@ -216,6 +215,31 @@ atomize_pair({K, V}) ->
 atomize_meta(Dict) ->
     [atomize_pair(Pair) || Pair <- Dict].
 
+vfail_to_json({fail, {all_vertices_exist, {bad_edges, Vs}}}) ->
+    {struct, [{failure_kind, all_vertices_exist}, {bad_edges, {array, Vs}}]};
+vfail_to_json({fail, {CyclicFail, {cycles, Cs}}}) ->
+    {struct, [{failure_kind, CyclicFail}, {cycles, {array, Cs}}]};
+vfail_to_json({fail, {no_immed_conflicts_with_transitive_includes_or_deps, DCs}}) ->
+    DvC_struct = [{struct, [{feature, F}, 
+			    {transitive_deps_and_includes, {array, DIs}}, 
+			    {immediate_conflicts, {array, Cs}}]} 
+		  || {F, DIs, Cs} <- DCs],
+    {struct, [{failure_kind, no_immed_conflicts_with_transitive_includes_or_deps}, {features, {array, DvC_struct}}]};
+vfail_to_json({fail, DepOrConFail, What, for_nodes, Entities}) ->
+    {struct, [{failure_kind, DepOrConFail}, {entity_kind, What}, {entities, {array, Entities}}]};
+vfail_to_json({fail, {multiple_failures, Fails}}) ->
+    {struct, [{failure_kind, multiple_failures},
+	      {failures, {array, [vfail_to_json({fail, Fail}) || Fail <- Fails]}}]};
+vfail_to_json({fail, Fail}) when is_tuple(Fail), size(Fail) >= 2 ->
+    error_logger:warning_msg("vfail_to_json/1 handling {fail, ~p}~n", [Fail]),
+    [Kind|Details] = tuple_to_list(Fail),
+    {struct, [{failure_kind, Kind},
+	      {failure_string, iolist_to_binary(io_lib:format("~p", [list_to_tuple(Details)]))}]};
+vfail_to_json(X) ->
+    error_logger:warning_msg("vfail_to_json/1 handling unexpected term ~p~n", [X]),
+    {struct, [{failure_kind, unknown},
+	      {failure_term, iolist_to_binary(io_lib:format("~p", [X]))}]}.
+
 from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
     Name = ensure_str_format(orddict:fetch(name, Data), binary),
     SHA = ensure_str_format(orddict:fetch(commit, Data), list),
@@ -223,8 +247,9 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
     Annotation = orddict_default_fetch(annotation, Data, []),
     % error_logger:warning_msg("about to convert JSON to a tag: Name=~p, SHA=~p, Meta=~p, Annotation=~p", [Name, SHA, Meta, Annotation]),
     case {tag_fjh, wallaroo:put_tag(Name, SHA, Annotation, Meta)} of
-	{tag_fjh, {fail, Failure}} ->
-	    ResponseBody = wrq:append_to_response_body(mochijson:binary_encode({struct, [{failure, iolist_to_binary(io_lib:format("~p", [Failure]))}]}), ReqData),
+	{tag_fjh, {fail, _}=Failure} ->
+	    ResponseBody = 
+		wrq:append_to_response_body(mochijson:binary_encode(vfail_to_json(Failure)), ReqData),
 	    {{halt, 400}, ResponseBody, Ctx};
 	_ ->
 	    NewLocation = io_lib:format("/~s/~s", [PathPart, mochiweb_util:quote_plus(Name)]),
