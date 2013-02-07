@@ -8,6 +8,7 @@
 -export([allowed_methods/2, content_types_provided/2, content_types_accepted/2, finish_request/2]).
 
 -include_lib("webmachine/include/webmachine.hrl").
+-include("dlog.hrl").
 
 init(Args) ->
     wallaroo_web_common:generic_init(Args).
@@ -17,9 +18,7 @@ allowed_methods(ReqData, Ctx) ->
 
 resource_exists(ReqData, Ctx) ->
     wallaroo_web_common:generic_entity_exists(ReqData, Ctx, fun(Name, Commit) -> 
-								    Res = wallaroo:get_entity(Name, group, Commit),
-								    % error_logger:warning_msg("looking for group ~p; got ~p~n", [Name, Res]),
-								    Res
+								    ?D_VAL(wallaroo:get_entity(Name, group, Commit)),
 							    end).
 
 content_types_accepted(ReqData, Ctx) ->
@@ -39,7 +38,7 @@ from_json(ReqData, Ctx) ->
 
 %%% XXX: this doesn't do proactive graph validation yet -- but it could (and should)
 validate({wallaby_group, _}=Group, none) ->
-    error_logger:warning_msg("validating ~p for no commit~n", [Group]),
+    ?D_LOG("validating ~p for no commit~n", [Group]),
     Features = {nonexistent_features, wallaby_group:features(Group)},
     Parameters = {nonexistent_parameters, [P || {P, _} <- wallaby_group:parameters(Group)]},
     case [Fail || Fail={_, Ls} <- [Features, Parameters], Ls =/= []] of
@@ -48,7 +47,7 @@ validate({wallaby_group, _}=Group, none) ->
 	    {error, Ls}
     end;
 validate({wallaby_group, _}=Group, Commit) ->
-    error_logger:warning_msg("validating ~p for commit~p~n", [Group, Commit]),
+    ?D_LOG("validating ~p for commit~p~n", [Group, Commit]),
     BadFeatures = {nonexistent_features, {array, [F || F <- wallaby_group:features(Group), wallaroo:get_entity(F, feature, Commit) =:= none]}},
     BadParameters = {nonexistent_parameters, {array, [P || {P, _} <- wallaby_group:parameters(Group), wallaroo:get_entity(P, parameter, Commit) =:= none]}},
     case [Fail || Fail={_, Ls} <- [BadFeatures, BadParameters], Ls =/= {array, []}] of
