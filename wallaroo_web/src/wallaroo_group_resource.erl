@@ -18,7 +18,7 @@ allowed_methods(ReqData, Ctx) ->
 
 resource_exists(ReqData, Ctx) ->
     wallaroo_web_common:generic_entity_exists(ReqData, Ctx, fun(Name, Commit) -> 
-								    ?D_VAL(wallaroo:get_entity(Name, group, Commit)),
+								    ?D_VAL(wallaroo:get_entity(Name, group, Commit))
 							    end).
 
 content_types_accepted(ReqData, Ctx) ->
