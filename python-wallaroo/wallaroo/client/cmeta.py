@@ -44,8 +44,8 @@ class ConnectionMeta(object):
         return retval
     
     def list_objects(self, kind):
-        klazz = getattr(wallaroo.client, kind.lower())
-        self.fetch_json_resource("/%s" % klazz.plural_name)
+        klazz = getattr(self.client, kind.lower())
+        return self.fetch_json_resource("/%s" % klazz.plural_name)
     
     def fetch_json_resource(self, path, query=None):
         q = query and query or self.how.to_q()

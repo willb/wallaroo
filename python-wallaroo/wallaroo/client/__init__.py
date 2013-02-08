@@ -15,17 +15,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .cmeta import ConnectionMeta
-from .node import node
-from .feature import feature
-from .group import group
-from .parameter import parameter
-from .subsystem import subsystem
-from .heads import tag, branch
-from .util import pluralize, sha_for
+from cmeta import ConnectionMeta
+from node import node
+from feature import feature
+from group import group
+from parameter import parameter
+from subsystem import subsystem
+from heads import tag, branch
+from util import pluralize, sha_for
+from singleton import v as store_singleton, set_v as set_store_singleton
 
 import errors
 from errors import not_implemented, fail
+
+from constants import PARTITION_GROUP, LABEL_SENTINEL_PARAM, LABEL_SENTINEL_PARAM_ATTR
 
 import os
 
@@ -155,23 +158,68 @@ class store(object):
             tago.meta = options["meta"]
         tago.exists() and tago.update() or tago.create()
         return tago
+    
+    # methods for label support below
+    def getPartitionGroup(self):
+        valid = len(self.checkGroupValidity([PARTITION_GROUP])) == 0
+        if valid:
+            return self.getGroup({"name": PARTITION_GROUP})
+        else:
+            return self.addExplicitGroup(PARTITION_GROUP)
+    
+    def addLabel(self, label_name):
+        """
+        Adds a label group with the given name to the store.  If a group with the given name already exists, ensure it is marked as a label group.
+        """
+        label = None
+        if self.checkGroupValidity([label_name]) == [label_name]:
+            label = self.addExplicitGroup(label_name)
+        else:
+            label = self.getGroupByName(label_name)
+        if not hasattr(self, LABEL_SENTINEL_PARAM_ATTR):
+            if self.checkParameterValidity([LABEL_SENTINEL_PARAM]) == [LABEL_SENTINEL_PARAM]:
+                self.addParam(LABEL_SENTINEL_PARAM)
+            setattr(self, LABEL_SENTINEL_PARAM_ATTR, True)
+        label.modifyParams("ADD", {LABEL_SENTINEL_PARAM : ">= %s" % label_name})
+        return label
+    
+    def isLabel(self, label):
+        if hasattr(label, "params"):
+            return label.params.has_key(LABEL_SENTINEL_PARAM)
+        if type(label) == str and self.checkGroupValidity([label]) == []:
+            return self.getGroupByName(label).params.has_key(LABEL_SENTINEL_PARAM)
+        return False
 
 store.addNodeWithOptions = store.addNode
 store.activateConfiguration = store.activateConfig
 
-for klass in ["Feature", "Group", "Node", "Parameter", "Subsystem", "Branch", "Tag"]:
+def mkcv(klass):
     def cv(self, eset):
         valid_ents = set(self.cm.list_objects(klass))
         return [ent for ent in eset if ent not in valid_ents]
+    return cv
+
+def mkle(klass):
     def le(self):
-        return self.cmlist_objects(klass)
-    setattr(store, "check%sValidity" % klass, cv)
-    setattr(store, pluralize(klass), le)
+        return self.cm.list_objects(klass)
+    return le
+
+for klass in ["Feature", "Group", "Node", "Parameter", "Subsystem", "Branch", "Tag"]:
+    setattr(store, "check%sValidity" % klass, mkcv(klass))
+    setattr(store, pluralize(klass), property(mkle(klass)))
+
+def mkgsg(grp):
+    def get_special_group(self):
+        return self.cm.make_proxy_object("group", grp)
+    return get_special_group
 
 for msg, grp in [("getDefaultGroup", "+++DEFAULT"), ("getSkeletonGroup", "+++SKEL")]:
-    def get_special_group(self):
-        self.cm.make_proxy_object("group", grp)
-    setattr(store, msg, get_special_group)
+    setattr(store, msg, mkgsg(grp))
+
+def setup_labeling(the_store):
+    set_store_singleton(the_store)
+    the_store.getPartitionGroup()
+    return the_store
 
 def connect(**options):
     defaults = {
@@ -185,4 +233,4 @@ def connect(**options):
     for k in options:
         defaults[k] = options[k]
     
-    return store(ConnectionMeta(**defaults))
+    return setup_labeling(store(ConnectionMeta(**defaults)))

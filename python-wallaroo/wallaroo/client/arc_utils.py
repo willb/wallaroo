@@ -65,20 +65,20 @@ def arcmethod(getfun, setfun, **kwargs):
         if command == "ADD":
             old_dests = preserve_order and getfun() or set(getfun())
             new_dests = preserve_order and dests or set(dests)
-            if keyfun() in new_dests and not heterogeneous:
+            if keyfun in new_dests and not heterogeneous:
                 fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
             
-            setfun(uniq(itertools.chain(old, new)))
+            setfun(self, uniq(itertools.chain(old, new)))
             self.update()
         elif command == "REPLACE":
             new_dests = preserve_order and dests or set(dests)
-            if keyfun() in new_dests and not heterogeneous:
+            if keyfun in new_dests and not heterogeneous:
                 fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
             
-            setfun(new_dests)
+            setfun(self, new_dests)
             self.update()
         elif command == "REMOVE":
-            setfun([dest for new_dests in getfun() if not dest in set(dests)])
+            setfun(self, [dest for new_dests in getfun() if not dest in set(dests)])
             self.update()
         elif command in ["INTERSECT", "DIFF", "UNION"]:
             if preserve_order:
@@ -92,7 +92,7 @@ def arcmethod(getfun, setfun, **kwargs):
             if keyfun() in new_dests and not heterogeneous:
                 fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
             
-            setfun(new_dests)
+            setfun(self, new_dests)
             self.update()
         else:
             fail(errors.make(errors.BAD_COMMAND, errwhat), "Invalid command %s" % command)

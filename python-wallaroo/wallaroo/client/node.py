@@ -16,10 +16,13 @@
 from .proxy import Proxy, proxied_attr
 from .proxy import proxied_attr_get as pag, proxied_attr_set as pas, proxied_attr_getset as pags
 
-from .arc_utils import arcmethod
+from .arc_utils import arcmethod, uniq
+from .singleton import v as store_singleton
 
 import errors
 from errors import not_implemented, fail
+
+from constants import PARTITION_GROUP, LABEL_SENTINEL_PARAM, LABEL_SENTINEL_PARAM_ATTR
 
 class node(Proxy):
     name = property(pag("name"))
@@ -44,6 +47,51 @@ class node(Proxy):
     
     def whatChanged(old, new):
         not_implemented()
+    
+    # labeling support below
+    def getLabels(self):
+        memberships = self.memberships
+        if not PARTITION_GROUP in memberships:
+            return []
+        else:
+            partition = memberships.index(PARTITION_GROUP)
+            return memberships[partition+1:]
+    
+    labels=property(getLabels)
+    
+    def modifyLabels(self, op, labels, **options):
+        thestore = store_singleton()
+        memberships = self.memberships
+        current_labels = self.getLabels()
+        label_set = set(current_labels + [PARTITION_GROUP])
+        new_labels = []
+        
+        if op == "ADD":
+            new_labels = current_labels + labels
+            pass
+        elif op == "REPLACE":
+            new_labels = labels
+            pass
+        elif op == "REMOVE":
+            new_labels = [label for label in current_labels if label not in labels]
+        else:
+            raise NotImplementedError("modifyLabels:  operation " + op + " not understood")
+        
+        just_memberships = [grp for grp in memberships if grp not in label_set]
+        new_memberships = uniq(just_memberships + [PARTITION_GROUP] + new_labels)
+        
+        if "ensure_partition_group" in options and options["ensure_partition_group"] is not False:
+            if thestore is None:
+                raise RuntimeError("store singleton must be initialized before using the ensure_partition_group option")
+            thestore.getPartitionGroup()
+        
+        if "create_missing_labels" in options and options["create_missing_labels"] is not False:
+            if thestore is None:
+                raise RuntimeError("store singleton must be initialized before using the create_missing_labels option")
+            for missing_label in thestore.checkGroupValidity(new_labels):
+                thestore.addLabel(missing_label)
+        
+        return self.modifyMemberships("REPLACE", new_memberships, {})
 
 proxied_attr(node, "name")
 proxied_attr(node, "memberships")

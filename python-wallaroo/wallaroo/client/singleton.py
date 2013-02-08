@@ -1,5 +1,3 @@
-# Main file for python wallaroo client
-
 # Copyright (c) 2013 Red Hat, Inc.
 # Author:  William Benton (willb@redhat.com)
 
@@ -15,4 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import client
+__store_singleton = None
+
+def v():
+    global __store_singleton
+    return __store_singleton
+
+def set_v(s):
+    global __store_singleton
+    __store_singleton = s

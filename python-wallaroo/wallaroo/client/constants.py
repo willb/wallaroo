@@ -1,5 +1,3 @@
-# Main file for python wallaroo client
-
 # Copyright (c) 2013 Red Hat, Inc.
 # Author:  William Benton (willb@redhat.com)
 
@@ -15,4 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import client
+PARTITION_GROUP = "===LABELS_BELOW==="
+LABEL_SENTINEL_PARAM = "WALLABY_LABELS"
+LABEL_SENTINEL_PARAM_ATTR = "__label_sentinel_param"

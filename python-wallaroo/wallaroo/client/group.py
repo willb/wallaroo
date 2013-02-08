@@ -26,6 +26,9 @@ class group(Proxy):
     features = property(*pags("features"))
     parameters = property(*pags("parameters"))
     
+    # alias for backwards-compatibility
+    params = property(pag("parameters")) 
+    
     modifyFeatures = arcmethod(*pags("features"), heterogeneous=True, preserve_order=True)
     
     def getConfig(self, **options):
@@ -36,7 +39,7 @@ class group(Proxy):
     def explain(self):
         not_implemented()
     
-    def modifyParams(command, params, **options):
+    def modifyParams(self, command, params, **options):
         command = command.upper()
         if command == "ADD":
             for k, v in params.iteritems():

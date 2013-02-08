@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='wallaroo',
-      version='0.02',
+      version='0.0.3',
       description='Client library for the Wallaroo implementation of the Wallaby configuration service',
       url='http://github.com/willb/wallaroo',
       author='William Benton',
