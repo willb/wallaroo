@@ -52,6 +52,12 @@ class group(Proxy):
         else:
             fail(errors.make(errors.BAD_COMMAND, errors.GROUP), "Invalid command %s" % command)
         self.update()
+    
+    def members(self):
+        all_nodes = [self.cm.make_proxy_object("node", node, True) for node in self.cm.list_objects("node")]
+        return [node.name for node in all_nodes if self.name in node.memberships]
+    
+    membership = property(members)
 
 proxied_attr(group, "name")
 proxied_attr(group, "features")

@@ -45,8 +45,30 @@ class node(Proxy):
     def explain(self):
         not_implemented()
     
-    def whatChanged(old, new):
-        not_implemented()
+    def whatChanged(self, old, new):
+        oc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":old})
+        nc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":new})
+        
+        ock = set(oc)
+        nck = set(nc)
+        
+        params = set([p for p in (ock | nck) if p not in ock or p not in nck or oc[p] != nc[p]]) - set(["WALLABY_CONFIG_VERSION"])
+        mc_params = set([p for p in params if store_singleton().getParam(p).must_change])
+        
+        subsystems = [store_singleton().getSubsys(sub) for sub in self.cm.list_objects("subsystem")]
+        
+        restart, reconfig = [], []
+        
+        for ss in subsystems:
+            ss.refresh
+            ssp = set(ss.parameters)
+            if ssp.intersection(mc_params):
+                restart.append(ss.name)
+            elif ssp.intersection(params):
+                reconfig.append(ss.name)
+        
+        return [list(params), restart, reconfig]
+        
     
     # labeling support below
     def getLabels(self):

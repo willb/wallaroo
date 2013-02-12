@@ -19,7 +19,7 @@ module Wallaroo
     class Node
       include ::Wallaroo::Client::Proxying      
       
-      [:name, :memberships].each do |what|
+      [:name, :memberships, :identity_group].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
         declare_attribute what
       end
@@ -27,7 +27,7 @@ module Wallaroo
       declare_attribute :provisioned
       
       def identity_group
-        result = cm.make_proxy_object(:group, attr_vals["identity_group"])
+        result = cm.make_proxy_object(:group, attr_vals[:identity_group])
         result.refresh
         result
       end
@@ -63,8 +63,26 @@ module Wallaroo
       end
       
       def whatChanged(old_version, new_version)
-        # TODO
-        not_implemented
+        # XXX: this identifies must_change and subsystem properties as of the current connection meta information -- not as of new_version
+        store = Store.new(cm)
+        old_config = cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}", "commit=#{old_version}").to_a
+        new_config = cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}", "commit=#{new_version}").to_a
+
+        params = ((old_config - new_config) + (new_config - old_config)).map {|x,y| x}.uniq - ["WALLABY_CONFIG_VERSION"]
+        mc_params = params.select {|p| store.getParam(p).refresh.must_change }
+        
+        subsystems = cm.list_objects(:subsystem).map {|kln| cm.make_proxy_object("Subsystem", kln).refresh}
+
+        restart, reconfig = subsystems.inject([[],[]]) do |(rs, rc), sub|
+          if sub.params & mc_params != []
+            rs << sub.name
+          elsif sub.params & params != []
+            rc << sub.name
+          end
+          [rs, rc]
+        end
+        
+        [params, restart, reconfig]
       end
 
       def explain
