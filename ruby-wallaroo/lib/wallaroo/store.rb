@@ -177,10 +177,11 @@ module Wallaroo
       end
         
       def activateConfig
-        tag = cm.make_proxy_object(:tag, "current")
-        tag.meta = {:validated=>true}
-        tag.commit = ::Wallaroo::Client::Util.sha_for(cm)
-        tag.exists? ? tag.update! : tag.create!
+        begin
+          makeSnapshotWithOptions("current", :meta=>{:validated=>true})
+        rescue Exception=>ex
+          {:fail=>ex}
+        end
         {}
       end
         
@@ -192,8 +193,7 @@ module Wallaroo
         tag.commit = ::Wallaroo::Client::Util.sha_for(cm)
         tag.annotation = options[:annotation]
         tag.meta = options[:meta]
-        tag.exists? ? tag.update! : tag.create!        
-        {}
+        tag.exists? ? tag.update! : tag.create!
       end
         
       alias makeSnapshot makeSnapshotWithOptions
