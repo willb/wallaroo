@@ -81,8 +81,9 @@ module Wallaroo
         fetch_json_resource("/#{klazz.respond_to?(:plural_name) ? klazz.plural_name : (kind.to_s.downcase + "s")}")
       end
       
-      def fetch_json_resource(path)
-        url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, self.how.to_q, nil)
+      def fetch_json_resource(path, custom_q=nil)
+        custom_q ||= self.how.to_q
+        url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, custom_q, nil)
         response = Net::HTTP.get_response(url)
         JSON.parse(response.body)
       end
