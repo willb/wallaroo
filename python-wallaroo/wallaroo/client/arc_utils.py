@@ -63,12 +63,12 @@ def arcmethod(getfun, setfun, **kwargs):
         errwhat = default_getattr(errors, what.upper(), errors.UNKNOWN)
         
         if command == "ADD":
-            old_dests = preserve_order and getfun() or set(getfun())
+            old_dests = preserve_order and getfun(self) or set(getfun(self))
             new_dests = preserve_order and dests or set(dests)
             if keyfun in new_dests and not heterogeneous:
                 fail(errors.make(errors.CIRCULAR_RELATIONSHIP, errors.INVALID_RELATIONSHIP, errwhat), "%s %s cannot %s itself" % (what, name, explain))
             
-            setfun(self, uniq(itertools.chain(old, new)))
+            setfun(self, uniq(itertools.chain(old_dests, new_dests)))
             self.update()
         elif command == "REPLACE":
             new_dests = preserve_order and dests or set(dests)
@@ -78,14 +78,14 @@ def arcmethod(getfun, setfun, **kwargs):
             setfun(self, new_dests)
             self.update()
         elif command == "REMOVE":
-            setfun(self, [dest for new_dests in getfun() if not dest in set(dests)])
+            setfun(self, [dest for new_dests in getfun(self) if not dest in set(dests)])
             self.update()
         elif command in ["INTERSECT", "DIFF", "UNION"]:
             if preserve_order:
                 fail(errors.make(errors.INTERNAL_ERROR, errors.NOT_IMPLEMENTED, errwhat), "%s not implemented for order-preserving relations" % command)
             
             op = globals()["%s_collections" % command.lower()]
-            old_dests = getfun()
+            old_dests = getfun(self)
             supplied_dests = set(dests)
             new_dests = op(old_dests, supplied_dests)
             
