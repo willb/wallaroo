@@ -163,7 +163,7 @@ class store(object):
     def getPartitionGroup(self):
         valid = len(self.checkGroupValidity([PARTITION_GROUP])) == 0
         if valid:
-            return self.getGroup({"name": PARTITION_GROUP})
+            return self.getGroup(name=PARTITION_GROUP)
         else:
             return self.addExplicitGroup(PARTITION_GROUP)
     
