@@ -187,27 +187,49 @@ combine_factory(<<"?=">>) ->
 
 apply_val_factory(RE, SSPrepend) ->
     fun(_, Old, New) ->
+	 StrippedOld = case re:run(Old, RE, [{capture, all_but_first, binary}]) of
+			   {match, [OPP, OV]} ->
+			       OV;
+			   nomatch ->
+			       Old
+		       end,
 	 case re:run(New, RE, [{capture, all_but_first, binary}]) of
 	     {match, [Prepend, Val]} ->
 		 F = combine_factory(Prepend),
 		 case SSPrepend of
 		     true ->
-			 NewVal = F(Old, Val),
+			 NewVal = F(StrippedOld, Val),
 			 <<Prepend/binary, 32, NewVal/binary>>;
 		     false ->
-			 F(Old, Val)
+			 F(StrippedOld, Val)
 		 end;
 	     nomatch ->
 		 New
 	 end
     end.
 
+strip_prefix(Val, RE, SSP) ->
+    case re:run(Val, RE, [{capture, all_but_first, binary}]) of
+	{match, [P,V]} ->
+	    case SSP of
+		true ->
+		    <<P/binary, 32, V/binary>>;
+		false ->
+		    <<V/binary>>
+	    end;
+	nomatch ->
+	    Val
+    end.
+
+strip_prefixes(Ls, RE, SSP) ->
+    [{K, strip_prefix(V, RE, SSP)} || {K,V} <- Ls].
+
 apply_to(BaseConfig, NewConfig, SSPrepend) ->
     {ok, RE} = re:compile(list_to_binary("(?-mix:^(?:(>=|&&=|\\?=|\\|\\|=)\\s*)+(.*?)\\s*$)")),
     apply_to(BaseConfig, NewConfig, SSPrepend, #cstate{re=RE}).
 
 apply_to(BaseConfig, NewConfig, SSPrepend, #cstate{re=RE}=State) ->
-    orddict:merge(apply_val_factory(RE, SSPrepend), BaseConfig, NewConfig).
+    strip_prefixes(orddict:merge(apply_val_factory(RE, SSPrepend), BaseConfig, NewConfig), RE, SSPrepend).
 
 apply_factory(SSPrepend, State) ->
     fun(BaseConfig, NewConfig) ->
