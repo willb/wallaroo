@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, start_link/0]).
 
 -export([has/3, for/3, cache_dump/0, reset/0]).
 
@@ -57,15 +57,27 @@ handle_call({cache_dump}, _From, #cstate{table=C}=State) ->
 handle_call({reset}, _From, #cstate{table=C}=State) ->
     {reply, ets:delete_all_objects(C), State};
 handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=State) ->
-    Result = generic_lookup(Kind, Name, Commit, State, false),
-    case Result of
-	{value, Config} when is_list(Config) ->
-	    {reply, true, State};
-	_ ->
-	    {reply, Result, State}
+    Default = case Kind of
+		  node ->
+		      true;
+		  _ ->
+		      false
+	      end,
+    case generic_lookup(Kind, Name, Commit, State, Default) of
+	{value, Result} ->
+	    {reply, Result, State};
+	Lookup ->
+	    {reply, Lookup, State}
     end;
 handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
-    {value, Config} = generic_lookup(Kind, Name, Commit, State, []),
+    Default = case Kind of 
+		  node ->
+		      {wallaby_lw_config, Commit, [<<"+++SKEL">>, <<"+++DEFAULT">>]};
+		  _ ->
+		      []
+	      end,
+    ?D_LOG("{config_for, ~p, ~p, ~p} --> ~p", [Kind, Name, Commit, generic_lookup(Kind, Name, Commit, State, Default)]),
+    {value, Config} = ?D_VAL(generic_lookup(Kind, Name, Commit, State, Default)),
     {reply, Config, State}.
 
 handle_info(_X, State) ->
@@ -118,13 +130,19 @@ interesting_install_vertex(_) ->
 %%     interesting_install_edge(X).
 
 calc_configs(Commit, CommitObj, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
-    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    {Entities, Relationships} = wallaby_graph:extract_graph(Tree, StoreMod),
-    Installs = digraph:new([private]),
-    [digraph:add_vertex(Installs, Ent) || Ent <- Entities, interesting_install_vertex(Ent)],
-    [digraph:add_edge(Installs, E1, E2, Kind) || F={Kind, E1, E2} <- Relationships, interesting_install_edge(F)],
-    Order = lists:reverse(digraph_utils:topsort(Installs)),
-    [calc_one_config(Entity, Tree, Commit, State) || Entity <- Order].
+    case seen(Commit, State) of 
+	true ->
+	    ok;
+	false ->
+	    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+	    {Entities, Relationships} = wallaby_graph:extract_graph(Tree, StoreMod),
+	    Installs = digraph:new([private]),
+	    [digraph:add_vertex(Installs, Ent) || Ent <- Entities, interesting_install_vertex(Ent)],
+	    [digraph:add_edge(Installs, E1, E2, Kind) || F={Kind, E1, E2} <- Relationships, interesting_install_edge(F)],
+	    Order = lists:reverse(digraph_utils:topsort(Installs)),
+	    [calc_one_config(Entity, Tree, Commit, State) || Entity <- Order],
+	    see(Commit, State)
+    end.
 
 path_for_kind(feature) ->
     <<"features">>;
@@ -166,11 +184,13 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=
   when Kind =:= 'node' ->
     %% get node object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
-    Config = lists:foldl(apply_factory(false, State), [], [cache_fetch(group, Membership, Commit, State) || Membership <- lists:reverse(wallaby_node:all_memberships(EntityObj))]),
+    Config = {wallaby_lw_config, Commit, wallaby_node:all_memberships(EntityObj)},
     cache_store(Kind, Name, Commit, Config, State).
     
-    
-
+reconstitute_config({wallaby_lw_config, Commit, Memberships}, State) ->
+    lists:foldl(apply_factory(false, State), [], [cache_fetch(group, Membership, Commit, State) || Membership <- lists:reverse(Memberships)]);
+reconstitute_config(Val, _) ->
+    Val.
 
 join_factory(Bin) when is_binary(Bin) ->
     fun(Old, New) ->
@@ -254,16 +274,29 @@ cache_find(Kind, Name, Commit, #cstate{table=Cache}) ->
 	    find_failed
     end.
 
+see(Commit, #cstate{table=Cache}) ->
+    ets:insert(Cache, {Commit, seen}).
+
+seen(Commit, #cstate{table=Cache}) ->
+    case ets:match(Cache, {Commit, seen}) of
+	[[{Commit, seen}|_]] ->
+	    true;
+	_ ->
+	    false
+    end.
+
 %% XXX:  after changing how cache_fetch works, there's no reason to keep both it and _find
 cache_fetch(Kind, Name, Commit, State) ->
     cache_fetch(Kind, Name, Commit, State, []).
 
+cache_fetch(Kind, Name, Commit, State, Default) when not is_function(Default) ->
+    cache_fetch(Kind, Name, Commit, State, fun(_,_) -> Default end);
 cache_fetch(Kind, Name, Commit, State, Default) ->
     case cache_find(Kind, Name, Commit, State) of
 	{value, Result} ->
 	    Result;
 	find_failed ->
-	    Default
+	    Default(Commit, State)
     end.
 
 generic_find(Kind, Name, Commit, CommitObj, State) ->
@@ -272,8 +305,10 @@ generic_find(Kind, Name, Commit, CommitObj, State) ->
 generic_find(Kind, Name, Commit, CommitObj, State, Default) ->
     case cache_find(Kind, Name, Commit, State) of
 	{value, Config} ->
-	    {value, Config};
+	    ?D_LOG("Config is ~p~n", [Config]),
+	    {value, reconstitute_config(Config, State)};
 	 find_failed ->
+	    ?D_LOG("calculating configs for Commit=~p~n", [Commit]),
 	    calc_configs(Commit, CommitObj, State),
-	    cache_fetch(Kind, Name, Commit, State, Default)
+	    {value, reconstitute_config(cache_fetch(Kind, Name, Commit, State, Default), State)}
     end.
