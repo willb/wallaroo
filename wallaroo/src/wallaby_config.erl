@@ -67,7 +67,7 @@ handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=S
 	{value, Result} ->
 	    {reply, Result, State};
 	Lookup ->
-	    {reply, Lookup, State}
+	    {reply, false, State}
     end;
 handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
     Default = case Kind of 

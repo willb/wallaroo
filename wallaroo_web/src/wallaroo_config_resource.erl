@@ -23,6 +23,7 @@ resource_exists(ReqData, Ctx) ->
 						      fun(Name, Commit) -> 
 							      case wallaby_config:has(Kind, Name, Commit) of 
 								  false -> none;
+								  {error, E} -> none;
 								  X -> X
 							      end
 						      end)
