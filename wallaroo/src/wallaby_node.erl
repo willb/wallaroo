@@ -16,7 +16,13 @@
 % @doc Returns a new Wallaby node structure.
 -spec new(binary(), boolean()) -> wnode().
 new(Name, Provisioned) ->
-    Dict = orddict:from_list([{name, Name}, {memberships, []}, {identity_group, idgroupname(Name)}, {provisioned, Provisioned}]),
+    Memberships = case application:get_env(wallaroo, enable_skeleton_group) of
+		      {ok, false} ->
+			  [];
+		      _ ->
+			  [<<"+++SKEL">>]
+		  end,
+    Dict = orddict:from_list([{name, Name}, {memberships, Memberships}, {identity_group, idgroupname(Name)}, {provisioned, Provisioned}]),
     {?WALLABY_NODE_TAG, Dict}.
 
 % @doc Returns the name of the given node.

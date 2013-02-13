@@ -2,7 +2,7 @@
  [
   {description, "The wallaroo versioned data store"},
   {vsn, "1"},
-  {registered, [wallaroo, wallaroo_sup, wallaroo_server]},
+  {registered, [wallaroo, wallaroo_sup, wallaby_vcache, wallaby_config]},
   {modules, [wallaroo_app,	  
              wallaroo_sup,
              wallaroo]},
@@ -11,5 +11,5 @@
                   stdlib
                  ]},
   {mod, { wallaroo_app, []}},
-  {env, []}
+  {env, [{enable_skeleton_group, true}]}
  ]}.
