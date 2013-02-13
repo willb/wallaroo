@@ -72,7 +72,7 @@ handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=S
 handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
     Default = case Kind of 
 		  node ->
-		      {wallaby_lw_config, Commit, [<<"+++SKEL">>, <<"+++DEFAULT">>]};
+		      {wallaby_lw_config, Commit, default_memberships()};
 		  _ ->
 		      []
 	      end,
@@ -90,6 +90,14 @@ code_change(_, State, _) ->
     {ok, State}.
 
 %%% helpers
+
+default_memberships() ->
+    case application:get_env(wallaroo, enable_skeleton_group) of
+	{ok, false} ->
+	    [<<"+++DEFAULT">>];
+	_ ->
+	    [<<"+++SKEL">>, <<"+++DEFAULT">>]
+    end.
 
 generic_lookup(Kind, Name, Commit, #cstate{storage=StoreMod}=State, Default) ->
     CommitObj = StoreMod:find_commit(wallaroo_hash:canonicalize(Commit)),
