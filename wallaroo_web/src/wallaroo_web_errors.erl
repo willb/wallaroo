@@ -4,6 +4,8 @@
 
 -module(wallaroo_web_errors).
 
+-include("dlog.hrl").
+
 -export([render_error/3]).
 
 render_error(Code, Req, Reason) ->
@@ -28,7 +30,7 @@ generic_error_body(Code, Req, Reason, HumanText) ->
 	      ++ (if Reason =:= {none, none, []} ->
 			 [];
 		    true ->
-			 {reason, iolist_to_binary(io_lib:format("~p", [Reason]))}
+			 {reason, iolist_to_binary(io_lib:format("~p", [?D_VAL(Reason)]))}
 		 end))
 	     },
     case {Code, Reason} of

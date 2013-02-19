@@ -40,8 +40,8 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 		none ->
 		    {false, ReqData, NewCtx};
 		_ ->
-		    case LookupFun(BName, Commit) of
-			none ->
+		    case ?D_VAL(LookupFun(BName, Commit)) of
+			Fail when Fail =:= find_failed orelse Fail =:= none ->
 			    {false, ReqData, NewCtx};
 			_ ->
 			    {true, ReqData, NewCtx#ww_ctx{name=BName,commit=Commit}}

@@ -178,11 +178,15 @@ handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     end;
 handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
-%    error_logger:warning_msg("get/3 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
-    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    GetResult = get_path(What, Name, Tree, StoreMod),
-    % error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
-    {reply, add_last_updated(StartingCommit, GetResult), State};
+    case CommitObj of
+	find_failed ->
+	    {reply, find_failed, State};
+	_ ->
+	    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+	    GetResult = get_path(What, Name, Tree, StoreMod),
+						% error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
+	    {reply, add_last_updated(StartingCommit, GetResult), State}
+    end;
 handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = ensure_special_groups_exist(StartingCommit, get_commit(StartingCommit, StoreMod), StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
