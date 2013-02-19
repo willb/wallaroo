@@ -1,8 +1,8 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6, config_for/1]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6, config_for/1, meta_for/1]).
 -export([known_meta_atoms/0]).
 
--record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for}). 
+-record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for, meta_domain, meta_key=all}).
 % -define(DO_TRACE, {trace, "priv"}).
 -define(DO_TRACE, ok).
 
@@ -11,10 +11,15 @@
 config_for(#ww_ctx{config_for=Kind}) ->
     Kind.
 
+meta_for(#ww_ctx{meta_domain=Domain, meta_key=Key}) ->
+    {Domain, Key}.
+
 %% returns a list of atoms we will recognize in tag and branch metadata
 known_meta_atoms() ->
     [validated].
 
+generic_init([{meta_domain, Domain}, {meta_key, Key}]) ->
+    {?DO_TRACE, #ww_ctx{meta_domain=Domain, meta_key=Key}};
 generic_init([{config_for, Kind}]) ->
     {?DO_TRACE, #ww_ctx{config_for=Kind}};
 generic_init([{show_all}]) ->
@@ -227,7 +232,7 @@ vfail_to_json({fail, {no_immed_conflicts_with_transitive_includes_or_deps, DCs}}
 			    {immediate_conflicts, {array, Cs}}]} 
 		  || {F, DIs, Cs} <- DCs],
     {struct, [{failure_kind, no_immed_conflicts_with_transitive_includes_or_deps}, {features, {array, DvC_struct}}]};
-vfail_to_json({fail, DepOrConFail, What, for_nodes, Entities}) ->
+vfail_to_json({fail, {DepOrConFail, What, for_nodes, Entities}}) ->
     {struct, [{failure_kind, DepOrConFail}, {entity_kind, What}, {entities, {array, Entities}}]};
 vfail_to_json({fail, {multiple_failures, Fails}}) ->
     {struct, [{failure_kind, multiple_failures},
