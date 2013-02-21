@@ -224,7 +224,7 @@ handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
 	    {reply, F, State}
     end;
 handle_call({put_meta, Domain, Key, Value}, _From, {StoreMod}=State) ->
-    StoreMod:put_meta(Domain, Key, Value),
+    StoreMod:store_meta(Domain, Key, Value),
     {reply, ok, State};
 handle_call({get_meta, Domain}, _From, {StoreMod}=State) ->
     {reply, StoreMod:find_meta(Domain), State};

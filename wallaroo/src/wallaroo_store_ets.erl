@@ -70,7 +70,7 @@ store_branch(Key, Value) ->
     generic_store(?BRANCH_TABLE, Key, Value, true).
 
 store_meta(Domain, Key, Value) ->
-    generic_store(?META_TABLE, {Domain, Key}, Value).
+    generic_store(?META_TABLE, {Domain, Key}, Value, true).
 
 generic_store(Table, Key, Value) ->
     generic_store(Table, Key, Value, false).

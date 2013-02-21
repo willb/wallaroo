@@ -50,3 +50,12 @@ class ConnectionMeta(object):
     def fetch_json_resource(self, path, query=None):
         q = query and query or self.how.to_q()
         return requests.get(mk_url(self, path), params=q).json()
+    
+    def put_json_resource(self, path, dct, skip_q=False):
+        q = not skip_q and self.how.to_q() or None
+        payload = json.dumps(dict([(k,v) for (k,v) in dct.iteritems()]))
+        headers = {'content-type' : 'application/json'}
+        response = requests.put(mk_url(self, path), params=q, data=payload, headers=headers)
+        
+        if response.status_code < 200 or response.status_code > 399:
+            raise RuntimeError("Error %d:  %s" % (response.status_code, response.text))

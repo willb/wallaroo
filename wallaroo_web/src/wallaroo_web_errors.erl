@@ -38,8 +38,9 @@ generic_error_body(Code, Req, Reason, HumanText) ->
 	    ok;
 	{X, _} when X >= 500 ->
 	    error_logger:error_msg("error for path=~p; ~p~n", [Path, Dict]),
-	    error_logger:error_msg("error for path=~p; ~p~n", 
-				   [Path, [{K,if is_binary(V) -> binary_to_list(V) ; true -> V end} || {K, V} <- Dict]]);
+	    ok;
+	    %% error_logger:error_msg("error for path=~p; ~p~n", 
+	    %% 			   [Path, [{K,if is_binary(V) -> binary_to_list(V) ; true -> V end} || {K, V} <- Dict]]);
 	_ ->
 	    ok
     end,
