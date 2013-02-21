@@ -24,6 +24,13 @@ from errors import not_implemented, fail
 
 from constants import PARTITION_GROUP, LABEL_SENTINEL_PARAM, LABEL_SENTINEL_PARAM_ATTR
 
+from datetime import datetime
+import calendar
+
+def ts():
+    now = datetime.datetime.utcnow()
+    return (calendar.timegm(now.utctimetuple()) * 1000000) + now.microsecond
+
 class node(Proxy):
     name = property(pag("name"))
     memberships = property(*pags("memberships"))
@@ -44,6 +51,19 @@ class node(Proxy):
     
     def explain(self):
         not_implemented()
+    
+    def checkin(self):
+        metapath = "/meta/node/%s" % self.name
+        now = datetime.utcnow().isoformat()
+        meta = self.cm.fetch_json_resource(metapath, False, default={})
+        meta["last-checkin"] = now
+        self.cm.put_json_resource(metapath, meta, False)
+        return now
+    
+    def last_checkin(self):
+        metapath = "/meta/node/%s" % self.name
+        meta = self.cm.fetch_json_resource(metapath, False, default={})
+        return meta.has_key("last-checkin") and meta["last-checkin"] or 0
     
     def whatChanged(self, old, new):
         oc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":old})
