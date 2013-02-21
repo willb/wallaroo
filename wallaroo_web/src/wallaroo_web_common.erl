@@ -329,7 +329,7 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, branch, PathPart, _ValidFunc) ->
     Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
     {true, Redir, Ctx};
 from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
-    {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
+    {Commit, NewCtx} = ?D_VAL(wallaroo_web_common:get_starting_commit(ReqData, Ctx)),
     Name = orddict:fetch(name, Data),
     {Kind, Defaults} = NewFunc(Name),
     Dict = orddict:merge(fun(_,V,_) -> V end, Data, Defaults),

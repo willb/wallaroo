@@ -7,6 +7,9 @@
 -export([from_json/2]).
 -export([allowed_methods/2, content_types_provided/2, content_types_accepted/2, finish_request/2]).
 
+-define(debug, true).
+-include("dlog.hrl").
+
 -include_lib("webmachine/include/webmachine.hrl").
 
 init(Args) ->
@@ -34,15 +37,15 @@ from_json(ReqData, Ctx) ->
     wallaroo_web_common:generic_from_json(ReqData, Ctx, fun(Nm) -> wallaby_node:new(Nm, true) end, node, "nodes", fun validate/2).
 
 validate({wallaby_node, _}=Node, none) ->
-    case wallaby_node:memberships(Node) of
+    case ?D_VAL(wallaby_node:memberships(Node)) of
 	[] -> ok;
 	Ls ->
 	    {error, {struct, [{nonexistent_groups, {array, Ls}}]}}
     end;
 validate({wallaby_node, _}=Node, Commit) ->
     Groups = wallaby_node:memberships(Node),
-    SpecialGroups = [Group || Group <- Groups, special_group(Group)],
-    NonexistentGroups = [Group || Group <- Groups, wallaroo:get_entity(Group, group, Commit) =:= none, not special_group(Group)],
+    SpecialGroups = ?D_VAL([Group || Group <- Groups, special_group(Group)]),
+    NonexistentGroups = ?D_VAL([Group || Group <- Groups, wallaroo:get_entity(Group, group, Commit) =:= none, not special_or_skel(Group)]),
     case {node_validate,SpecialGroups, NonexistentGroups} of
 	{node_validate,[],[]} ->
 	    ok;
@@ -54,8 +57,14 @@ validate({wallaby_node, _}=Node, Commit) ->
 	    {error, {struct, [{special_groups, {array, Ls}},{nonexistent_groups, {array, Ls2}}]}}
     end.
 
+special_or_skel(<<"+++SKEL">>) ->
+    true;
+special_or_skel(X) ->
+    special_group(X).
+
+
 special_group(<<"+++SKEL">>) ->
-    false;
+     false;
 special_group(<<"+++", _/binary>>) ->
     true;
 special_group(_) ->

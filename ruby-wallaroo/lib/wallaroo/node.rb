@@ -14,8 +14,11 @@
 
 require 'wallaroo/client'
 
+require 'time'
+
 module Wallaroo
   module Client
+    
     class Node
       include ::Wallaroo::Client::Proxying      
       
@@ -34,6 +37,20 @@ module Wallaroo
       
       def last_updated_version
         attr_vals["last_updated_version"]
+      end
+      
+      def checkin
+        ts = timestamp
+        metapath = "/meta/node/#{URI.encode(self.name)}"
+        meta = cm.fetch_json_resource(metapath, "", {})
+        meta["last-checkin"] = ts
+        cm.put_json_resource(metapath, meta, true)
+        ts
+      end
+      
+      def last_checkin
+        meta = cm.fetch_json_resource("/meta/node/#{URI.encode(self.name)}", "", {})
+        meta["last-checkin"] || 0
       end
       
       def modifyMemberships(command, groups, options=nil)
@@ -93,6 +110,12 @@ module Wallaroo
       def makeProvisioned
         self.provisioned = true
         update!
+      end
+      
+      private
+      def timestamp(tm=nil)
+        tm ||= Time.now.utc
+        (tm.tv_sec * 1000000) + tm.tv_usec
       end
     end
   end
