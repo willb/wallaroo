@@ -28,7 +28,7 @@ from datetime import datetime
 import calendar
 
 def ts():
-    now = datetime.datetime.utcnow()
+    now = datetime.utcnow()
     return (calendar.timegm(now.utctimetuple()) * 1000000) + now.microsecond
 
 class node(Proxy):
@@ -54,7 +54,8 @@ class node(Proxy):
     
     def checkin(self):
         metapath = "/meta/node/%s" % self.name
-        now = datetime.utcnow().isoformat()
+        # now = datetime.utcnow().isoformat()
+        now = ts()
         meta = self.cm.fetch_json_resource(metapath, False, default={})
         meta["last-checkin"] = now
         self.cm.put_json_resource(metapath, meta, False)

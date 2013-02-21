@@ -49,11 +49,11 @@ class ConnectionMeta(object):
     
     def fetch_json_resource(self, path, query=None, default=None):
         q = query and query or self.how.to_q()
-        if default is not None:
+        if default is None:
             return requests.get(mk_url(self, path), params=q).json()
         else:
             result = requests.get(mk_url(self, path), params=q)
-            result.status_code != 404 and result.json or default
+            return result.status_code != 404 and result.json() or default
     
     def put_json_resource(self, path, dct, skip_q=False):
         q = not skip_q and self.how.to_q() or None
