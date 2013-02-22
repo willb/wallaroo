@@ -41,8 +41,8 @@ class node(Proxy):
     modifyMemberships = arcmethod(pag("memberships"), pas("memberships"), heterogeneous=True, preserve_order=True)
     
     def getConfig(self, **options):
-        if len(options) > 0:
-            not_implemented()
+        if options.has_key("version"):
+            return self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":options["version"]}, {})
         return self.cm.fetch_json_resource("/config/node/%s" % self.name)
     
     def makeProvisioned(self):
