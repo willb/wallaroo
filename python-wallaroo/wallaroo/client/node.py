@@ -67,8 +67,8 @@ class node(Proxy):
         return meta.has_key("last-checkin") and meta["last-checkin"] or 0
     
     def whatChanged(self, old, new):
-        oc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":old})
-        nc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":new})
+        oc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":old}, {})
+        nc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":new}, {})
         
         ock = set(oc)
         nck = set(nc)
