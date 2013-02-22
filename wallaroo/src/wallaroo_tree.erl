@@ -66,6 +66,10 @@ store(Subkey, Val, {?TAG_BUCKETED_TREE=Tag, Depth, Tree}) ->
 	    {Tag, Depth, gb_trees:update(Subkey, Val, Tree)}
     end.
 
+remove(Key, {?TAG_ACCESSIBLE_TREE=Tag, Tree}) ->
+    {Tag, gb_trees:delete_any(Key, Tree)};
+remove(Key, {?TAG_BUCKETED_TREE=Tag, D, Tree}) ->
+    {Tag, D, gb_trees:delete_any(Key, Tree)}.
 
 %% When you split, take the kth part of the hash and use that as a key
 kth_part(K, Bin) when is_bitstring(Bin) and is_integer(K) ->
@@ -221,8 +225,18 @@ put_path(Path, Object, Tree, StoreMod) when is_list(Path) ->
     put_path(Path, wrap_object(Object), Tree, StoreMod).
 
 
-del_path(_Path, _Tree, _StoreMod) ->
-    throw(not_implemented).
+del_path(Path, Tree, StoreMod) ->
+    ResolvedPath = resolve(Path, Tree, StoreMod),
+    case ResolvedPath of
+	[] ->
+	    {wallaroo_db:identity(Tree), Tree};
+	[#res_none{}|_] ->
+	    {wallaroo_db:identity(Tree), Tree};
+	[#res_some{kv={Name, _}, tree=ST}|Rest] ->
+	    NewST = remove(Name, ST),
+	    fold_present(Rest, wallaroo_db:hash_and_store(NewST, StoreMod), StoreMod)
+    end.
+	    
 
 -spec children(tree(), module()) -> [{binary(), any()}].
 children(Root, StoreMod) ->
@@ -310,6 +324,11 @@ simple_test_() ->
       fun(_) -> test_teardown() end,
       [?_assertEqual("a/b/c/d/0 for all", 
 		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t0), wallaroo_store_ets)),
+      ?_assertEqual(none,
+		    begin
+			{_, T} = wallaroo_tree:del_path([a,b,c,d,0], find_fixture_tree(t1), wallaroo_store_ets),
+			wallaroo_tree:get_path([a,b,c,d,0], T, wallaroo_store_ets)
+		    end),
       ?_assertEqual("a/b/c/d/0 for all", 
 		    wallaroo_tree:fetch_path([a,b,c,d,0], find_fixture_tree(t1), wallaroo_store_ets)),
       ?_assertEqual("a/b/c/d/0 for all", 
