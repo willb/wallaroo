@@ -4,6 +4,8 @@
 
 -module(wallaroo_web_errors).
 
+-include("dlog.hrl").
+
 -export([render_error/3]).
 
 render_error(Code, Req, Reason) ->
@@ -28,7 +30,7 @@ generic_error_body(Code, Req, Reason, HumanText) ->
 	      ++ (if Reason =:= {none, none, []} ->
 			 [];
 		    true ->
-			 {reason, iolist_to_binary(io_lib:format("~p", [Reason]))}
+			 {reason, iolist_to_binary(io_lib:format("~p", [?D_VAL(Reason)]))}
 		 end))
 	     },
     case {Code, Reason} of
@@ -36,8 +38,9 @@ generic_error_body(Code, Req, Reason, HumanText) ->
 	    ok;
 	{X, _} when X >= 500 ->
 	    error_logger:error_msg("error for path=~p; ~p~n", [Path, Dict]),
-	    error_logger:error_msg("error for path=~p; ~p~n", 
-				   [Path, [{K,if is_binary(V) -> binary_to_list(V) ; true -> V end} || {K, V} <- Dict]]);
+	    ok;
+	    %% error_logger:error_msg("error for path=~p; ~p~n", 
+	    %% 			   [Path, [{K,if is_binary(V) -> binary_to_list(V) ; true -> V end} || {K, V} <- Dict]]);
 	_ ->
 	    ok
     end,

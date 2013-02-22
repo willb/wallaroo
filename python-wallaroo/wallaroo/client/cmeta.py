@@ -47,6 +47,19 @@ class ConnectionMeta(object):
         klazz = getattr(self.client, kind.lower())
         return self.fetch_json_resource("/%s" % klazz.plural_name)
     
-    def fetch_json_resource(self, path, query=None):
+    def fetch_json_resource(self, path, query=None, default=None):
         q = query and query or self.how.to_q()
-        return requests.get(mk_url(self, path), params=q).json()
+        if default is None:
+            return requests.get(mk_url(self, path), params=q).json()
+        else:
+            result = requests.get(mk_url(self, path), params=q)
+            return result.status_code != 404 and result.json() or default
+    
+    def put_json_resource(self, path, dct, skip_q=False):
+        q = not skip_q and self.how.to_q() or None
+        payload = json.dumps(dict([(k,v) for (k,v) in dct.iteritems()]))
+        headers = {'content-type' : 'application/json'}
+        response = requests.put(mk_url(self, path), params=q, data=payload, headers=headers)
+        
+        if response.status_code < 200 or response.status_code > 399:
+            raise RuntimeError("Error %d:  %s" % (response.status_code, response.text))

@@ -8,15 +8,25 @@ behaviour_info(callbacks) ->
     [{init,1},
      {start,1},
      {cleanup,1},
+     {delete_object,1},
+     {delete_commit,1},
+     {delete_tag,1},
+     {delete_branch,1},
+     {delete_meta,2},
      {find_object,1},
      {find_commit,1},
+     {find_meta, 1},
+     {find_meta, 2},
      {find_tag,1},
      {store_object, 2},
      {store_commit, 2},
      {store_tag, 2},
+     {store_meta, 3},
      {store_branch, 2},
      {objects,0},
      {tags,0},
-     {commits,0}];
+     {commits,0},
+     {branches,0},
+     {meta,0}];
 behaviour_info(_Other) ->
     undefined.

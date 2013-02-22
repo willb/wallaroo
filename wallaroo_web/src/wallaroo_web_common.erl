@@ -1,20 +1,30 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5, generic_from_json/6, config_for/1]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5,generic_from_json_raw/5, generic_from_json/6, config_for/1, meta_for/1, fixup_meta_ctx/2]).
 -export([known_meta_atoms/0]).
 
--record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for}). 
+-record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for, meta_domain, meta_key=all}).
 % -define(DO_TRACE, {trace, "priv"}).
 -define(DO_TRACE, ok).
 
+-define(debug, true).
 -include("dlog.hrl").
 
 config_for(#ww_ctx{config_for=Kind}) ->
     Kind.
 
+meta_for(#ww_ctx{meta_domain=Domain, meta_key=Key}) ->
+    {Domain, Key}.
+
+
+meta_name(#ww_ctx{meta_domain=Domain, meta_key=Key}) ->
+    iolist_to_binary(io_lib:format("~p/~p", [Domain, Key])).
+
 %% returns a list of atoms we will recognize in tag and branch metadata
 known_meta_atoms() ->
     [validated].
 
+generic_init([{meta_domain, Domain}, {meta_key, Key}]) ->
+    {?DO_TRACE, #ww_ctx{meta_domain=Domain, meta_key=Key}};
 generic_init([{config_for, Kind}]) ->
     {?DO_TRACE, #ww_ctx{config_for=Kind}};
 generic_init([{show_all}]) ->
@@ -35,8 +45,8 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 		none ->
 		    {false, ReqData, NewCtx};
 		_ ->
-		    case LookupFun(BName, Commit) of
-			none ->
+		    case ?D_VAL(LookupFun(BName, Commit)) of
+			Fail when Fail =:= find_failed orelse Fail =:= none ->
 			    {false, ReqData, NewCtx};
 			_ ->
 			    {true, ReqData, NewCtx#ww_ctx{name=BName,commit=Commit}}
@@ -44,8 +54,30 @@ generic_entity_exists(ReqData, Ctx, LookupFun) ->
 	    end
     end.
 
+fixup_meta_ctx(ReqData, #ww_ctx{meta_domain=domain}=Ctx) ->
+    case wrq:path_info(domain, ReqData) of
+	undefined ->
+	    Ctx;
+	[_|_]=LDom ->
+	    BDom = list_to_binary(mochiweb_util:unquote(LDom)),
+	    BKey = case wrq:path_info(key, ReqData) of
+		       undefined -> all;
+		       [_|_]=LKey ->
+			   list_to_binary(mochiweb_util:unquote(LKey))
+		   end,
+	    Ctx#ww_ctx{meta_domain=BDom,meta_key=BKey}
+    end.
+
 generic_entity_exists_nc(ReqData,  #ww_ctx{show_all=true}=Ctx, _, _) ->
     {true, ReqData, Ctx};
+generic_entity_exists_nc(ReqData, #ww_ctx{meta_domain=D, meta_key=K}=Ctx, LookupFun, What=meta)
+  when is_binary(D), is_binary(K) orelse K =:= all ->
+    case LookupFun(ignored) of
+	Fail when Fail =:= find_failed orelse Fail =:= none ->
+	    {false, ReqData, Ctx};
+	Head ->
+	    {true, ReqData, Ctx#ww_ctx{head={What, Head}, name=meta_name(Ctx)}}
+    end;
 generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
     EntityName = ensure_str_format(mochiweb_util:unquote(wrq:path_info(name, ReqData)), binary),
     case LookupFun(EntityName) of
@@ -155,33 +187,48 @@ fix_json({Head, {SHA, Anno, Meta}}) when Head =:= wallaroo_tag orelse Head =:= w
     {struct, [{commit, ensure_str_format(wallaroo_hash:stringize(SHA), binary)}, {annotation, Anno}, {meta, {struct, [jsonify_entry(Entry) || Entry <- Meta]}}]};
 fix_json({wallaby_subsystem, EntityDict}) ->
     {struct, [jsonify_entry({K,V}) || {K,V} <- EntityDict, K =/= parameters] ++ [{parameters,{array, V}} || {parameters, V} <- EntityDict] };
+fix_json({struct, _}=S) ->
+    ?D_VAL(S);
 fix_json({_Kind, EntityDict}) ->
-    {struct, [jsonify_entry(Entry) || Entry <- EntityDict]};
+    ?D_VAL({struct, [jsonify_entry(Entry) || Entry <- EntityDict]});
 fix_json(<<Str/binary>>) ->
     Str;
 fix_json(Str) when is_list(Str) ->
     error_logger:warning_msg("called fix_json(\"~s\") with list instead of binary~n", [Str]),
-    list_to_binary(Str).
+    list_to_binary(Str);
+fix_json(X) ->
+    ?D_VAL(X).
 
 
 generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart) ->
     generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, fun(_,_) -> ok end).
 
+generic_from_json_raw(ReqData, Ctx, NewFunc, PutKind, PathPart) ->
+    generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, fun(_,_) -> ok end, no).
+
 generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
+    generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc, yes).
+
+generic_from_json(ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc, Peel) ->
     ?D_LOG("Ctx is is ~p~n", [Ctx]),
     ?D_LOG("Body is is ~p~n", [wrq:req_body(ReqData)]),
-    Data = [{list_to_atom(binary_to_list(K)), V} || {K, V} <- (mochijson:binary_decoder([{object_hook, fun peel/1}]))(wrq:req_body(ReqData))],
+    Data = case Peel of 
+	       yes -> [{list_to_atom(binary_to_list(K)), V} || {K, V} <- (mochijson:binary_decoder([{object_hook, fun peel/1}]))(wrq:req_body(ReqData))];
+	       no -> (mochijson:binary_decoder([]))(wrq:req_body(ReqData))
+	   end,
     ?D_LOG("Data is is ~p~n", [Data]),
-    case wrq:path_info(name, ReqData) of
-        undefined ->
-	    case orddict:find(name, Data) of
+    case {PutKind, wrq:path_info(name, ReqData)} of
+        {meta, _} ->
+	    from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc);
+	{_, undefined} ->
+	    case ?D_VAL(orddict:find(name, Data)) of
 		error ->
 		    {false, ReqData, Ctx};
 		{ok, Name} ->
 		    NamedData = orddict:store(name, list_to_binary(mochiweb_util:unquote(Name)), Data),
 		    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
 	    end;
-        Name when is_binary(Name) orelse is_list(Name) ->
+        {_, Name} when is_binary(Name) orelse is_list(Name) ->
 	    NamedData = orddict:store(name, list_to_binary(mochiweb_util:unquote(Name)), Data),
 	    from_json_helper(NamedData, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc)
     end.
@@ -227,7 +274,7 @@ vfail_to_json({fail, {no_immed_conflicts_with_transitive_includes_or_deps, DCs}}
 			    {immediate_conflicts, {array, Cs}}]} 
 		  || {F, DIs, Cs} <- DCs],
     {struct, [{failure_kind, no_immed_conflicts_with_transitive_includes_or_deps}, {features, {array, DvC_struct}}]};
-vfail_to_json({fail, DepOrConFail, What, for_nodes, Entities}) ->
+vfail_to_json({fail, {DepOrConFail, What, for_nodes, Entities}}) ->
     {struct, [{failure_kind, DepOrConFail}, {entity_kind, What}, {entities, {array, Entities}}]};
 vfail_to_json({fail, {multiple_failures, Fails}}) ->
     {struct, [{failure_kind, multiple_failures},
@@ -242,6 +289,18 @@ vfail_to_json(X) ->
     {struct, [{failure_kind, unknown},
 	      {failure_term, iolist_to_binary(io_lib:format("~p", [X]))}]}.
 
+from_json_helper(Data, ReqData, #ww_ctx{meta_domain=D, meta_key=K}=Ctx, _NewFunc, meta, PathPart, _ValidFunc) ->
+    case ?D_VAL(wallaroo:put_meta(D, K, Data)) of
+	{fail, _}=Failure ->
+	    ResponseBody = 
+		wrq:append_to_response_body(mochijson:binary_encode(vfail_to_json(Failure)), ReqData),
+	    {{halt, 400}, ResponseBody, Ctx};
+	_ ->
+	    NewLocation = io_lib:format("/~s/~s/~s", [PathPart, mochiweb_util:quote_plus(D), mochiweb_util:quote_plus(K)]),
+	    ?D_LOG("NewLocation is ~p~n", [NewLocation]),
+	    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
+	    {true, Redir, Ctx}
+    end;
 from_json_helper(Data, ReqData, Ctx, _NewFunc, tag, PathPart, _ValidFunc) ->
     Name = ensure_str_format(orddict:fetch(name, Data), binary),
     SHA = ensure_str_format(orddict:fetch(commit, Data), list),
@@ -270,7 +329,7 @@ from_json_helper(Data, ReqData, Ctx, _NewFunc, branch, PathPart, _ValidFunc) ->
     Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
     {true, Redir, Ctx};
 from_json_helper(Data, ReqData, Ctx, NewFunc, PutKind, PathPart, ValidFunc) ->
-    {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
+    {Commit, NewCtx} = ?D_VAL(wallaroo_web_common:get_starting_commit(ReqData, Ctx)),
     Name = orddict:fetch(name, Data),
     {Kind, Defaults} = NewFunc(Name),
     Dict = orddict:merge(fun(_,V,_) -> V end, Data, Defaults),

@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, get_meta/2, get_meta/1, put_meta/3, list_meta/0, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -14,8 +14,8 @@
 -define(VALID_ENTITY_KIND(Kind), Kind=:='node' orelse Kind=:='feature' orelse Kind =:= 'subsystem' orelse Kind=:='group' orelse Kind=:='parameter').
 -define(VERSION,[
 		 {major, 0},
-		 {minor, 0},
-		 {patch, 1},
+		 {minor, 1},
+		 {patch, 0},
 		 {build, ""}
 		]).
 
@@ -78,6 +78,9 @@ list_tags() ->
 list_branches() ->
     gen_server:call(?SERVER, {list_branches}).
 
+list_meta() ->
+    gen_server:call(?SERVER, {list_meta}).
+
 get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
     case get_tag(<<"current">>) of
 	find_failed ->
@@ -89,6 +92,17 @@ get_entity(Name, Kind) when is_binary(Name) andalso is_atom(kind) ->
 
 get_entity(Name, Kind, Commit) ->
     gen_server:call(?SERVER, {get, Kind, Name, wallaroo_hash:canonicalize(Commit)}).
+
+get_meta(Domain, all) ->
+    get_meta(Domain);
+get_meta(Domain, Key) when is_binary (Domain), is_binary(Key) ->
+    gen_server:call(?SERVER, {get_meta, Domain, Key}).
+
+get_meta(Domain) when is_binary (Domain) ->
+    gen_server:call(?SERVER, {get_meta, Domain}).
+
+put_meta(Domain, Key, Value) when is_binary(Domain), is_binary(Key) ->
+    gen_server:call(?SERVER, {put_meta, Domain, Key, Value}).    
 
 get_tag(Name) ->
     gen_server:call(?SERVER,  {get_tag, Name}).
@@ -164,11 +178,15 @@ handle_call({list, Kind, StartingCommit}, _From, {StoreMod}=State) ->
     end;
 handle_call({get, What, Name, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = get_commit(StartingCommit, StoreMod),
-%    error_logger:warning_msg("get/3 Name=~p, StartingCommit=~p, CommitObj=~p~n", [Name, StartingCommit, CommitObj]),
-    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
-    GetResult = get_path(What, Name, Tree, StoreMod),
-    % error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
-    {reply, add_last_updated(StartingCommit, GetResult), State};
+    case CommitObj of
+	find_failed ->
+	    {reply, find_failed, State};
+	_ ->
+	    Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
+	    GetResult = get_path(What, Name, Tree, StoreMod),
+						% error_logger:warning_msg("GETRESULT:  ~p~n", [GetResult]),
+	    {reply, add_last_updated(StartingCommit, GetResult), State}
+    end;
 handle_call({put, What, Name, Value, StartingCommit}, _From, {StoreMod}=State) when ?VALID_ENTITY_KIND(What) ->
     CommitObj = ensure_special_groups_exist(StartingCommit, get_commit(StartingCommit, StoreMod), StoreMod),
     Tree = wallaroo_commit:get_tree(CommitObj, StoreMod),
@@ -204,7 +222,18 @@ handle_call({put_tag, Name, Commit, Anno, Meta}, _From, {StoreMod}=State) ->
 	{fail, _}=F ->
 	    error_logger:warning_msg("put_tag FAILURE because ~p~n", [F]),
 	    {reply, F, State}
-    end.
+    end;
+handle_call({put_meta, Domain, Key, Value}, _From, {StoreMod}=State) ->
+    StoreMod:store_meta(Domain, Key, Value),
+    {reply, ok, State};
+handle_call({get_meta, Domain}, _From, {StoreMod}=State) ->
+    {reply, StoreMod:find_meta(Domain), State};
+handle_call({get_meta, Domain, Key}, _From, {StoreMod}=State) ->
+    {reply, StoreMod:find_meta(Domain, Key), State};
+handle_call({list_meta}, _From, {StoreMod}=State) ->
+    {reply, StoreMod:meta(), State}.
+
+
 
 handle_info(_X, State) ->
     {noreply, State}.
