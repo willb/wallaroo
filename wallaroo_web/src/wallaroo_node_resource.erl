@@ -7,7 +7,7 @@
 -export([from_json/2]).
 -export([allowed_methods/2, content_types_provided/2, content_types_accepted/2, finish_request/2]).
 
--define(debug, true).
+% -define(debug, true).
 -include("dlog.hrl").
 
 -include_lib("webmachine/include/webmachine.hrl").
