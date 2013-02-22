@@ -74,7 +74,9 @@ module Wallaroo
       
       def getConfig(options=nil)
         options ||= {}
-        not_implemented unless options.empty?
+        if options["version"]
+          return cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}", "commit=#{options["version"]}", {}).to_a
+        end
         
         cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}")
       end
