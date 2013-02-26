@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, get_meta/2, get_meta/1, put_meta/3, list_meta/0, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, get_meta/2, get_meta/1, put_meta/3, list_meta/0, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0, delete_tag/1, delete_branch/1, delete_entity/3]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -14,7 +14,7 @@
 -define(VALID_ENTITY_KIND(Kind), Kind=:='node' orelse Kind=:='feature' orelse Kind =:= 'subsystem' orelse Kind=:='group' orelse Kind=:='parameter').
 -define(VERSION,[
 		 {major, 0},
-		 {minor, 1},
+		 {minor, 2},
 		 {patch, 0},
 		 {build, ""}
 		]).
@@ -59,6 +59,18 @@ version_string() ->
 		     "~B.~B.~B-~s"
 	     end,
     binary_to_list(iolist_to_binary(io_lib:format(Format, VList))).
+
+delete_meta(Domain, Key) ->
+    gen_server:call(?SERVER, {delete_meta, Domain, Key}).
+
+delete_tag(Tag) ->
+    gen_server:call(?SERVER, {delete_tag, Tag}).
+    
+delete_branch(Branch) ->
+    gen_server:call(?SERVER, {delete_branch, Branch}).
+    
+delete_entity(Name, Kind, Commit) ->
+    gen_server:call(?SERVER, {delete_entity, Name, Kind, Commit}).
 
 list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
     case get_tag(<<"current">>) of
@@ -231,9 +243,98 @@ handle_call({get_meta, Domain}, _From, {StoreMod}=State) ->
 handle_call({get_meta, Domain, Key}, _From, {StoreMod}=State) ->
     {reply, StoreMod:find_meta(Domain, Key), State};
 handle_call({list_meta}, _From, {StoreMod}=State) ->
-    {reply, StoreMod:meta(), State}.
+    {reply, StoreMod:meta(), State};
+handle_call({delete_tag, Tag}, _From, {StoreMod}=State) ->
+    StoreMod:delete_tag(Tag),
+    {reply, ok, State};
+handle_call({delete_branch, Branch}, _From, {StoreMod}=State) ->
+    StoreMod:delete_branch(Branch),
+    {reply, ok, State};
+handle_call({delete_meta, Domain, Key}, _From, {StoreMod}=State) ->
+    StoreMod:delete_meta(Domain, Key),
+    {reply, ok, State};
+handle_call({delete_entity, Name, Kind, Commit}, _From, {StoreMod}=State) ->
+    {reply, delete_helper(Name, Kind, Commit, StoreMod), State}.
 
+delete_check(<<"+++", _/binary>>, group) ->
+    {error, cant_delete_special_groups};
+delete_check(_,_) ->
+    ok.
 
+delete_helper(Name, Kind, Commit, StoreMod) ->
+    ok.
+
+immediately_affected_entities(_Name, node, _Tree, _StoreMod) ->
+    % removing a node doesn't affect anything else
+    [];
+immediately_affected_entities(Name, group, Tree, StoreMod) ->
+    % removing a group affects nodes that are a member of that group
+    case wallaroo_tree:get_path([xlate_what(node)], Tree, StoreMod) of
+	{value, Entities} ->
+	    [{[xlate_what(node), N], wallaby_node:set_memberships(Nobj, lists:delete(Name, wallaby_node:memberships(Nobj)))} || 
+		{N, Nobj} <- wallaroo_tree:children(Entities, StoreMod),
+		lists:member(Name, wallaby_node:memberships(Nobj))];
+	none ->
+	    error_logger:warning_msg("No nodes for tree with hash ~p~n", [wallaroo_db:identity(Tree)]),
+	    []
+    end;
+immediately_affected_entities(Name, feature, Tree, StoreMod) ->
+    % removing a feature affects groups that installed that feature 
+    % and features that depend upon or conflict with that feature
+    Groups = 
+	case wallaroo_tree:get_path([xlate_what(group)], Tree, StoreMod) of
+	    {value, GEntities} ->
+		[{[xlate_what(group), G], wallaby_group:set_features(Gobj, lists:delete(Name, wallaby_group:features(Gobj)))} || 
+		    {G, Gobj} <- wallaroo_tree:children(GEntities, StoreMod),
+		    lists:member(Name, wallaby_group:features(Gobj))];
+	    none ->
+		error_logger:warning_msg("No groups for tree with hash ~p~n", [wallaroo_db:identity(Tree)]),
+		[]
+	end,
+    Features = 
+	case wallaroo_tree:get_path([xlate_what(feature)], Tree, StoreMod) of
+	    {value, FEntities} ->
+		[{[xlate_what(feature), F], FobjPrime} ||
+		    {F, Fobj} <- wallaroo_tree:children(FEntities, StoreMod),
+		    (FobjPrime = elim_feature(Name, Fobj)) =/= Fobj];
+	    none ->
+		error_logger:warning_msg("No groups for tree with hash ~p~n", [wallaroo_db:identity(Tree)]),
+		[]
+	end,
+    Groups ++ Features.
+
+% eliminates the feature named DelF from the feature object Fobj
+-spec elim_feature(binary(), wallaby_feature:feature()) -> wallaby_feature:feature().
+elim_feature(DelF, {wallaby_feature, _}=Fobj) ->
+    lists:foldl(fun ({Get, Set}, Feature) ->
+			Set(Feature, lists:delete(DelF, Get(Feature)))
+		end, 
+		Fobj,
+		[{fun wallaby_feature:includes/1, fun wallaby_feature:set_includes/2},
+		 {fun wallaby_feature:depends/1, fun wallaby_feature:set_depends/2},
+		 {fun wallaby_feature:conflicts/1, fun wallaby_feature:set_conflicts/2}]).
+
+% eliminates references to the parameter named by DelP from the entity given by Obj
+elim_param(DelP, {wallaby_parameter, _}=Obj) ->
+    lists:foldl(fun ({Get, Set}, Parameter) ->
+			Set(Parameter, lists:delete(DelP, Get(Parameter)))
+		end, 
+		Obj,
+		[{fun wallaby_parameter:conflicts/1, fun wallaby_parameter:set_conflicts/2},
+		 {fun wallaby_feature:depends/1, fun wallaby_feature:set_depends/2}]);
+elim_param(DelP, {wallaby_feature, _}=Obj) ->
+    wallaby_feature:set_parameters(Obj, [{P,V} || {P,V} <- wallaby_feature:parameters(Obj),
+						  P =/= DelP]);
+elim_param(DelP, {wallaby_group, _}=Obj) ->
+    wallaby_group:set_parameters(Obj, [{P,V} || {P,V} <- wallaby_group:parameters(Obj),
+						P =/= DelP]);
+elim_param(DelP, {wallaby_subsystem, _}=Obj) ->
+    wallaby_subsystem:set_parameters(Obj, [P || P <- wallaby_subsystem:parameters(Obj),
+						P =/= DelP]).
+					      
+
+internal_delete(Name, Kind, Tree) ->
+    ok.
 
 handle_info(_X, State) ->
     {noreply, State}.
