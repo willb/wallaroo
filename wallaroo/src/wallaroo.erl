@@ -6,7 +6,7 @@
 
 -behaviour(gen_server).
 
--export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, get_meta/2, get_meta/1, put_meta/3, list_meta/0, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0, delete_tag/1, delete_branch/1, delete_entity/3]).
+-export([start_link/0, get_entity/2, get_entity/3, get_tag/1, get_branch/1, put_entity/3, put_entity/4, put_tag/2, put_tag/4, put_branch/2, put_branch/4, get_meta/2, get_meta/1, put_meta/3, list_meta/0, list_entities/1, list_entities/2, list_tags/0, list_branches/0, version/0, version_string/0, delete_tag/1, delete_branch/1, delete_entity/3, delete_meta/2]).
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -262,7 +262,22 @@ delete_check(_,_) ->
     ok.
 
 delete_helper(Name, Kind, Commit, StoreMod) ->
-    ok.
+    case delete_check(Name, Kind) of
+	{error, _}=E ->
+	    E;
+	ok ->
+	    Tree = wallaroo_commit:get_tree(get_commit(Commit, StoreMod), StoreMod),
+	    OtherEntities = immediately_affected_entities(Name, Kind, Tree, StoreMod),
+	    {_, TmpTree} = 
+		lists:foldl(fun({Path, Obj}, {_H, TreeAcc}) ->
+				    wallaroo_tree:put_path(Path, Obj, TreeAcc, StoreMod)
+			    end, 
+			    {unchanged, Tree},
+			    OtherEntities),
+	    {NewHash, _NewTree} = 
+		wallaroo_tree:del_path([xlate_what(Kind), Name], TmpTree, StoreMod),		    
+	    wallaroo_commit:store(wallaroo_commit:new([Commit], NewHash, [], [{deletes,<<(xlate_what(Kind))/binary, 47, Name/binary>>}]), StoreMod)
+    end.
 
 immediately_affected_entities(_Name, node, _Tree, _StoreMod) ->
     % removing a node doesn't affect anything else
@@ -301,7 +316,19 @@ immediately_affected_entities(Name, feature, Tree, StoreMod) ->
 		error_logger:warning_msg("No groups for tree with hash ~p~n", [wallaroo_db:identity(Tree)]),
 		[]
 	end,
-    Groups ++ Features.
+    Groups ++ Features;
+immediately_affected_entities(Name, parameter, Tree, StoreMod) ->
+    % removing a parameter affects groups or features that installed that parameter 
+    % and subsystems that are interested in that parameter
+    lists:flatten([case wallaroo_tree:get_path([xlate_what(Kind)], Tree, StoreMod) of
+		       {value, Entities} ->
+			   [{[xlate_what(Kind), E], ObjPrime} ||
+			       {E, Obj} <- wallaroo_tree:children(Entities, StoreMod),
+			       (ObjPrime = elim_param(Name, Obj)) =/= Obj];
+		       none ->
+			   error_logger:warning_msg("No ~ps for tree with hash ~p~n", [Kind, wallaroo_db:identity(Tree)]),
+			   []
+		   end || Kind <- [group, feature, subsystem]]).
 
 % eliminates the feature named DelF from the feature object Fobj
 -spec elim_feature(binary(), wallaby_feature:feature()) -> wallaby_feature:feature().
@@ -331,10 +358,6 @@ elim_param(DelP, {wallaby_group, _}=Obj) ->
 elim_param(DelP, {wallaby_subsystem, _}=Obj) ->
     wallaby_subsystem:set_parameters(Obj, [P || P <- wallaby_subsystem:parameters(Obj),
 						P =/= DelP]).
-					      
-
-internal_delete(Name, Kind, Tree) ->
-    ok.
 
 handle_info(_X, State) ->
     {noreply, State}.
