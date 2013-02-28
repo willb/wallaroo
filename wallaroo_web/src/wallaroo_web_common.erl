@@ -1,5 +1,5 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5,generic_from_json_raw/5, generic_from_json/6, config_for/1, meta_for/1, fixup_meta_ctx/2, generic_delete_entity/4]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5,generic_from_json_raw/5, generic_from_json/6, config_for/1, meta_for/1, fixup_meta_ctx/2, generic_delete_entity/4, generic_delete_nc/4]).
 -export([known_meta_atoms/0]).
 
 -record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for, meta_domain, meta_key=all}).
@@ -198,6 +198,21 @@ fix_json(Str) when is_list(Str) ->
     list_to_binary(Str);
 fix_json(X) ->
     ?D_VAL(X).
+
+generic_delete_nc(ReqData, #ww_ctx{show_all=true}=Ctx, _DelFun, _PathPart) ->
+    {false, ReqData, Ctx};
+generic_delete_nc(ReqData, #ww_ctx{name=Name}=Ctx, DelFun, PathPart) ->
+    case DelFun(Name) of 
+	{error, E} ->
+	    ResponseBody = wrq:append_to_response_body(mochijson:binary_encode({struct, [{error, E}]}), ReqData),
+	    {{halt, 400}, ResponseBody, Ctx};
+	ok ->
+	    NewLocation = io_lib:format("/~s", [PathPart]),
+	    ?D_LOG("NewLocation is ~p~n", [NewLocation]),
+	    Redir = wrq:do_redirect(true, wrq:set_resp_header("Location", NewLocation, ReqData)),
+	    {true, Redir, Ctx}
+    end.
+	    
 
 generic_delete_entity(ReqData, #ww_ctx{show_all=true}=Ctx, _Kind, _PathPart) ->
     {false, ReqData, Ctx};

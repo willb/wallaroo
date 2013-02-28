@@ -245,8 +245,13 @@ handle_call({get_meta, Domain, Key}, _From, {StoreMod}=State) ->
 handle_call({list_meta}, _From, {StoreMod}=State) ->
     {reply, StoreMod:meta(), State};
 handle_call({delete_tag, Tag}, _From, {StoreMod}=State) ->
-    StoreMod:delete_tag(Tag),
-    {reply, ok, State};
+    case delete_check(Tag, tag) of
+	{error, _}=E ->
+	    {reply, E, State};
+	ok ->
+	    StoreMod:delete_tag(Tag),
+	    {reply, ok, State}
+    end;
 handle_call({delete_branch, Branch}, _From, {StoreMod}=State) ->
     StoreMod:delete_branch(Branch),
     {reply, ok, State};
@@ -257,8 +262,6 @@ handle_call({delete_entity, Name, Kind, Commit}, _From, {StoreMod}=State) ->
     {reply, delete_helper(Name, Kind, Commit, StoreMod), State}.
 
 delete_check(<<"empty">>, tag) ->
-    {error, cant_delete_special_tags};
-delete_check(<<"current">>, tag) ->
     {error, cant_delete_special_tags};
 delete_check(<<"+++", _/binary>>, group) ->
     {error, cant_delete_special_groups};
