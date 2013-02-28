@@ -70,7 +70,7 @@ delete_branch(Branch) ->
     gen_server:call(?SERVER, {delete_branch, Branch}).
     
 delete_entity(Name, Kind, Commit) ->
-    gen_server:call(?SERVER, {delete_entity, Name, Kind, Commit}).
+    gen_server:call(?SERVER, {delete_entity, Name, Kind, wallaroo_hash:canonicalize(Commit)}).
 
 list_entities(Kind) when ?VALID_ENTITY_KIND(Kind) ->
     case get_tag(<<"current">>) of
