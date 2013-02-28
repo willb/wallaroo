@@ -317,6 +317,8 @@ immediately_affected_entities(Name, feature, Tree, StoreMod) ->
 		[]
 	end,
     Groups ++ Features;
+immediately_affected_entities(Name, subsystem, Tree, StoreMod) ->
+    [];
 immediately_affected_entities(Name, parameter, Tree, StoreMod) ->
     % removing a parameter affects groups or features that installed that parameter 
     % and subsystems that are interested in that parameter
