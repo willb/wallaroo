@@ -106,6 +106,24 @@ module Wallaroo
         end
       end
       
+      def delete_resource(kind, name, skip_q=false)
+        klazz = ::Wallaroo::Client.const_get(kind.to_s.capitalize)
+        path = "/#{klazz.respond_to?(:plural_name) ? klazz.plural_name : (kind.to_s.downcase + "s")}/#{name}"
+        url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, skip_q ? nil : self.how.to_q, nil)
+        http = Net::HTTP.new(url.host, url.port)
+        request = Net::HTTP::Delete.new(url.request_uri)
+        
+        response = http.request(request)
+        
+        unless response.code =~ /^2/
+          fatal response.body, response.code
+        end
+        
+        match = response.header["location"].match(/.*?(commit)=([0-9a-f]+)/)
+        self.how.update!(match[2]) if match
+        match[2]
+      end
+      
       def visit!(what, name)
         @how = Proxying.mk_how({what=>name})
       end

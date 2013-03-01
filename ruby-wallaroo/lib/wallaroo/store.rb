@@ -84,8 +84,8 @@ module Wallaroo
         getGroup({"NAME"=>name})
       end
 
-      def removeGroup(uid)
-        not_implemented
+      def removeGroup(name)
+        cm.delete_resource(:group, name)
       end
 
       def getFeature(name)
@@ -100,7 +100,7 @@ module Wallaroo
       end
 
       def removeFeature(name)
-        not_implemented
+        cm.delete_resource(feature, name)
       end
 
       def addNode(name, options=nil)
@@ -127,7 +127,7 @@ module Wallaroo
       end
 
       def removeNode(name)
-        not_implemented
+        cm.delete_resource(:node, name)
       end
 
       def affectedEntities(options=nil)
@@ -157,7 +157,7 @@ module Wallaroo
       end
 
       def removeParam(name)
-        not_implemented
+        cm.delete_resource(:parameter, name)
       end
 
       def addSubsys(name)
@@ -173,7 +173,7 @@ module Wallaroo
       end
 
       def removeSubsys(name)
-        not_implemented
+        cm.delete_resource(:subsystem, name)
       end
         
       def activateConfig
@@ -206,7 +206,7 @@ module Wallaroo
       end
 
       def removeSnapshot(name)
-        not_implemented
+        cm.delete_resource(:tag, name, true)
       end
 
       def storeinit(kwargs=nil)
@@ -220,4 +220,3 @@ module Wallaroo
     end
   end
 end
-      
