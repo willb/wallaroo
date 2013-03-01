@@ -72,7 +72,7 @@ class store(object):
         return result
     
     def removeGroup(self):
-        not_implemented()
+        self.cm.delete_resource("group", name)
     
     def getFeature(self, name):
         result = self.cm.make_proxy_object(feature, name)
@@ -87,7 +87,7 @@ class store(object):
         return result
     
     def removeFeature(self):
-        not_implemented()
+        self.cm.delete_resource("feature", name)
     
     def addNode(self, name, **options):
         result = self.cm.make_proxy_object(node, name)
@@ -108,7 +108,7 @@ class store(object):
         return result
     
     def removeNode(self, name):
-        not_implemented()
+        self.cm.delete_resource("node", name)
     
     def addParam(self, name):
         result = self.cm.make_proxy_object(parameter, name)
@@ -126,7 +126,7 @@ class store(object):
         not_implemented()
     
     def removeParam(self, name):
-        not_implemented()
+        self.cm.delete_resource("parameter", name)
     
     def addSubsys(self, name):
         result = self.cm.make_proxy_object(subsystem, name)
@@ -141,7 +141,10 @@ class store(object):
         return result
         
     def removeSubsys(self, name):
-        not_implemented()
+        self.cm.delete_resource("subsystem", name)
+    
+    def removeSnapshot(self, name):
+        self.cm.delete_resource("tag", name)
     
     def activateConfig(self):
         tago = self.cm.make_proxy_object(tag, "current")
