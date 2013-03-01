@@ -276,7 +276,9 @@ delete_helper(Name, Kind, Commit, StoreMod) ->
 	    Tree = wallaroo_commit:get_tree(get_commit(Commit, StoreMod), StoreMod),
 	    OtherEntities = immediately_affected_entities(Name, Kind, Tree, StoreMod),
 	    {_, TmpTree} = 
-		lists:foldl(fun({Path, Obj}, {_H, TreeAcc}) ->
+		lists:foldl(fun({Path, 'DELETED'}, {_, TreeAcc}) ->
+				    wallaroo_tree:del_path(Path, TreeAcc, StoreMod);
+			       ({Path, Obj}, {_H, TreeAcc}) ->
 				    wallaroo_tree:put_path(Path, Obj, TreeAcc, StoreMod)
 			    end, 
 			    {unchanged, Tree},
@@ -286,9 +288,14 @@ delete_helper(Name, Kind, Commit, StoreMod) ->
 	    wallaroo_commit:store(wallaroo_commit:new([Commit], NewHash, [], [{deletes,<<(xlate_what(Kind))/binary, 47, Name/binary>>}]), StoreMod)
     end.
 
-immediately_affected_entities(_Name, node, _Tree, _StoreMod) ->
-    % removing a node doesn't affect anything else
-    [];
+immediately_affected_entities(Name, node, Tree, StoreMod) ->
+    % removing a node doesn't affect anything but its identity group
+    case wallaroo_tree:get_path([xlate_what(node), Name], Tree, StoreMod) of
+	{value, Nd} ->
+	    [{[xlate_what(group), wallaby_node:identity_group(Nd)], 'DELETED'}];
+	_ ->
+	    []
+    end;
 immediately_affected_entities(Name, group, Tree, StoreMod) ->
     % removing a group affects nodes that are a member of that group
     case wallaroo_tree:get_path([xlate_what(node)], Tree, StoreMod) of
