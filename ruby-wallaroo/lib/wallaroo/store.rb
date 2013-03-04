@@ -100,7 +100,7 @@ module Wallaroo
       end
 
       def removeFeature(name)
-        cm.delete_resource(feature, name)
+        cm.delete_resource(:feature, name)
       end
 
       def addNode(name, options=nil)
