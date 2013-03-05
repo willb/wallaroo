@@ -1,0 +1,179 @@
+%if 0%{?fedora} >= 15
+%global want_systemd 1
+%global wallaby_agent_environment sysconfig/wallaby-agent-env
+%else
+%global want_systemd 0
+%global wallaby_agent_environment sysconfig/wallaby-agent
+%endif
+
+%if (0%{?fedora} == 0 && 0%{?rhel} <= 5)
+%global building_for_el5 1
+%else
+%global building_for_el5 0
+%endif
+
+%if (0%{?fedora} >= 17 || 0%{?rhel} >= 6)
+%global wallaby_uid -u 181
+%endif
+
+%if (0%{?fedora} != 0)
+%global has_sinatra 1
+%else
+%global has_sinatra 0
+%endif
+
+%if (0%{?fedora} >= 17)
+%global ruby_abi 1.9.1
+%global ruby_appropriate_install_dir %{ruby_vendorlibdir}
+%global requires_ruby_devel 1
+%else
+%global requires_ruby_devel 0
+%global ruby_abi 1.8
+%{!?ruby_sitelib: %global ruby_sitelib %(ruby -rrbconfig -e 'puts Config::CONFIG["sitelibdir"] ')}
+%global ruby_appropriate_install_dir %{ruby_sitelib}
+%endif
+
+%if %{building_for_el5} == 1
+%{!?python_sitelib: %global python_sitelib %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib())")}
+%{!?python_sitearch: %global python_sitearch %(%{__python} -c "from distutils.sysconfig import get_python_lib; print(get_python_lib(1))")}
+%endif
+
+%global wallaroo_dir %{_libdir}/erlang/lib/wallaroo-%{version}
+%global wallaroo_web_dir %{_libdir}/erlang/lib/wallaroo_web-%{version}
+
+Name:           wallaby2
+Version: <%= pkg_version %>
+Release: <%= pkg_rel %>%{?dist}
+Group: Applications/System
+License: ASL 2.0
+URL: http://git.fedorahosted.org/git/grid/wallaby.git
+Source0: https://fedorahosted.org/releases/g/r/grid/%{name}-%{version}.tar.gz
+<%= printable_patch_list %>
+BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
+Summary: Configuration service for HTCondor pools.
+
+BuildRequires:	erlang
+BuildRequires:  erlang-rebar
+BuildRequires:  erlang-webmachine
+
+Provides:       wallaby2 = %{version}-%{release}
+Obsoletes:      wallaby2
+
+Requires:	erlang-erts
+Requires:	erlang-kernel
+Requires:	erlang-stdlib
+Requires:	erlang-tools
+Requires:	erlang-webmachine
+Requires:   erlang-mochiweb
+
+%description
+Wallaby is a configuration service for HTCondor pools.  It provides a
+semantic model of HTCondor configuration, enabling administrators to
+apply high-level features to groups of nodes rather than set the
+values of low-level parameters in configuration files.  Wallaby also
+validates configurations before deploying them, pushes out
+configurations to affected nodes, keeps an inventory of running nodes,
+and manages multiple versions of configurations.
+
+%package -n ruby-wallaby2
+Summary: Ruby client library for Wallaby 2
+Group: Applications/System
+Requires: ruby(abi) = %{?ruby_abi}
+Requires: rubygem-json
+%if %{requires_ruby_devel}
+BuildRequires: ruby-devel
+%endif
+Provides: ruby(wallaroo/client) = %{version}
+Obsoletes: ruby-wallaby
+BuildArch: noarch
+
+%description -n ruby-wallaby2
+This package provides a client library for Wallaby 2, also known as "Wallaroo."  The library is intended to be compatible with the Ruby client library for the original Wallaby service.
+
+%package -n python-wallaby2
+Summary: Python client library for Wallaby
+Group: Applications/System
+Requires: python-requests = 1.1.0
+BuildArch: noarch
+
+%description -n python-wallaby2
+This package provides a client library for Wallaby 2, also known as "Wallaroo."  The library is intended to be compatible with the Python client library for the original Wallaby service.
+
+%package utils
+Summary: The Wallaby shell and other utilities to interact with the Wallaby service
+Group: Applications/System
+Requires: ruby-wallaby2 = %{version}
+Requires: ruby-irb
+Obsoletes: wallaby-utils
+Obsoletes: wallaby-http-server
+BuildArch: noarch
+
+%description utils
+This package contains command-line utilities for updating Wallaby pool
+and node configurations and interacting with the Wallaby service.
+
+%prep
+%setup -q
+<% list_patches.each_with_index do |p, i| %>
+<%= "%patch#{i} -p1" %><% end %>
+%build
+
+( cd wallaroo ; rebar -C ../rebar.rpm.config compile )
+( cd wallaroo_web ; rebar -C ../rebar.rpm.config compile )
+
+%install
+%if %{building_for_el5}
+rm -rf %{buildroot}
+%endif
+
+mkdir -p %{buildroot}/%{wallaroo_dir}
+mkdir -p %{buildroot}/%{wallaroo_web_dir}
+
+mkdir -p %{buildroot}/%{_unitdir}
+mkdir -p %{buildroot}/%{ruby_appropriate_install_dir}/wallaroo/client
+mkdir -p %{buildroot}/%{ruby_appropriate_install_dir}/wallaroo/mrg
+mkdir -p %{buildroot}/%{_bindir}
+mkdir -p %{buildroot}/%{_localstatedir}/lib/wallaby
+mkdir -p %{buildroot}/%{_localstatedir}/lib/wallaby/patches
+mkdir -p %{buildroot}/%{_initrddir}
+mkdir -p %{buildroot}/%{_sysconfdir}
+mkdir -p %{buildroot}/%{_sysconfdir}/sysconfig
+mkdir -p %{buildroot}/%{_sysconfdir}/logrotate.d
+mkdir -p %{buildroot}/%{_localstatedir}/log/wallaby
+mkdir -p %{buildroot}/%{python_sitelib}/wallaroo
+
+cp -rf wallaroo/ebin %{buildroot}/%{wallaroo_dir}
+cp -rf wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
+
+cp -p -r -f ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
+cp -p -r -f python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
+
+# Install main startup script
+install -D -p -m 0755 wallaroo_web/wallaby2.sh %{buildroot}/%{_bindir}/start_wallaby2.sh
+install -D -p -m 0755 ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
+
+%clean
+%if %{building_for_el5}
+rm -rf %{buildroot}
+%endif
+
+%files
+%doc README.rdoc LICENSE
+%defattr(-,root,root,-)
+%{wallaroo_dir}/
+%{wallaroo_web_dir}/
+%{_bindir}/start_wallaby2.sh
+
+%files -n ruby-wallaby2
+%{ruby_appropriate_install_dir}/wallaroo.rb
+%{ruby_appropriate_install_dir}/wallaroo/
+%{ruby_appropriate_install_dir}/mrg/
+
+%files -n python-wallaby2
+%{python_sitelib}/wallaroo/
+
+%files utils
+%{_bindir}/wallaby
+
+%changelog
+

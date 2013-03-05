@@ -12,13 +12,7 @@
 
 -define(SERVER, ?MODULE).
 -define(VALID_ENTITY_KIND(Kind), Kind=:='node' orelse Kind=:='feature' orelse Kind =:= 'subsystem' orelse Kind=:='group' orelse Kind=:='parameter').
--define(VERSION,[
-		 {major, 0},
-		 {minor, 2},
-		 {patch, 0},
-		 {build, ""}
-		]).
-
+-include("version.hrl").
 -include("dlog.hrl").
 
 start_link() ->
