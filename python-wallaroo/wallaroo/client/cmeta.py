@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .how import How
+from how import How
 import urlparse
 import urllib
 import requests

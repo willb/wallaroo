@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .proxy import Proxy, proxied_attr, proxied_attr_update
-from .proxy import proxied_attr_get as pag, proxied_attr_set as pas, proxied_attr_getset as pags
+from proxy import Proxy, proxied_attr, proxied_attr_update
+from proxy import proxied_attr_get as pag, proxied_attr_set as pas, proxied_attr_getset as pags
 
 class branch(Proxy):
     pass
