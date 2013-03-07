@@ -38,13 +38,20 @@ upgrade() ->
     [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
     ok.
 
+config_val(K, Default) ->
+    case application:get_env(wallaroo_web, K) of
+        {ok, Value} ->
+            Value;
+        _ ->
+            Default
+    end.
+
 %% @spec init([]) -> SupervisorTree
 %% @doc supervisor callback.
 init([]) ->
     Ip = case os:getenv("WEBMACHINE_IP") of false -> "0.0.0.0"; Any -> Any end,
-    {ok, Dispatch} = file:consult(filename:join(
-                         [filename:dirname(code:which(?MODULE)),
-                          "..", "priv", "dispatch.conf"])),
+    error_logger:warning_msg("my path is ~s~n", [filename:dirname(code:which(?MODULE))]),
+    {ok, Dispatch} = file:consult(config_val(dispatch_conf, "priv/dispatch.conf")),
     WebConfig = [
                  {ip, Ip},
                  {port, 8000},
