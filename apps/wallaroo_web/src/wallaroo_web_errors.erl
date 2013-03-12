@@ -17,21 +17,25 @@ render_error(Code, Req, Reason) ->
 generic_error_body(Code, Req, Reason) ->
     generic_error_body(Code, Req, Reason, <<>>).
 
+reason_dict({none, none, []}) ->
+    [];
+reason_dict(Reason) ->
+    ?D_VAL([{reason, iolist_to_binary(io_lib:format("~p", [Reason]))}]).
+
+humantext_dict(<<>>) ->
+    [];
+humantext_dict(HT) ->
+    [{explanation, HT}].
+
 generic_error_body(Code, Req, Reason, HumanText) ->
     {ok, ReqState} = webmachine_request:add_response_header("Content-Type", "application/json", Req),
     {Path, _} = webmachine_request:path(Req),
     Struct = {struct, 
-	      Dict=([{http_code, Code}, {request_path, list_to_binary(Path)}]
-	      ++ (if HumanText =:= <<>> ->
-			 [];
-		    true ->
-			 [{explanation, HumanText}]
-		 end)
-	      ++ (if Reason =:= {none, none, []} ->
-			 [];
-		    true ->
-			 {reason, iolist_to_binary(io_lib:format("~p", [?D_VAL(Reason)]))}
-		 end))
+	      Dict=(
+		[{http_code, Code}, {request_path, list_to_binary(Path)}]
+		++ humantext_dict(HumanText)
+		++ reason_dict(Reason)
+	       )
 	     },
     case {Code, Reason} of
 	{_, {exit, normal, _}} ->
