@@ -115,6 +115,7 @@ generic_find_nc(FindFunc, DumpFunc, Name, ReqData, Ctx) ->
 	Fail when Fail =:= none orelse Fail =:= find_failed ->
 	    {{halt, 404}, ReqData, Ctx};
 	Result ->
+	    ?D_VAL(Result),
 	    DumpFunc(Result, ReqData, Ctx)
     end.
 
@@ -151,7 +152,7 @@ generic_to_json(ReqData, #ww_ctx{show_all=true}=Ctx, ListFun, _GetFun, CommitMat
     {Commit, NewCtx} = wallaroo_web_common:get_starting_commit(ReqData, Ctx),
     {Payload, _, _} = case {generic_to_json, Commit, CommitMatters} of 
 		  {generic_to_json, none, true} -> dump_json([], ReqData, NewCtx);
-		  _ -> dump_json(ListFun(Commit), ReqData, NewCtx)
+		  _ -> dump_json(?D_VAL(ListFun(Commit)), ReqData, NewCtx)
 	      end,
     {Payload, ReqData, NewCtx};
 generic_to_json(ReqData, #ww_ctx{name=Name, commit=Commit}=Ctx, _ListFun, GetFun, true) ->
@@ -189,10 +190,12 @@ fix_json({wallaby_subsystem, EntityDict}) ->
     {struct, [jsonify_entry({K,V}) || {K,V} <- EntityDict, K =/= parameters] ++ [{parameters,{array, V}} || {parameters, V} <- EntityDict] };
 fix_json({struct, _}=S) ->
     ?D_VAL(S);
+fix_json({Kind, _}=Tup) when is_binary(Kind) ->
+    ?D_VAL({struct, [Tup]});
 fix_json({_Kind, EntityDict}) ->
     ?D_VAL({struct, [jsonify_entry(Entry) || Entry <- EntityDict]});
-fix_json(<<Str/binary>>) ->
-    Str;
+fix_json(BStr) when is_binary(BStr) ->
+    BStr;
 fix_json(Str) when is_list(Str) ->
     error_logger:warning_msg("called fix_json(\"~s\") with list instead of binary~n", [Str]),
     list_to_binary(Str);
