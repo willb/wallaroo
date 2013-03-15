@@ -152,13 +152,13 @@ mkdir -p %{buildroot}/%{_localstatedir}/log/wallaroo
 mkdir -p %{buildroot}/%{python_sitelib}/wallaroo
 mkdir -p %{buildroot}/%{python_sitelib}/wallaroo_config
 
-cp -rf wallaroo/ebin %{buildroot}/%{wallaroo_dir}
-cp -rf wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
-cp -rf wallaroo_web/priv %{buildroot}/%{wallaroo_web_dir}
+cp -rf apps/wallaroo/ebin %{buildroot}/%{wallaroo_dir}
+cp -rf apps/wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
+cp -rf apps/wallaroo_web/priv %{buildroot}/%{wallaroo_web_dir}
 
-cp -p -r -f ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
-cp -p -r -f python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
-cp -p -r -f python-configd/wallaroo_config/* %{buildroot}/%{python_sitelib}/wallaroo_config
+cp -p -r -f clients/ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
+cp -p -r -f clients/python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
+cp -p -r -f clients/python-configd/wallaroo_config/* %{buildroot}/%{python_sitelib}/wallaroo_config
 
 cp -p -f etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
 cp -p -f etc/sysconfig/wallaroo %{buildroot}/%{_sysconfdir}/sysconfig/wallaroo
@@ -180,6 +180,7 @@ rm -rf %{buildroot}
 %{_bindir}/wallaroo
 %{_initrddir}/wallaroo
 %{_sysconfdir}/sysconfig/wallaroo
+%defattr(-,wallaby,wallaby,-)
 %{_localstatedir}/log/wallaroo
 %{_localstatedir}/lib/wallaroo
 
@@ -196,6 +197,29 @@ rm -rf %{buildroot}
 
 %files utils
 %{_bindir}/wallaby
+
+%pre
+getent group wallaby >/dev/null || groupadd -r wallaby
+getent passwd wallaby >/dev/null || \
+  useradd -r %{?wallaby_uid} -g wallaby -d %{_localstatedir}/lib/wallaby -s /sbin/nologin \
+    -c "Owner of Wallaby service" wallaby
+exit 0
+
+%post
+# This adds the proper /etc/rc*.d links for the script
+/sbin/chkconfig --add wallaroo
+
+%preun
+if [ $1 = 0 ] ; then
+    /sbin/service wallaby stop >/dev/null 2>&1
+    /sbin/chkconfig --del wallaroo
+fi
+
+%postun
+if [ "$1" -ge "1" ] ; then
+    /sbin/service wallaroo condrestart >/dev/null 2>&1 || :
+fi
+
 
 %changelog
 
