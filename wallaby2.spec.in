@@ -57,7 +57,7 @@ BuildRequires:  erlang-rebar
 BuildRequires:  erlang-webmachine
 
 Provides:       wallaby2 = %{version}-%{release}
-Obsoletes:      wallaby2
+Obsoletes:      wallaby
 
 Requires:	erlang-erts
 Requires:	erlang-kernel
@@ -144,12 +144,16 @@ mkdir -p %{buildroot}/%{python_sitelib}/wallaroo
 
 cp -rf wallaroo/ebin %{buildroot}/%{wallaroo_dir}
 cp -rf wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
+cp -rf wallaroo_web/priv %{buildroot}/%{wallaroo_web_dir}
 
 cp -p -r -f ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
 cp -p -r -f python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
 
+cp -p -f etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
+
 # Install main startup script
-install -D -p -m 0755 wallaroo_web/wallaby2.sh %{buildroot}/%{_bindir}/start_wallaby2.sh
+install -D -p -m 0755 wallaroo_web/wallaby2.sh %{buildroot}/%{_bindir}/start_wallaby2
+install -D -p -m 0755 wallaroo_web/stop-wallaroo.sh %{buildroot}/%{_bindir}/stop_wallaby2
 install -D -p -m 0755 ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
 
 %clean
@@ -162,7 +166,9 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{wallaroo_dir}/
 %{wallaroo_web_dir}/
-%{_bindir}/start_wallaby2.sh
+%{_bindir}/start_wallaby2
+%{_bindir}/stop_wallaby2
+%{_initrddir}/wallaroo
 
 %files -n ruby-wallaby2
 %{ruby_appropriate_install_dir}/wallaroo.rb
@@ -177,3 +183,5 @@ rm -rf %{buildroot}
 
 %changelog
 
+* Thu Mar 7 2013 William Benton <willb@redhat.com> - 0.2.0-1
+- Initial package
