@@ -1,0 +1,7 @@
+export WALLAROO_SERVER_PORT=8000
+export WALLAROO_SECRET_FILE=/var/lib/wallaroo/secret
+export WALLAROO_RUN_ERL=/usr/bin/run_erl
+export WALLAROO_TO_ERL=/usr/bin/to_erl
+export WALLAROO_ERL=/usr/bin/erl
+export WALLAROO_PIPE=/var/lib/wallaroo/pipe
+export WALLAROO_LOG_DIR=/var/log/wallaroo
