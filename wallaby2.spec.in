@@ -8,8 +8,12 @@
 
 %if (0%{?fedora} == 0 && 0%{?rhel} <= 5)
 %global building_for_el5 1
+%global want_wallaroo_service 0
+%global want_full_python_client 0
 %else
 %global building_for_el5 0
+%global want_wallaroo_service 1
+%global want_full_python_client 1
 %endif
 
 %if (0%{?fedora} >= 17 || 0%{?rhel} >= 6)
@@ -50,7 +54,9 @@ URL: http://git.fedorahosted.org/git/grid/wallaby.git
 Source0: https://fedorahosted.org/releases/g/r/grid/%{name}-%{version}.tar.gz
 <%= printable_patch_list %>
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
-Summary: Configuration service for HTCondor pools.
+
+%if %{?want_wallaroo_service}
+Summary: Configuration service for HTCondor pools
 
 BuildRequires:	erlang
 BuildRequires:  erlang-rebar
@@ -65,6 +71,7 @@ Requires:	erlang-stdlib
 Requires:	erlang-tools
 Requires:	erlang-webmachine
 Requires:   erlang-mochiweb
+Requires:  ruby(abi) = %{?ruby_abi}
 
 %description
 Wallaby is a configuration service for HTCondor pools.  It provides a
@@ -74,6 +81,13 @@ values of low-level parameters in configuration files.  Wallaby also
 validates configurations before deploying them, pushes out
 configurations to affected nodes, keeps an inventory of running nodes,
 and manages multiple versions of configurations.
+%else
+Summary: Base package for a configuration service for HTCondor pools
+%description
+Wallaby is a configuration service for HTCondor pools.
+%endif
+
+
 
 %package -n ruby-wallaby2
 Summary: Ruby client library for Wallaby 2
@@ -102,6 +116,7 @@ BuildArch: noarch
 %description -n python-wallaby2-config
 This package provides a client library for use by configuration agents that wish to connect to Wallaby 2, also known as "Wallaroo."  This library works with Python 2.4 and up.  More general clients should use python-wallaby2, which requires Python 2.6 and python-requests.
 
+%if %{?want_full_python_client}
 %package -n python-wallaby2
 Summary: Python client library for Wallaby
 Group: Applications/System
@@ -110,6 +125,7 @@ BuildArch: noarch
 
 %description -n python-wallaby2
 This package provides a client library for Wallaby 2, also known as "Wallaroo."  The library is intended to be compatible with the Python client library for the original Wallaby service.
+%endif
 
 %package utils
 Summary: The Wallaby shell and other utilities to interact with the Wallaby service
@@ -130,7 +146,9 @@ and node configurations and interacting with the Wallaby service.
 <%= "%patch#{i} -p1" %><% end %>
 %build
 
+%if %{?want_wallaroo_service}
 rebar compile
+%endif
 
 %install
 %if %{building_for_el5}
@@ -153,13 +171,10 @@ mkdir -p %{buildroot}/%{_localstatedir}/log/wallaroo
 mkdir -p %{buildroot}/%{python_sitelib}/wallaroo
 mkdir -p %{buildroot}/%{python_sitelib}/wallaroo_config
 
+%if %{?want_wallaroo_service}
 cp -rf apps/wallaroo/ebin %{buildroot}/%{wallaroo_dir}
 cp -rf apps/wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
 cp -rf apps/wallaroo_web/priv %{buildroot}/%{_localstatedir}/lib/wallaroo
-
-cp -p -r -f clients/ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
-cp -p -r -f clients/python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
-cp -p -r -f clients/python-configd/wallaroo_config/* %{buildroot}/%{python_sitelib}/wallaroo_config
 
 cp -p -f etc/sysconfig/wallaroo %{buildroot}/%{_sysconfdir}/sysconfig/wallaroo
 
@@ -167,6 +182,13 @@ cp -p -f etc/sysconfig/wallaroo %{buildroot}/%{_sysconfdir}/sysconfig/wallaroo
 install -D -p -m 0755 etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
 install -D -p -m 0755 bin/wallaroo %{buildroot}/%{_bindir}/wallaroo
 install -D -p -m 0755 clients/ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
+%endif
+
+cp -p -r -f clients/ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
+%if %{?want_full_python_client}
+cp -p -r -f clients/python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
+%endif
+cp -p -r -f clients/python-configd/wallaroo_config/* %{buildroot}/%{python_sitelib}/wallaroo_config
 
 %clean
 %if %{building_for_el5}
@@ -175,6 +197,7 @@ rm -rf %{buildroot}
 
 %files
 %doc README.rdoc LICENSE
+%if %{?want_wallaroo_service}
 %defattr(-,root,root,-)
 %{wallaroo_dir}/
 %{wallaroo_web_dir}/
@@ -184,6 +207,7 @@ rm -rf %{buildroot}
 %defattr(-,wallaby,wallaby,-)
 %{_localstatedir}/log/wallaroo
 %{_localstatedir}/lib/wallaroo
+%endif
 
 %files -n ruby-wallaby2
 %{ruby_appropriate_install_dir}/wallaroo.rb
@@ -223,6 +247,9 @@ fi
 
 
 %changelog
+
+* Fri Mar 15 2013 William Benton <willb@redhat.com> - 0.2.1-3
+- the wallaroo service and full python client are no longer built on EL5
 
 * Fri Mar 15 2013 William Benton <willb@redhat.com> - 0.2.1-2
 - packaging fixes
