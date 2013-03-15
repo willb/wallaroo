@@ -21,6 +21,8 @@ from arc_utils import arcmethod
 import errors
 from errors import not_implemented, fail
 
+import urllib
+
 class group(Proxy):
     name = property(pag("name"))
     features = property(*pags("features"))
@@ -34,7 +36,7 @@ class group(Proxy):
     def getConfig(self, **options):
         if len(options) > 0:
             not_implemented()
-        return self.cm.fetch_json_resource("/config/group/%s" % self.name)
+        return self.cm.fetch_json_resource("/config/group/%s" % urllib.quote_plus(self.name))
     
     def explain(self):
         not_implemented()

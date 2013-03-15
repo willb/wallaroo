@@ -27,6 +27,8 @@ from constants import PARTITION_GROUP, LABEL_SENTINEL_PARAM, LABEL_SENTINEL_PARA
 from datetime import datetime
 import calendar
 
+import urllib
+
 def ts():
     now = datetime.utcnow()
     return (calendar.timegm(now.utctimetuple()) * 1000000) + now.microsecond
@@ -42,8 +44,8 @@ class node(Proxy):
     
     def getConfig(self, **options):
         if options.has_key("version"):
-            return self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":options["version"]}, {})
-        return self.cm.fetch_json_resource("/config/node/%s" % self.name)
+            return self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.name), {"commit":options["version"]}, {})
+        return self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.name))
     
     def makeProvisioned(self):
         self.provisioned = True
@@ -67,8 +69,8 @@ class node(Proxy):
         return meta.has_key("last-checkin") and meta["last-checkin"] or 0
     
     def whatChanged(self, old, new):
-        oc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":old}, {})
-        nc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":new}, {})
+        oc = self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.name), {"commit":old}, {})
+        nc = self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.name), {"commit":new}, {})
         
         ock = set(oc)
         nck = set(nc)
