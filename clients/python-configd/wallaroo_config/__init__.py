@@ -161,8 +161,8 @@ class client(object):
         return p["must_change"]
     
     def whatChanged(self, oldver, newver):
-        oc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":old}, {})
-        nc = self.cm.fetch_json_resource("/config/node/%s" % self.name, {"commit":new}, {})
+        oc = self.cm.fetch_json_resource("/config/node/%s" % self.nodename, {"commit":oldver}, {})
+        nc = self.cm.fetch_json_resource("/config/node/%s" % self.nodename, {"commit":newver}, {})
         
         ock = set(oc)
         nck = set(nc)
@@ -177,9 +177,9 @@ class client(object):
         for ss in subsystems:
             ssp = set(ss["parameters"])
             if ssp.intersection(mc_params):
-                restart.append(ss.name)
+                restart.append(ss["name"])
             elif ssp.intersection(params):
-                reconfig.append(ss.name)
+                reconfig.append(ss["name"])
         
         return [list(params), restart, reconfig]
         
