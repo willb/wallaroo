@@ -90,6 +90,17 @@ BuildArch: noarch
 %description -n ruby-wallaby2
 This package provides a client library for Wallaby 2, also known as "Wallaroo."  The library is intended to be compatible with the Ruby client library for the original Wallaby service.
 
+%package -n python-wallaby2-config
+Summary: Python 2.4 library for inspecting Wallaby configurations
+Group: Applications/System
+%if %{building_for_el5}
+Requires:  python-simplejson
+%endif
+BuildArch: noarch
+
+%description -n python-wallaby2-config
+This package provides a client library for use by configuration agents that wish to connect to Wallaby 2, also known as "Wallaroo."  This library works with Python 2.4 and up.  More general clients should use python-wallaby2, which requires Python 2.6 and python-requests.
+
 %package -n python-wallaby2
 Summary: Python client library for Wallaby
 Group: Applications/System
@@ -118,8 +129,7 @@ and node configurations and interacting with the Wallaby service.
 <%= "%patch#{i} -p1" %><% end %>
 %build
 
-( cd wallaroo ; rebar -C ../rebar.rpm.config compile )
-( cd wallaroo_web ; rebar -C ../rebar.rpm.config compile )
+rebar compile
 
 %install
 %if %{building_for_el5}
@@ -133,14 +143,14 @@ mkdir -p %{buildroot}/%{_unitdir}
 mkdir -p %{buildroot}/%{ruby_appropriate_install_dir}/wallaroo/client
 mkdir -p %{buildroot}/%{ruby_appropriate_install_dir}/wallaroo/mrg
 mkdir -p %{buildroot}/%{_bindir}
-mkdir -p %{buildroot}/%{_localstatedir}/lib/wallaby
-mkdir -p %{buildroot}/%{_localstatedir}/lib/wallaby/patches
+mkdir -p %{buildroot}/%{_localstatedir}/lib/wallaroo
 mkdir -p %{buildroot}/%{_initrddir}
 mkdir -p %{buildroot}/%{_sysconfdir}
 mkdir -p %{buildroot}/%{_sysconfdir}/sysconfig
 mkdir -p %{buildroot}/%{_sysconfdir}/logrotate.d
-mkdir -p %{buildroot}/%{_localstatedir}/log/wallaby
+mkdir -p %{buildroot}/%{_localstatedir}/log/wallaroo
 mkdir -p %{buildroot}/%{python_sitelib}/wallaroo
+mkdir -p %{buildroot}/%{python_sitelib}/wallaroo_config
 
 cp -rf wallaroo/ebin %{buildroot}/%{wallaroo_dir}
 cp -rf wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
@@ -148,12 +158,13 @@ cp -rf wallaroo_web/priv %{buildroot}/%{wallaroo_web_dir}
 
 cp -p -r -f ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
 cp -p -r -f python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
+cp -p -r -f python-configd/wallaroo_config/* %{buildroot}/%{python_sitelib}/wallaroo_config
 
 cp -p -f etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
+cp -p -f etc/sysconfig/wallaroo %{buildroot}/%{_sysconfdir}/sysconfig/wallaroo
 
 # Install main startup script
-install -D -p -m 0755 wallaroo_web/wallaby2.sh %{buildroot}/%{_bindir}/start_wallaby2
-install -D -p -m 0755 wallaroo_web/stop-wallaroo.sh %{buildroot}/%{_bindir}/stop_wallaby2
+install -D -p -m 0755 bin/wallaroo %{buildroot}/%{_bindir}/wallaroo
 install -D -p -m 0755 ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
 
 %clean
@@ -166,9 +177,11 @@ rm -rf %{buildroot}
 %defattr(-,root,root,-)
 %{wallaroo_dir}/
 %{wallaroo_web_dir}/
-%{_bindir}/start_wallaby2
-%{_bindir}/stop_wallaby2
+%{_bindir}/wallaroo
 %{_initrddir}/wallaroo
+%{_sysconfdir}/sysconfig/wallaroo
+%{_localstatedir}/log/wallaroo
+%{_localstatedir}/lib/wallaroo
 
 %files -n ruby-wallaby2
 %{ruby_appropriate_install_dir}/wallaroo.rb
@@ -178,10 +191,18 @@ rm -rf %{buildroot}
 %files -n python-wallaby2
 %{python_sitelib}/wallaroo/
 
+%files -n python-wallaby2-config
+%{python_sitelib}/wallaroo_config/
+
 %files utils
 %{_bindir}/wallaby
 
 %changelog
+
+* Fri Mar 15 2013 William Benton <willb@redhat.com> - 0.2.1-1
+- added "wallaroo" command for daemon control
+- added python 2.4 client library
+- bug fixes
 
 * Thu Mar 7 2013 William Benton <willb@redhat.com> - 0.2.0-1
 - Initial package
