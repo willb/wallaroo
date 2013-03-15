@@ -133,7 +133,7 @@ class client(object):
         cs = self.__current_sha()
         if self.last_current != cs or force:
             self.last_current = cs
-            self.nodestruct = self.cm.fetch_json_resource("/nodes/%s" % self.nodename, {"tag":"current"}, {})
+            self.nodestruct = self.cm.fetch_json_resource("/nodes/%s" % urllib.quote_plus(self.nodename), {"tag":"current"}, {})
         return self.last_current
     
     def __val(self, key, default):
@@ -141,8 +141,8 @@ class client(object):
     
     def config(self, **options):
         if options.has_key("version"):
-            return self.cm.fetch_json_resource("/config/node/%s" % self.nodename, {"commit":options["version"]}, {})
-        return self.cm.fetch_json_resource("/config/node/%s" % self.nodename, {"tag":"current"}, {})
+            return self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.nodename), {"commit":options["version"]}, {})
+        return self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.nodename), {"tag":"current"}, {})
     
     def last_updated(self):
         return self.__val("last_updated", 0)
@@ -157,12 +157,12 @@ class client(object):
         return self.cm.fetch_json_resource("/parameters/", {"tag":"current"}, [])
     
     def __param_must_change(self, param):
-        p = self.cm.fetch_json_resource("/parameters/%s" % param, {"tag":"current"}, {"must_change":False})
+        p = self.cm.fetch_json_resource("/parameters/%s" % urllib.quote_plus(param), {"tag":"current"}, {"must_change":False})
         return p["must_change"]
     
     def whatChanged(self, oldver, newver):
-        oc = self.cm.fetch_json_resource("/config/node/%s" % self.nodename, {"commit":oldver}, {})
-        nc = self.cm.fetch_json_resource("/config/node/%s" % self.nodename, {"commit":newver}, {})
+        oc = self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.nodename), {"commit":oldver}, {})
+        nc = self.cm.fetch_json_resource("/config/node/%s" % urllib.quote_plus(self.nodename), {"commit":newver}, {})
         
         ock = set(oc)
         nck = set(nc)
@@ -185,7 +185,7 @@ class client(object):
         
     
     def checkin(self):
-        metapath = "/meta/node/%s" % self.nodename
+        metapath = "/meta/node/%s" % urllib.quote_plus(self.nodename)
         # now = datetime.utcnow().isoformat()
         now = ts()
         meta = self.cm.fetch_json_resource(metapath, False, default={})
@@ -203,7 +203,7 @@ class client(object):
         return acc + self.__val("memberships", ["+++SKEL"])
     
     def __ffg(self, group):
-        g = self.cm.fetch_json_resource("/groups/%s" % group, {"tag":"current"}, {"features":[]})
+        g = self.cm.fetch_json_resource("/groups/%s" % urllib.quote_plus(group), {"tag":"current"}, {"features":[]})
         return g["features"]
         
     def features(self):
