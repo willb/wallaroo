@@ -22,6 +22,7 @@ require 'logger'
 require 'syslog'
 require 'optparse'
 require 'socket'
+require 'etc'
 
 module Util
   module Daemon

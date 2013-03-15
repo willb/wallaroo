@@ -5,3 +5,5 @@ export WALLAROO_TO_ERL=/usr/bin/to_erl
 export WALLAROO_ERL=/usr/bin/erl
 export WALLAROO_PIPE=/var/lib/wallaroo/pipe
 export WALLAROO_LOG_DIR=/var/log/wallaroo
+export WALLAROO_DISPATCH_CONF=/var/lib/wallaroo/priv/dispatch.conf
+export HOME=/var/lib/wallaroo

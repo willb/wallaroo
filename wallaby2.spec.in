@@ -79,7 +79,8 @@ and manages multiple versions of configurations.
 Summary: Ruby client library for Wallaby 2
 Group: Applications/System
 Requires: ruby(abi) = %{?ruby_abi}
-Requires: rubygem-json
+# XXX: use rubygem-json in Fedora
+Requires: ruby-json
 %if %{requires_ruby_devel}
 BuildRequires: ruby-devel
 %endif
@@ -154,18 +155,18 @@ mkdir -p %{buildroot}/%{python_sitelib}/wallaroo_config
 
 cp -rf apps/wallaroo/ebin %{buildroot}/%{wallaroo_dir}
 cp -rf apps/wallaroo_web/ebin %{buildroot}/%{wallaroo_web_dir}
-cp -rf apps/wallaroo_web/priv %{buildroot}/%{wallaroo_web_dir}
+cp -rf apps/wallaroo_web/priv %{buildroot}/%{_localstatedir}/lib/wallaroo
 
 cp -p -r -f clients/ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
 cp -p -r -f clients/python-wallaroo/wallaroo/* %{buildroot}/%{python_sitelib}/wallaroo
 cp -p -r -f clients/python-configd/wallaroo_config/* %{buildroot}/%{python_sitelib}/wallaroo_config
 
-cp -p -f etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
 cp -p -f etc/sysconfig/wallaroo %{buildroot}/%{_sysconfdir}/sysconfig/wallaroo
 
 # Install main startup script
+install -D -p -m 0755 etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
 install -D -p -m 0755 bin/wallaroo %{buildroot}/%{_bindir}/wallaroo
-install -D -p -m 0755 ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
+install -D -p -m 0755 clients/ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
 
 %clean
 %if %{building_for_el5}
@@ -201,7 +202,7 @@ rm -rf %{buildroot}
 %pre
 getent group wallaby >/dev/null || groupadd -r wallaby
 getent passwd wallaby >/dev/null || \
-  useradd -r %{?wallaby_uid} -g wallaby -d %{_localstatedir}/lib/wallaby -s /sbin/nologin \
+  useradd -r %{?wallaby_uid} -g wallaby -d %{_localstatedir}/lib/wallaroo -s /sbin/nologin \
     -c "Owner of Wallaby service" wallaby
 exit 0
 
@@ -222,6 +223,9 @@ fi
 
 
 %changelog
+
+* Fri Mar 15 2013 William Benton <willb@redhat.com> - 0.2.1-2
+- packaging fixes
 
 * Fri Mar 15 2013 William Benton <willb@redhat.com> - 0.2.1-1
 - added "wallaroo" command for daemon control

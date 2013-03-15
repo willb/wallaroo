@@ -38,6 +38,13 @@ upgrade() ->
     [supervisor:start_child(?MODULE, Spec) || Spec <- Specs],
     ok.
 
+from_env(K, Default) ->
+    case os:getenv(K) of
+	false ->
+	    Default;
+	Val -> Val
+    end.	
+
 config_val(K, Default) ->
     case application:get_env(wallaroo_web, K) of
         {ok, Value} ->
@@ -51,11 +58,11 @@ config_val(K, Default) ->
 init([]) ->
     Ip = case os:getenv("WEBMACHINE_IP") of false -> "0.0.0.0"; Any -> Any end,
     error_logger:warning_msg("my path is ~s~n", [filename:dirname(code:which(?MODULE))]),
-    {ok, Dispatch} = file:consult(config_val(dispatch_conf, "priv/dispatch.conf")),
+    {ok, Dispatch} = file:consult(from_env("WALLAROO_DISPATCH_CONF", config_val(dispatch_conf, "priv/dispatch.conf"))),
     WebConfig = [
                  {ip, Ip},
                  {port, 8000},
-                 {log_dir, "priv/log"},
+                 {log_dir, from_env("WALLAROO_LOG_DIR", config_val(log_dir, "priv/log"))},
                  {dispatch, Dispatch},
 		 {error_handler, wallaroo_web_errors}],
     Web = {webmachine_mochiweb,

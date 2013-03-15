@@ -146,7 +146,7 @@ end
 
 desc "Create an environment file from the sysconfig file"
 task :gen_env_file do
-  sh "sed 's/^export //g' < etc/sysconfig/wallaby2 > etc/sysconfig/wallaby2-env"
+  sh "sed 's/^export //g' < etc/sysconfig/wallaroo > etc/sysconfig/wallaroo-env"
 end
 
 desc "Create a tarball"
