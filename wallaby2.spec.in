@@ -185,8 +185,8 @@ cp -p -f etc/sysconfig/wallaroo %{buildroot}/%{_sysconfdir}/sysconfig/wallaroo
 # Install main startup script
 install -D -p -m 0755 etc/wallaroo %{buildroot}/%{_initrddir}/wallaroo
 install -D -p -m 0755 bin/wallaroo %{buildroot}/%{_bindir}/wallaroo
-install -D -p -m 0755 clients/ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
 %endif
+install -D -p -m 0755 clients/ruby-wallaroo/bin/wallaby %{buildroot}/%{_bindir}/wallaby
 
 cp -p -r -f clients/ruby-wallaroo/lib/* %{buildroot}/%{ruby_appropriate_install_dir}/
 %if %{?want_full_python_client}
