@@ -46,14 +46,13 @@
 %global wallaroo_web_dir %{_libdir}/erlang/lib/wallaroo_web-%{version}
 
 Name:           wallaby2
-Version: 0.2.1
-Release: 5%{?dist}
+Version: <%= pkg_version %>
+Release: <%= pkg_rel %>%{?dist}
 Group: Applications/System
 License: ASL 2.0
 URL: http://git.fedorahosted.org/git/grid/wallaby.git
 Source0: https://fedorahosted.org/releases/g/r/grid/%{name}-%{version}.tar.gz
-Patch0: 0001-Packaging-and-minor-bug-fixes.patch
-Patch1: 0002-more-packaging-fixes-0.2.1-3.patch
+<%= printable_patch_list %>
 BuildRoot:      %{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 %if 0%{?rhel}
 ExcludeArch:    %{ix86}
@@ -147,8 +146,8 @@ and node configurations and interacting with the Wallaby service.
 %prep
 %setup -q
 
-%patch0 -p1
-%patch1 -p1
+<% list_patches.each_with_index do |p, i| %>
+<%= "%patch#{i} -p1" %><% end %>
 %build
 
 %if %{?want_wallaroo_service}
@@ -200,9 +199,9 @@ cp -p -r -f clients/python-configd/wallaroo_config/* %{buildroot}/%{python_sitel
 rm -rf %{buildroot}
 %endif
 
+%if %{?want_wallaroo_service}
 %files
 %doc README.rdoc LICENSE
-%if %{?want_wallaroo_service}
 %defattr(-,root,root,-)
 %{wallaroo_dir}/
 %{wallaroo_web_dir}/
@@ -219,8 +218,10 @@ rm -rf %{buildroot}
 %{ruby_appropriate_install_dir}/wallaroo/
 %{ruby_appropriate_install_dir}/mrg/
 
+%if %{?want_full_python_client}
 %files -n python-wallaby2
 %{python_sitelib}/wallaroo/
+%endif
 
 %files -n python-wallaby2-config
 %{python_sitelib}/wallaroo_config/
@@ -252,6 +253,9 @@ fi
 
 
 %changelog
+
+* Tue Mar 19 2013 William Benton <willb@redhat.com> - 0.2.1-6
+- packaging fixes for EL5
 
 * Fri Mar 15 2013 William Benton <willb@redhat.com> - 0.2.1-5
 - new build with erlang-webmachine tagged to override
