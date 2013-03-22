@@ -64,6 +64,7 @@ Summary: Configuration service for HTCondor pools
 BuildRequires:	erlang
 BuildRequires:  erlang-rebar
 BuildRequires:  erlang-webmachine
+BuildRequires:	ruby
 
 Provides:       wallaby2 = %{version}-%{release}
 Obsoletes:      wallaby
@@ -253,6 +254,12 @@ fi
 
 
 %changelog
+
+* Fri Mar 22 2013 William Benton <willb@redhat.com> - 0.2.1-8
+- packaging fixes for Ruby client
+
+* Tue Mar 19 2013 William Benton <willb@redhat.com> - 0.2.1-7
+- more packaging fixes for EL5
 
 * Tue Mar 19 2013 William Benton <willb@redhat.com> - 0.2.1-6
 - packaging fixes for EL5
