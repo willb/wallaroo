@@ -70,6 +70,7 @@ Provides:       wallaby2 = %{version}-%{release}
 Obsoletes:      wallaby
 
 Requires:	erlang-erts
+Requires:	erlang-sasl
 Requires:	erlang-kernel
 Requires:	erlang-stdlib
 Requires:	erlang-tools
