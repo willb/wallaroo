@@ -113,6 +113,11 @@ module Wallaroo
         self.provisioned = true
         update!
       end
+
+      def makeUnprovisioned
+        self.provisioned = false
+        update!
+      end
       
       private
       def timestamp(tm=nil)
