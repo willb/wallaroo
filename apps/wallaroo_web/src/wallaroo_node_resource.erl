@@ -7,7 +7,7 @@
 -export([from_json/2]).
 -export([allowed_methods/2, content_types_provided/2, content_types_accepted/2, finish_request/2, delete_resource/2, delete_completed/2]).
 
-% -define(debug, true).
+-define(debug, true).
 -include("dlog.hrl").
 
 -include_lib("webmachine/include/webmachine.hrl").
@@ -49,7 +49,8 @@ validate({wallaby_node, _}=Node, none) ->
 	    {error, {struct, [{nonexistent_groups, {array, Ls}}]}}
     end;
 validate({wallaby_node, _}=Node, Commit) ->
-    Groups = wallaby_node:memberships(Node),
+    ?D_VAL(Commit),
+    Groups = ?D_VAL(wallaby_node:memberships(Node)),
     SpecialGroups = ?D_VAL([Group || Group <- Groups, special_group(Group)]),
     NonexistentGroups = ?D_VAL([Group || Group <- Groups, wallaroo:get_entity(Group, group, Commit) =:= none, not special_or_skel(Group)]),
     case {node_validate,SpecialGroups, NonexistentGroups} of
