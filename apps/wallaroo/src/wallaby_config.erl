@@ -8,6 +8,7 @@
 
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, start_link/0]).
 
+% API methods
 -export([has/3, for/3, cache_dump/0, reset/0]).
 
 -record(cstate, {re, table, storage}).
@@ -56,7 +57,7 @@ handle_call({cache_dump}, _From, #cstate{table=C}=State) ->
     {reply, ets:tab2list(C), State};
 handle_call({reset}, _From, #cstate{table=C}=State) ->
     {reply, ets:delete_all_objects(C), State};
-handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=State) ->
+handle_call({has_config, Kind, Name, Commit}, _From, #cstate{}=State) ->
     Default = case Kind of
 		  node ->
 		      true;
@@ -66,10 +67,10 @@ handle_call({has_config, Kind, Name, Commit}, _From, #cstate{storage=StoreMod}=S
     case generic_lookup(Kind, Name, Commit, State, Default) of
 	{value, Result} ->
 	    {reply, Result, State};
-	Lookup ->
+	_ ->
 	    {reply, false, State}
     end;
-handle_call({config_for, Kind, Name, Commit}, _From, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
+handle_call({config_for, Kind, Name, Commit}, _From, State) ->
     Default = case Kind of 
 		  node ->
 		      {wallaby_lw_config, Commit, default_memberships()};
@@ -109,13 +110,6 @@ generic_lookup(Kind, Name, Commit, #cstate{storage=StoreMod}=State, Default) ->
     end.
 
 
-%% XXX: refactor dupes plz
-transitively_reachable(Graph, StartNode) ->
-    ordsets:from_list(digraph_utils:reachable_neighbours([StartNode], Graph)).
-
-transitively_reachable(Graph, StartNode, Filter) ->
-    [Node || Node <- transitively_reachable(Graph, StartNode), Filter(Node)].
-
 interesting_install_edge({Kind, _, {'group', _}}) when Kind =:= 'member_of' ->
     true;
 interesting_install_edge({Kind, _, {'feature', _}}) when Kind =:= 'includes' orelse Kind =:= 'installs' ->
@@ -137,7 +131,7 @@ interesting_install_vertex(_) ->
 %% interesting_value_edge(X) ->
 %%     interesting_install_edge(X).
 
-calc_configs(Commit, CommitObj, #cstate{re=RE, table=Cache, storage=StoreMod}=State) ->
+calc_configs(Commit, CommitObj, #cstate{storage=StoreMod}=State) ->
     case seen(Commit, State) of 
 	true ->
 	    ok;
@@ -164,7 +158,7 @@ path_for_kind(X) when is_atom(X) ->
     list_to_binary(atom_to_list(X) ++ "s").
 
 %% XXX:  should store these in lightweight format
-calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=StoreMod}=State) 
+calc_one_config({Kind, Name}, Tree, Commit, #cstate{storage=StoreMod}=State) 
   when Kind =:= 'feature' ->
     %% get feature object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
@@ -179,7 +173,7 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=
 			   end, wallaby_feature:parameters(EntityObj)),
     %% apply params to generated config and store in cache
     cache_store(Kind, Name, Commit, apply_to(BaseConfig, MyConfig, true, State), State);
-calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=StoreMod}=State) 
+calc_one_config({Kind, Name}, Tree, Commit, #cstate{storage=StoreMod}=State) 
   when Kind =:= 'group' ->
     ?D_LOG("wallaby_config:calc_one_config/4:  {~p,~p}, ~p, ~p~n", [Kind, Name, Tree, Commit]),
     %% get group object from tree
@@ -188,7 +182,7 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=
     BaseConfig = lists:foldl(apply_factory(true, State), [], [cache_fetch(feature, Installed, Commit, State) || Installed <- lists:reverse(wallaby_group:features(EntityObj))]),
     %% apply my parameters to the base config
     cache_store(Kind, Name, Commit, apply_to(BaseConfig, wallaby_group:parameters(EntityObj), true, State), State); 
-calc_one_config({Kind, Name}, Tree, Commit, #cstate{re=RE, table=Cache, storage=StoreMod}=State) 
+calc_one_config({Kind, Name}, Tree, Commit, #cstate{storage=StoreMod}=State) 
   when Kind =:= 'node' ->
     %% get node object from tree
     {value, EntityObj} = wallaroo_tree:get_path([path_for_kind(Kind), Name], Tree, StoreMod),
@@ -216,12 +210,12 @@ combine_factory(<<"||=">>) ->
 combine_factory(<<"|=">>) ->
     join_factory(<<" || ">>);
 combine_factory(<<"?=">>) ->
-    fun(Old, New) -> Old end.
+    fun(Old, _New) -> Old end.
 
 apply_val_factory(RE, SSPrepend) ->
     fun(_, Old, New) ->
 	 StrippedOld = case re:run(Old, RE, [{capture, all_but_first, binary}]) of
-			   {match, [OPP, OV]} ->
+			   {match, [_OPP, OV]} ->
 			       OV;
 			   nomatch ->
 			       Old
@@ -257,11 +251,7 @@ strip_prefix(Val, RE, SSP) ->
 strip_prefixes(Ls, RE, SSP) ->
     [{K, strip_prefix(V, RE, SSP)} || {K,V} <- Ls].
 
-apply_to(BaseConfig, NewConfig, SSPrepend) ->
-    {ok, RE} = re:compile(list_to_binary("(?-mix:^(?:(>=|&&=|\\?=|\\|\\|=)\\s*)+(.*?)\\s*$)")),
-    apply_to(BaseConfig, NewConfig, SSPrepend, #cstate{re=RE}).
-
-apply_to(BaseConfig, NewConfig, SSPrepend, #cstate{re=RE}=State) ->
+apply_to(BaseConfig, NewConfig, SSPrepend, #cstate{re=RE}) ->
     strip_prefixes(orddict:merge(apply_val_factory(RE, SSPrepend), BaseConfig, NewConfig), RE, SSPrepend).
 
 apply_factory(SSPrepend, State) ->
@@ -307,9 +297,6 @@ cache_fetch(Kind, Name, Commit, State, Default) ->
 	    Default(Commit, State)
     end.
 
-generic_find(Kind, Name, Commit, CommitObj, State) ->
-    generic_find(Kind, Name, Commit, CommitObj, State, []).
-
 generic_find(Kind, Name, Commit, CommitObj, State, Default) ->
     case cache_find(Kind, Name, Commit, State) of
 	{value, Config} ->
@@ -322,6 +309,11 @@ generic_find(Kind, Name, Commit, CommitObj, State, Default) ->
     end.
 
 -ifdef(TEST).
+
+apply_to(BaseConfig, NewConfig, SSPrepend) ->
+    {ok, RE} = re:compile(list_to_binary("(?-mix:^(?:(>=|&&=|\\?=|\\|\\|=)\\s*)+(.*?)\\s*$)")),
+    apply_to(BaseConfig, NewConfig, SSPrepend, #cstate{re=RE}).
+
 -include_lib("eunit/include/eunit.hrl").
 
 basic_apply_test_() ->
