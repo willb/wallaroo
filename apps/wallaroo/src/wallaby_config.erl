@@ -320,3 +320,33 @@ generic_find(Kind, Name, Commit, CommitObj, State, Default) ->
 	    calc_configs(Commit, CommitObj, State),
 	    {value, reconstitute_config(cache_fetch(Kind, Name, Commit, State, Default), State)}
     end.
+
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+
+basic_apply_test_() ->
+    {inorder,
+     {setup,
+      fun() -> ok end,
+      fun(_) -> ok end,
+      lists:flatten(
+	[
+	 [[?_assertEqual([{<<"KEY">>, <<"VAL">>}],
+			 apply_to([], [{<<"KEY">>, <<"VAL">>}], SSP)),
+	   ?_assertEqual([{<<"KEY">>, <<"VAL">>}],
+			 apply_to([{<<"KEY">>, <<"VAL">>}], [], SSP))]
+	  || SSP <- [true, false]],
+	 ?_assertEqual([{<<"KEY">>, <<"VAL">>}],
+		       apply_to([], [{<<"KEY">>, <<">= VAL">>}], false)),
+	 ?_assertEqual([{<<"KEY">>, <<">= VAL">>}],
+		       apply_to([], [{<<"KEY">>, <<">= VAL">>}], true)),
+	 ?_assertEqual([{<<"KEY">>, <<"VAL1, VAL2">>}],
+		       apply_to([{<<"KEY">>, <<"VAL2">>}], [{<<"KEY">>, <<">= VAL1">>}], false)),
+	 ?_assertEqual([{<<"KEY">>, <<">= VAL1, VAL2">>}],
+		       apply_to([{<<"KEY">>, <<"VAL2">>}], [{<<"KEY">>, <<">= VAL1">>}], true)),
+	 ?_assertEqual([{<<"KEY_A">>, <<"VAL_A">>}, {<<"KEY_B">>, <<"VAL_B">>}],
+		       apply_to([{<<"KEY_B">>, <<"VAL_B">>}], [{<<"KEY_A">>, <<">= VAL_A">>}], false))
+	]
+       )}}.
+
+-endif.
