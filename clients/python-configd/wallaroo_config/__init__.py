@@ -170,7 +170,7 @@ class client(object):
         params = set([p for p in (ock | nck) if p not in ock or p not in nck or oc[p] != nc[p]]) - set(["WALLABY_CONFIG_VERSION"])
         mc_params = set([p for p in params if self.__param_must_change(p)])
         
-        subsystems = [self.__subsys(ss) for sub in self.all_subsystems()]
+        subsystems = [self.__subsys(sub) for sub in self.all_subsystems()]
         
         restart, reconfig = [], []
         
