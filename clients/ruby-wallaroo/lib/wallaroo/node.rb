@@ -57,8 +57,7 @@ module Wallaroo
         options ||= {}
         case command.upcase
         when "ADD" then
-          self.memberships << groups
-          self.memberships.uniq!
+          self.memberships = (self.memberships + groups).uniq
           update!
         when "REMOVE" then
           self.memberships = self.memberships - groups
