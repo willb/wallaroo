@@ -189,8 +189,9 @@ calc_one_config({Kind, Name}, Tree, Commit, #cstate{storage=StoreMod}=State)
     Config = {wallaby_lw_config, Commit, wallaby_node:all_memberships(EntityObj)},
     cache_store(Kind, Name, Commit, Config, State).
     
-reconstitute_config({wallaby_lw_config, Commit, Memberships}, State) ->
-    lists:foldl(apply_factory(false, State), [], [cache_fetch(group, Membership, Commit, State) || Membership <- lists:reverse(Memberships)]);
+reconstitute_config({wallaby_lw_config, Commit, Memberships}, #cstate{re=RE}=State) ->
+    % XXX: a cleaner fix for this would be nice
+   strip_prefixes(lists:foldl(apply_factory(true, State), [], [cache_fetch(group, Membership, Commit, State) || Membership <- lists:reverse(Memberships)]), RE, false);
 reconstitute_config(Val, _) ->
     Val.
 
