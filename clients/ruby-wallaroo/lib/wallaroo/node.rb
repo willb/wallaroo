@@ -41,7 +41,7 @@ module Wallaroo
       
       def checkin
         ts = timestamp
-        metapath = "/meta/node/#{URI.encode(self.name)}"
+        metapath = "/meta/node/#{CGI::escape(self.name)}"
         meta = cm.fetch_json_resource(metapath, "", {})
         meta["last-checkin"] = ts
         cm.put_json_resource(metapath, meta, true)
@@ -49,7 +49,7 @@ module Wallaroo
       end
       
       def last_checkin
-        meta = cm.fetch_json_resource("/meta/node/#{URI.encode(self.name)}", "", {})
+        meta = cm.fetch_json_resource("/meta/node/#{CGI::escape(self.name)}", "", {})
         meta["last-checkin"] || 0
       end
       
@@ -74,17 +74,17 @@ module Wallaroo
       def getConfig(options=nil)
         options ||= {}
         if options["version"]
-          return cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}", "commit=#{options["version"]}", {}).to_a
+          return cm.fetch_json_resource("/config/node/#{CGI::escape(self.name)}", "commit=#{options["version"]}", {}).to_a
         end
         
-        cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}")
+        cm.fetch_json_resource("/config/node/#{CGI::escape(self.name)}")
       end
       
       def whatChanged(old_version, new_version)
         # XXX: this identifies must_change and subsystem properties as of the current connection meta information -- not as of new_version
         store = Store.new(cm)
-        old_config = cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}", "commit=#{old_version}").to_a
-        new_config = cm.fetch_json_resource("/config/node/#{URI.encode(self.name)}", "commit=#{new_version}").to_a
+        old_config = cm.fetch_json_resource("/config/node/#{CGI::escape(self.name)}", "commit=#{old_version}").to_a
+        new_config = cm.fetch_json_resource("/config/node/#{CGI::escape(self.name)}", "commit=#{new_version}").to_a
 
         params = ((old_config - new_config) + (new_config - old_config)).map {|x,y| x}.uniq - ["WALLABY_CONFIG_VERSION"]
         mc_params = params.select {|p| store.getParam(p).refresh.must_change }

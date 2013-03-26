@@ -30,7 +30,7 @@ module Wallaroo
       end
       
       def getConfig
-        cm.fetch_json_resource("/config/group/#{URI.encode(self.name)}")
+        cm.fetch_json_resource("/config/group/#{CGI::escape(self.name)}")
       end
 
       def modifyFeatures(command, fset, options=nil)
