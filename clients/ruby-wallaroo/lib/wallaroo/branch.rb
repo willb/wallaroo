@@ -19,9 +19,13 @@ module Wallaroo
     class Branch
       include ::Wallaroo::Client::Proxying
       
-      [:name, :commit, :annotation, :meta].each do |what|
+      [:commit, :annotation, :meta].each do |what|
         # XXX: distinguish sensibly between readonly and read-write attributes
         declare_attribute what
+      end
+      
+      def name
+        @orig_name
       end
       
       private

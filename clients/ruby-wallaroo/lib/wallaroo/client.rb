@@ -195,7 +195,8 @@ module Wallaroo
           pathparts = path.split("/")
           @path = pathparts.map {|elt| CGI.escape(elt)}.join("/")
           @cm = cm
-          @attr_vals = {:name=>pathparts[-1]}
+          @orig_name = pathparts[-1]
+          @attr_vals = {:name=>@orig_name}
         end
         
         def inspect
