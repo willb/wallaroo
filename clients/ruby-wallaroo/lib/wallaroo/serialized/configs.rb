@@ -35,6 +35,7 @@ module Wallaroo
     module DBHelpers
       def create_relationships
         log.info("Creating relationships between store entities")
+        log.debug("Store state is #{@store.cm.how.what}")
         @callbacks.each {|cb| cb.call}
         @callbacks = []
       end
@@ -303,6 +304,7 @@ module Wallaroo
           node.setAnnotation(old_node.annotation) rescue nil
           
           memberships = old_node.membership
+          log.debug("memberships for #{name} are #{memberships.inspect}")
           if memberships.size > 0
             flmemberships = listify(memberships)
             @callbacks << lambda do
