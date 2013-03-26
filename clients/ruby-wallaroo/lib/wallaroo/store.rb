@@ -215,7 +215,7 @@ module Wallaroo
       
       def objects_of_type(klassname)
         kls = klassname.downcase.to_sym
-        cm.list_objects(klassname).map {|kln| cm.make_proxy_object(kls, kln)}
+        cm.list_objects(klassname).map {|kln| cm.make_proxy_object(kls, kln).refresh}
       end
     end
   end
