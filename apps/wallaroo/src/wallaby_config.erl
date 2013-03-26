@@ -37,11 +37,10 @@ init(_) ->
 %%% API functions
 
 has(Kind, Name, Commit) ->
-    gen_server:call(?SERVER, {has_config, Kind, Name, Commit}).
+    gen_server:call(?SERVER, ?D_VAL({has_config, Kind, Name, Commit})).
 
 for(Kind, Name, Commit) ->
-    ?D_VAL({wallaroo_config, for, [Kind, Name, Commit]}),
-    gen_server:call(?SERVER, {config_for, Kind, Name, Commit}).
+    gen_server:call(?SERVER, ?D_VAL({config_for, Kind, Name, Commit})).
 
 cache_dump() ->
     gen_server:call(?SERVER, {cache_dump}).
