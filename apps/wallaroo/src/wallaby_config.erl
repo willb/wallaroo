@@ -341,4 +341,43 @@ basic_apply_test_() ->
 	]
        )}}.
 
+cache_fixture_teardown() ->
+    #cstate{table=Cache} = cache_state(),
+    ets:delete(Cache),
+    ets:delete(wcts_scratch),
+    erase(wcts).
+
+cache_fixture_setup() ->
+    {ok, State} = init([]),
+    Scratch = ets:new(wcts_scratch, [named_table, public]),
+    ets:insert(wcts_scratch, {wcts, ?D_VAL(State)}),
+    cache_store(group, <<"+++DEFAULT">>, the_commit, [{<<"DAEMON_LIST">>, <<">= MASTER">>}], State),
+    cache_store(group, <<"ExecNodes">>, the_commit, [{<<"DAEMON_LIST">>, <<">= STARTD">>}], State),
+    cache_store(group, <<"+++identity_group">>, the_commit, [{<<"DAEMON_LIST">>, <<">= SCHEDD">>}], State).
+
+cache_test_cases() ->
+    [
+     {{wallaby_lw_config, the_commit, [<<"+++DEFAULT">>]}, 
+      [{<<"DAEMON_LIST">>, <<"MASTER">>}]},
+     {{wallaby_lw_config, the_commit, [<<"+++identity_group">>, <<"+++DEFAULT">>]}, 
+      [{<<"DAEMON_LIST">>, <<"MASTER, SCHEDD">>}]},
+     {{wallaby_lw_config, the_commit, [<<"ExecNodes">>, <<"+++DEFAULT">>]}, 
+      [{<<"DAEMON_LIST">>, <<"MASTER, STARTD">>}]},
+     {{wallaby_lw_config, the_commit, [<<"+++identity_group">>, <<"ExecNodes">>, <<"+++DEFAULT">>]}, 
+      [{<<"DAEMON_LIST">>, <<"MASTER, STARTD, SCHEDD">>}]}
+    ].
+
+cache_state() ->
+    [{wcts, State}] = ets:lookup(wcts_scratch, wcts),
+    State.
+
+reconstitute_test_() ->
+    {inorder,
+     {setup,
+      fun() -> cache_fixture_setup() end,
+      fun(_) -> cache_fixture_teardown() end,
+      [?_assertEqual(ExpectedConfig, reconstitute_config(LWC, cache_state())) || {LWC, ExpectedConfig} <- cache_test_cases()]
+     }
+    }.
+      
 -endif.
