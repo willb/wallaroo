@@ -257,6 +257,11 @@ fi
 
 %changelog
 
+* Wed Mar 27 2013 William Benton <willb@redhat.com> - 0.2.1-9
+- fix for configuration generation problems with append-valued parameters in certain cases
+- numerous minor bug fixes
+- packaging improvements
+
 * Fri Mar 22 2013 William Benton <willb@redhat.com> - 0.2.1-8
 - packaging fixes for Ruby client
 
