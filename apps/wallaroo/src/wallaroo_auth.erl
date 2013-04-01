@@ -120,7 +120,7 @@ handle_call({list_users}, _From, #authstate{}=State) ->
 
 internal_create_user(Mech, Creds, Name, Pass, Role, State) ->
     case user_exists(Name, State) of
-	true -> {{error, user_exists}, State};
+	true -> authorize_and_do(Mech, Creds, admin, fun(_,_) -> {error, user_exists} end, ignored, State);
 	_ -> authorize_and_do(Mech, Creds, admin, fun do_create_user/2, {Name, Pass, Role, []}, State)
     end.
 
@@ -134,7 +134,7 @@ do_create_user({Name, Pass, Role, Meta}, #authstate{hashmod=Mod, hashopts=Opts, 
     
 internal_delete_user(Mech,Creds,Name,State) ->
     case user_exists(Name, State) of
-	false -> {{error, no_such_user}, State};
+	false -> authorize_and_do(Mech, Creds, admin, fun(_,_) -> {error, no_such_user} end, ignored, State);
 	_ -> authorize_and_do(Mech, Creds, admin, fun do_delete_user/2, Name, State)
     end.
 
@@ -143,7 +143,7 @@ do_delete_user(Name, #authstate{storage=StoreMod}) ->
 
 internal_modify_user(Mech,Creds,User,Options,State) ->
     case user_exists(User, State) of
-	false -> {{error, no_such_user}, State};
+	false -> authorize_and_do(Mech, Creds, admin, fun(_,_) -> {error, no_such_user} end, ignored, State);
 	_ -> authorize_and_do(Mech, Creds, admin, fun do_modify_user/2, {User, Options}, State)
     end.
 
