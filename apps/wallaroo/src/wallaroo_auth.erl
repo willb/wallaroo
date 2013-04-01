@@ -8,16 +8,20 @@
 -define(SERVER, ?MODULE).
 -record(authstate, {hashmod, hashopts, storage}).
 
+% XXX put this in a header
+-define(IS_ROLE(X), (X=:=read orelse X=:=write orelse X=:=admin orelse X=:=none)).
+
 % gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, start_link/0]).
 
 % API
--export([create_user/3,       % name, pass, role 
+-export([create_user/5,       % admin_name, admin_pass, name, pass, role 
+	 create_user/4,       % secret, name, pass, role 
 	 delete_user/2,       % secret, name
 	 delete_user/3,       % admin_name, admin_pass, name
 	 update_pass/3,       % name, oldpass, newpass
-	 admin_update_pass/3, % secret, username, userpass
-	 admin_update_pass/4, % adminname, adminpass, username, userpass
+	 modify_user/3,       % secret, username, options
+	 modify_user/4,       % adminname, adminpass, username, options
 	 authorized/3,        % name, pass, action
 	 authorized/2,        % secret, action
 	 list_users/0
@@ -43,8 +47,11 @@ init(_) ->
 %%% API functions
 
 
-create_user(Name, Pass, Role) ->
-    gen_server:call(?SERVER, {create_user, Name, Pass, Role}).
+create_user(AdminName, AdminPass, Name, Pass, Role) when is_binary(Name), is_binary(Pass), ?IS_ROLE(Role) ->
+    gen_server:call(?SERVER, {create_user, basic, {AdminName, AdminPass}, Name, Pass, Role}).
+
+create_user(Secret, Name, Pass, Role) when is_binary(Name), is_binary(Pass), ?IS_ROLE(Role) ->
+    gen_server:call(?SERVER, {create_user, secret, Secret, Name, Pass, Role}).
 
 delete_user(AdminName, AdminPass, Name) ->
     gen_server:call(?SERVER, {delete_user, basic, {AdminName, AdminPass}, Name}).
@@ -52,14 +59,29 @@ delete_user(AdminName, AdminPass, Name) ->
 delete_user(Secret, Name) ->
     gen_server:call(?SERVER, {delete_user, secret, Secret, Name}).
 
-admin_update_pass(Secret, User, NewPass) ->
-    gen_server:call(?SERVER, {admin_update_pass, secret, Secret, User, NewPass}).
+modify_user(Secret, User, Options) ->
+    true = valid_modify_options(Options),
+    gen_server:call(?SERVER, {modify_user, secret, Secret, User, Options}).
+
+modify_user(Name, Pass, User, Options) ->
+    true = valid_modify_options(Options),
+    gen_server:call(?SERVER, {modify_user, basic, {Name, Pass}, User, Options}).
+
+valid_modify_options(Ls) ->
+    valid_modify_options(Ls, []).
+
+valid_modify_options([], _) -> 
+    true;
+valid_modify_options([{What,Val}|Rest], Ls) 
+  when 
+      (What =:= pass andalso is_binary(Val)) orelse 
+      (What =:= role andalso ?IS_ROLE(Val)) ->
+    not lists:member(What, Ls) andalso valid_modify_options(Rest, [What|Ls]);
+valid_modify_options(_,_) ->
+    false.
 
 update_pass(Name, Pass, NewPass) ->
     gen_server:call(?SERVER, {update_pass, basic, {Name, Pass}, NewPass}).
-
-admin_update_pass(Name, Pass, User, NewPass) ->
-    gen_server:call(?SERVER, {admin_update_pass, basic, {Name, Pass}, User, NewPass}).
 
 authorized(Name, Pass, Action) ->
     authorized_by(basic, {Name, Pass}, Action).
@@ -77,14 +99,14 @@ list_users() ->
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
-handle_call({create_user, Name, Pass, Role}, _From, #authstate{}=State) ->
-    {Result, StatePrime} = internal_create_user(Name, Pass, Role, State),
+handle_call({create_user, Mechanism, Creds, Name, Pass, Role}, _From, #authstate{}=State) ->
+    {Result, StatePrime} = internal_create_user(Mechanism, Creds, Name, Pass, Role, State),
     {reply, Result, StatePrime};
 handle_call({delete_user, Mechanism, Creds, Name}, _From, #authstate{}=State) ->
     {Result, StatePrime} = internal_delete_user(Mechanism, Creds, Name, State),
     {reply, Result, StatePrime};
-handle_call({admin_update_pass, Mechanism, Creds, User, NewPass}, _From, #authstate{}=State) ->
-    {Result, StatePrime} = internal_admin_update_pass(Mechanism, Creds, User, NewPass, State),
+handle_call({modify_user, Mechanism, Creds, User, Options}, _From, #authstate{}=State) ->
+    {Result, StatePrime} = internal_modify_user(Mechanism, Creds, User, Options, State),
     {reply, Result, StatePrime};
 handle_call({update_pass, User, OldPass, NewPass}, _From, #authstate{}=State) ->
     {Result, StatePrime} = internal_update_pass(User, OldPass, NewPass, State),
@@ -96,23 +118,79 @@ handle_call({list_users}, _From, #authstate{}=State) ->
     {Result, StatePrime} = internal_list_users(State),
     {reply, Result, StatePrime}.
 
-internal_create_user(_,_,_,State) ->
-    {false, State}.
+internal_create_user(Mech, Creds, Name, Pass, Role, State) ->
+    case user_exists(Name, State) of
+	true -> {{error, user_exists}, State};
+	_ -> authorize_and_do(Mech, Creds, admin, fun do_create_user/2, {Name, Pass, Role, []}, State)
+    end.
 
-internal_delete_user(_,_,_,State) ->
-    {false, State}.
+user_exists(Name, #authstate{storage=StoreMod}) ->
+    Res = StoreMod:find_user(Name),
+    not is_atom(Res).
 
-internal_admin_update_pass(_,_,_,_,State) ->
-    {false, State}.
+do_create_user({Name, Pass, Role, Meta}, #authstate{hashmod=Mod, hashopts=Opts, storage=StoreMod}) ->
+    UObj = wallaroo_user:new(Name, Pass, Role, Meta, {Mod, Opts}),
+    StoreMod:store_user(Name, UObj).
+    
+internal_delete_user(Mech,Creds,Name,State) ->
+    case user_exists(Name, State) of
+	false -> {{error, no_such_user}, State};
+	_ -> authorize_and_do(Mech, Creds, admin, fun do_delete_user/2, Name, State)
+    end.
 
-internal_update_pass(_,_,_,State) ->
-    {false, State}.
+do_delete_user(Name, #authstate{storage=StoreMod}) ->
+    StoreMod:delete_user(Name).
 
-internal_authorized_by(_,_,_,State) ->
-    {false, State}.
+internal_modify_user(Mech,Creds,User,Options,State) ->
+    case user_exists(User, State) of
+	false -> {{error, no_such_user}, State};
+	_ -> authorize_and_do(Mech, Creds, admin, fun do_modify_user/2, {User, Options}, State)
+    end.
 
-internal_list_users(State) ->
-    {[], State}.
+do_modify_user({User, Options}, #authstate{hashmod=Mod, hashopts=Opts, storage=StoreMod}) ->
+    UObj = lists:foldl(modification_factory(Mod, Opts), User, Options),
+    StoreMod:store_user(wallaroo_user:get_name(UObj), UObj).
+
+modification_factory(HashMod, HashOpts) ->
+    fun({pass, Password}, UO) ->
+	    wallaroo_user:set_pass(UO, Password, {HashMod, HashOpts});
+       ({role, Role}, UO) ->
+	    wallaroo_user:set_role(UO, Role)
+    end.
+
+internal_update_pass(User,Pass,NewPass,State) ->
+    authorize_and_do(basic, {User, Pass}, none, fun do_update_pass/2, {User, NewPass}, State).
+    
+do_update_pass({User, Pass}, #authstate{hashmod=Mod, hashopts=Opts, storage=StoreMod}) ->
+    StoreMod:store_user(User, wallaroo_user:set_pass(StoreMod:find_user(User), Pass, {Mod, Opts})).
+
+internal_authorized_by(Mechanism,Creds,Action,State) ->
+    authorize_and_do(Mechanism, Creds, Action, fun(ok) -> true end, ok, State, false).
+
+internal_list_users(#authstate{storage=StoreMod}=State) ->
+    {[U || {U, _} <- StoreMod:users()], State}.
+
+authorize_and_do(Mechanism, Creds, Action, Callback, Arg, State) ->
+    authorize_and_do(Mechanism, Creds, Action, Callback, Arg, State, {error, not_authorized}).
+
+authorize_and_do(Mechanism, Creds, Action, Callback, Arg, State, FailureVal) ->
+    Authorized = authorized_by_empty_userlist(State) orelse
+	authorized_by_creds(Mechanism, Creds, Action, State),
+    invoke_callback(Authorized, Callback, Arg, State, FailureVal).
+
+authorized_by_empty_userlist(#authstate{storage=StoreMod}) ->
+    StoreMod:users() =:= [].
+
+authorized_by_creds(basic, {User, Pass}, Action, #authstate{storage=StoreMod}) ->
+    UObj = StoreMod:find_user(User),
+    UObj =/= find_failed andalso wallaroo_password:compare(Pass, wallaroo_user:get_hash(UObj)) andalso wallaroo_user:allowed_to(UObj, Action);
+authorized_by_creds(secret, Secret, _, _) ->
+    Secret =/= [] andalso Secret =:= config_val(auth_secret, []).
+
+invoke_callback(true, Callback, Arg, State, _) ->
+    {Callback(Arg, State), State};
+invoke_callback(false, _, _, State, FailureVal) ->
+    {FailureVal, State}.
 
 handle_info(_X, State) ->
     {noreply, State}.

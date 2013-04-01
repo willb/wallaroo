@@ -75,7 +75,12 @@ role_includes(?READ_ROLE, ?ADMIN_ROLE) ->
 role_includes(?READ_ROLE, ?WRITE_ROLE) ->
     false;
 role_includes(?READ_ROLE, _) ->
-    true.
+    true;
+role_includes(X, Y) when ?IS_ROLE(X) ->
+    role_includes(role(X), Y);
+role_includes(X, Y) when ?IS_ROLE(Y) ->
+    role_includes(X, role(Y)).
+
 
 
 
