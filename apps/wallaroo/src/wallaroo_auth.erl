@@ -24,6 +24,7 @@
 	 modify_user/4,       % adminname, adminpass, username, options
 	 authorized/3,        % name, pass, action
 	 authorized/2,        % secret, action
+	 user_exists/1,
 	 list_users/0
 	]).
 
@@ -83,6 +84,9 @@ valid_modify_options(_,_) ->
 update_pass(Name, Pass, NewPass) ->
     gen_server:call(?SERVER, {update_pass, basic, {Name, Pass}, NewPass}).
 
+user_exists(Name) ->
+    gen_server:call(?SERVER, {user_exists, Name}).
+
 authorized(Name, Pass, Action) ->
     authorized_by(basic, {Name, Pass}, Action).
 
@@ -99,6 +103,8 @@ list_users() ->
 handle_cast(stop, State) ->
     {stop, normal, State}.
 
+handle_call({user_exists, Name}, _From, State) ->
+    {reply, user_exists(Name, State), State};
 handle_call({create_user, Mechanism, Creds, Name, Pass, Role}, _From, #authstate{}=State) ->
     {Result, StatePrime} = internal_create_user(Mechanism, Creds, Name, Pass, Role, State),
     {reply, Result, StatePrime};
