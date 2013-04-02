@@ -1,8 +1,8 @@
 -module(wallaroo_web_common).
--export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5,generic_from_json_raw/5, generic_from_json/6, config_for/1, meta_for/1, fixup_meta_ctx/2, generic_delete_entity/4, generic_delete_nc/4]).
+-export([generic_init/1, generic_entity_exists/3, generic_entity_exists_nc/4, get_starting_commit/2, generic_find/5, generic_find/6,  generic_find_nc/4, generic_find_nc/5, dump_json/3, generic_to_json/4, generic_to_json/5, generic_from_json/5,generic_from_json_raw/5, generic_from_json/6, config_for/1, meta_for/1, fixup_meta_ctx/2, generic_delete_entity/4, generic_delete_nc/4, generic_auth/4, generic_auth/3, auth_user/1]).
 -export([known_meta_atoms/0]).
 
--record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for, meta_domain, meta_key=all}).
+-record(ww_ctx, {show_all=false, name, commit, branch, via, head, config_for, meta_domain, meta_key=all, auth_user=none}).
 % -define(DO_TRACE, {trace, "priv"}).
 -define(DO_TRACE, ok).
 
@@ -15,6 +15,10 @@ config_for(#ww_ctx{config_for=Kind}) ->
 meta_for(#ww_ctx{meta_domain=Domain, meta_key=Key}) ->
     {Domain, Key}.
 
+auth_user(#ww_ctx{auth_user=X}) when is_atom(X) ->
+    <<>>;
+auth_user(#ww_ctx{auth_user=S}) when is_binary(S) ->
+    S.
 
 meta_name(#ww_ctx{meta_domain=Domain, meta_key=Key}) ->
     iolist_to_binary(io_lib:format("~p/~p", [Domain, Key])).
@@ -87,6 +91,57 @@ generic_entity_exists_nc(ReqData, Ctx, LookupFun, What) ->
 	    {true, ReqData, Ctx#ww_ctx{head={What, Head}, name=EntityName}}
     end.
 
+extract_creds(B64Creds) ->
+    [U|P] = binary:split(base64:mime_decode(B64Creds), <<":">>),
+    {U, ensure_str_format(P, binary)}.
+
+extract_basic_header(ReqData) ->
+    case wrq:get_req_header("authorization", ReqData) of
+	"Basic "++B64 ->
+	    {ok, extract_creds(B64)};
+	_ ->
+	    none
+    end.
+
+extract_secret_header(ReqData) ->
+    case wrq:get_req_header("x-wallaroo-secret", ReqData) of
+	Str when is_list(Str) ->
+	    {ok, ensure_str_format(Str, binary)};
+	_ ->
+	    none
+    end.
+
+authorized(Secret, Creds, Role) ->
+    authorized(Secret, Creds, Role, <<>>).
+
+authorized(Secret, _, Role, _) when is_binary(Secret) ->
+    {secret, wallaby_auth:authorized(Secret, Role)};
+authorized(_, {User, Pass}, Role, <<>>) ->
+    {User, authorized(none, {User, Pass}, Role, User)};
+authorized(_, {User, Pass}, Role, User) ->
+    {User, wallaby_auth:authorized(User, Pass, Role)};
+authorized(_, none, Role, <<>>) ->
+    {none, authorized(none, {<<>>, <<>>}, Role, <<>>)};
+authorized(_, _, _, _) ->
+    {none, false}.
+
+auth_result({How, true}, ReqData, Ctx) ->
+    {true, ReqData, Ctx#ww_ctx{auth_user=How}};
+auth_result({_, false}, ReqData, Ctx) ->
+    {"Basic realm=wallaroo", ReqData, Ctx}.
+
+generic_auth(ReqData, Ctx, VerbRoles, DefaultRole) when is_list(VerbRoles) ->
+    Verb = wrq:method(ReqData),
+    Role = orddict_default_fetch(Verb, VerbRoles, DefaultRole),
+    generic_auth(ReqData, Ctx, Role).
+
+generic_auth(ReqData, Ctx, VerbRoles) when is_list(VerbRoles) ->
+    generic_auth(ReqData, Ctx, VerbRoles, admin);
+generic_auth(ReqData, Ctx, Role) ->
+    Secret = extract_secret_header(ReqData),
+    Basic = extract_basic_header(ReqData),
+    Result = authorized(Secret, Basic, Role),
+    auth_result(Result, ReqData, Ctx).
 
 generic_find(Commit, FindFunc, Name, ReqData, Ctx) ->
     generic_find(Commit, FindFunc, fun dump_json/3, Name, ReqData, Ctx).
