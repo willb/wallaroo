@@ -6,7 +6,7 @@
 -behaviour(gen_server).
 
 
--define(debug, true).
+% -define(debug, true).
 -include("dlog.hrl").
 
 -define(SERVER, ?MODULE).

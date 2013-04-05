@@ -6,7 +6,7 @@
 % -define(DO_TRACE, {trace, "priv"}).
 -define(DO_TRACE, ok).
 
--define(debug, true).
+% -define(debug, true).
 -include("dlog.hrl").
 
 config_for(#ww_ctx{config_for=Kind}) ->
