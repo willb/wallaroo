@@ -11,6 +11,8 @@ import urllib2
 import urllib
 import urlparse
 
+import base64
+
 from datetime import datetime
 import calendar
 
@@ -64,7 +66,13 @@ class ConnectionMeta(object):
         self.port = port
         self.scheme = scheme
         self.username = username
+        self.pw = pw
         self.how = mk_how(kwargs)
+    
+    def __add_pw_header(self, request):
+        if self.username is not None:
+            base64string = base64.encodestring('%s:%s' % (self.username, self.pw))[:-1]
+            request.add_header("Authorization", "Basic %s" % base64string)
     
     def __qs(self, custom_q=None):
         q = ""
@@ -82,6 +90,7 @@ class ConnectionMeta(object):
         q = self.__qs(custom_q)
         uri = self.__path(path, q)
         req = urllib2.Request(uri)
+        self.__add_pw_header(req)
         return http_result(urllib2.urlopen(req))
     
     def __put(self, path, dct, custom_q=None):
@@ -93,6 +102,7 @@ class ConnectionMeta(object):
         request = urllib2.Request(uri, data=payload)
         request.add_header('content-type', 'application/json')
         request.get_method = lambda: 'PUT'
+        self.__add_pw_header(request)
         return http_result(opener.open(request))
     
     def list_objects(self, kind_plural):
