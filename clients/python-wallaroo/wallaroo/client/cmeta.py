@@ -17,6 +17,7 @@ from how import How
 import urlparse
 import urllib
 import requests
+from requests.auth import HTTPBasicAuth
 import json
 import re
 
@@ -34,6 +35,7 @@ class ConnectionMeta(object):
         self.port = port
         self.scheme = scheme
         self.username = username
+        self.pw = pw
         self.how = mk_how(kwargs)
         self.client = __import__("wallaroo").client
     
@@ -59,7 +61,7 @@ class ConnectionMeta(object):
     def delete_resource(self, kind, name, skip_q=False):
         q = not skip_q and self.how.to_q() or None
         path = self.path_for(kind, name)
-        response = requests.delete(mk_url(self, path), params=q)
+        response = requests.delete(mk_url(self, path), auth=HTTPBasicAuth(self.username, self.pw), params=q)
         if response.status_code != 204:
             raise RuntimeError("Error %d: %s" % (response.status_code, response.text))
         m = re.match(".*?(commit)=([0-9a-f]+)", response.headers["location"])
@@ -69,16 +71,16 @@ class ConnectionMeta(object):
     def fetch_json_resource(self, path, query=None, default=None):
         q = query and query or self.how.to_q()
         if default is None:
-            return requests.get(mk_url(self, path), params=q).json()
+            return requests.get(mk_url(self, path), auth=HTTPBasicAuth(self.username, self.pw), params=q).json()
         else:
-            result = requests.get(mk_url(self, path), params=q)
+            result = requests.get(mk_url(self, path), auth=HTTPBasicAuth(self.username, self.pw), params=q)
             return result.status_code != 404 and result.json() or default
     
     def put_json_resource(self, path, dct, skip_q=False):
         q = not skip_q and self.how.to_q() or None
         payload = json.dumps(dict([(k,v) for (k,v) in dct.iteritems()]))
         headers = {'content-type' : 'application/json'}
-        response = requests.put(mk_url(self, path), params=q, data=payload, headers=headers)
+        response = requests.put(mk_url(self, path), auth=HTTPBasicAuth(self.username, self.pw), params=q, data=payload, headers=headers)
         
         if response.status_code < 200 or response.status_code > 399:
             raise RuntimeError("Error %d:  %s" % (response.status_code, response.text))
