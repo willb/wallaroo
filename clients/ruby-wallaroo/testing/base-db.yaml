@@ -1,0 +1,4978 @@
+--- !ruby/object:Wallaroo::SerializedConfigs::Store 
+features: 
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Collector additions to provide the aviary locator
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - Collector
+  - AviaryPublishingEnabled
+  name: AviaryLocator
+  params: 
+    COLLECTOR.PLUGINS: ">= $(LIB)/plugins/AviaryLocatorPlugin-plugin.so"
+    AVIARY_LOCATOR_MISSED_UPDATES: "2"
+    AVIARY_LOCATOR_PRUNE_INTERVAL: "20"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables publishing aviary locator information
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: AviaryPublishingEnabled
+  params: 
+    AVIARY_PUBLISH_LOCATION: "True"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Scheduler additions to provide the Aviary Scheduler
+  conflicts: []
+
+  depends: 
+  - BaseScheduler
+  included: 
+  - Axis2Home
+  name: AviaryScheduler
+  params: 
+    SCHEDD.HTTP_PORT: "9090"
+    SCHEDD.PLUGINS: ">= $(LIB)/plugins/AviaryScheddPlugin-plugin.so"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables publishing aviary locator data for the Aviary Scheduler
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - AviaryScheduler
+  - AviaryPublishingEnabled
+  name: AviarySchedulerPublisher
+  params: 
+    AVIARY_PUBLISH_INTERVAL: "10"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: The Axis2 configuration file
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: Axis2Home
+  params: 
+    WSFCPP_HOME: /var/lib/condor/aviary/axis2.xml
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: The version of the database
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: BaseDBVersion
+  params: 
+    BaseDBVersion: v<%= db_version %>
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: A non-functional base for an highly available scheduler.  This needs further configuration and is not meant to be used by itself
+  conflicts: 
+  - Scheduler
+  depends: []
+
+  included: 
+  - SharedJobQueueLocation
+  - BaseScheduler
+  name: BaseHAScheduler
+  params: 
+    SCHEDD_NAME: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: A non-functional base for executing jobs.  This needs further configuration and is not meant to be used by itself
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: BaseJobExecuter
+  params: 
+    STARTER_LOG: $(LOG)/StarterLog
+    MAX_STARTER_LOG: "1000000"
+    STARTER_DEBUG: D_NODATE
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: A non-functional base for the job server.  This needs furher configuration and is not meant to be used by itself
+  conflicts: []
+
+  depends: 
+  - QMF
+  included: []
+
+  name: BaseJobServer
+  params: 
+    QMF_PUBLISH_SUBMISSIONS: "false"
+    JOB_SERVER: $(SBIN)/condor_job_server
+    MAX_JOB_SERVER_LOG: "1000000"
+    JOB_SERVER.JOB_SERVER_DEBUG: ""
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: A non-functional base for the query server.  This needs furher configuration and is not meant to be used by itself
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - Axis2Home
+  name: BaseQueryServer
+  params: 
+    MAX_QUERY_SERVER_LOG: "1000000"
+    QUERY_SERVER_ARGS: -f
+    QUERY_SERVER.HISTORY_INTERVAL: "120"
+    QUERY_SERVER.QUERY_SERVER_DEBUG: D_ALWAYS
+    QUERY_SERVER: $(SBIN)/aviary_query_server
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: A non-functional base for the scheduler.  This needs furher configuration and is not meant to be used by itself
+  conflicts: []
+
+  depends: 
+  - NodeAccess
+  - Master
+  included: 
+  - BaseJobExecuter
+  name: BaseScheduler
+  params: 
+    SCHEDD_DAEMON_AD_FILE: $(LOG)/.schedd_classad
+    SHADOW_LOG: $(LOG)/ShadowLog
+    START_SCHEDULER_UNIVERSE: "True"
+    STARTER_LOCAL: $(SBIN)/condor_starter
+    SHADOW_LIST: SHADOW
+    SHADOW_SIZE_ESTIMATE: "1800"
+    SCHEDD_LOG: $(LOG)/SchedLog
+    MAX_SCHEDD_LOG: "1000000"
+    MAX_SHADOW_LOG: "1000000"
+    ALLOW_NEGOTIATOR_SCHEDD: $(ALLOW_NEGOTIATOR_SCHEDD), $(CONDOR_HOST), $(FLOCK_NEGOTIATOR_HOSTS)
+    SCHEDD_ADDRESS_FILE: $(LOG)/.schedd_address
+    QUEUE_SUPER_USERS: root, condor
+    START_LOCAL_UNIVERSE: "True"
+    SHADOW: $(SBIN)/condor_shadow
+    SCHEDD_DEBUG: D_PID
+    SCHEDD: $(SBIN)/condor_schedd
+    SHADOW_LOCK: $(LOCK)/ShadowLock
+    SHADOW_DEBUG: ""
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: A set of features that comprise a central manager
+  conflicts: []
+
+  depends: 
+  - NodeAccess
+  included: 
+  - Collector
+  - Negotiator
+  name: CentralManager
+  params: {}
+
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables collector functionality
+  conflicts: []
+
+  depends: 
+  - NodeAccess
+  - Master
+  included: []
+
+  name: Collector
+  params: 
+    COLLECTOR_ADDRESS_FILE: $(LOG)/.collector_address
+    MAX_COLLECTOR_LOG: "1000000"
+    COLLECTOR_DEBUG: ""
+    COLLECTOR: $(SBIN)/condor_collector
+    COLLECTOR_LOG: $(LOG)/CollectorLog
+    DAEMON_LIST: ">= COLLECTOR"
+    COLLECTOR_HOST: $(CONDOR_HOST)
+    FLOCK_COLLECTOR_HOSTS: $(FLOCK_TO)
+    COLLECTOR_NAME: Wallaby Configured Pool
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Sets the UID domain
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: CommonUIDDomain
+  params: 
+    UID_DOMAIN: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables concurrency limits in the negotiator
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - Negotiator
+  name: ConcurrencyLimits
+  params: 
+    CONCURRENCY_LIMIT_DEFAULT: "200"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables QMF publishing of collector data
+  conflicts: []
+
+  depends: 
+  - QMF
+  included: 
+  - Collector
+  name: ConsoleCollector
+  params: 
+    COLLECTOR.PLUGINS: ">= $(LIB)/plugins/MgmtCollectorPlugin-plugin.so"
+    QMF_IGNORE_UPDATE_STARTD_AD: "TRUE"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables QMF publishing of startd data
+  conflicts: []
+
+  depends: 
+  - ExecuteNode
+  - QMF
+  included: []
+
+  name: ConsoleExecuteNode
+  params: 
+    STARTD.PLUGINS: ">= $(LIB)/plugins/MgmtStartdPlugin-plugin.so"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables QMF publishing of master data
+  conflicts: []
+
+  depends: 
+  - QMF
+  - Master
+  included: []
+
+  name: ConsoleMaster
+  params: 
+    MASTER.PLUGINS: ">= $(LIB)/plugins/MgmtMasterPlugin-plugin.so"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables QMF publishing of negotiator data
+  conflicts: []
+
+  depends: 
+  - Negotiator
+  - QMF
+  included: []
+
+  name: ConsoleNegotiator
+  params: 
+    NEGOTIATOR.PLUGINS: ">= $(LIB)/plugins/MgmtNegotiatorPlugin-plugin.so"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables QMF publishing of scheduler data
+  conflicts: []
+
+  depends: 
+  - QMF
+  - BaseScheduler
+  included: []
+
+  name: ConsoleScheduler
+  params: 
+    SCHEDD.QMF_STOREFILE: $(SPOOL)/.schedd_storefile
+    SCHEDD.PLUGINS: ">= $(LIB)/plugins/MgmtScheddPlugin-plugin.so"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Configures an exceute node as a dedicated resource
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - ExecuteNode
+  name: DedicatedResource
+  params: 
+    RANK: SCHEDULER =?= $(DEDICATEDSCHEDULER) * $(RANK_FACTOR)
+    WANT_VACATE: "False"
+    WANT_SUSPEND: "False"
+    KILL: "False"
+    START: (SCHEDULER =?= $(DEDICATEDSCHEDULER)) || ($(START))
+    DEDICATEDSCHEDULER: 0
+    STARTD_ATTRS: ">= DEDICATEDSCHEDULER"
+    RANK_FACTOR: "1000000"
+    CONTINUE: "True"
+    SUSPEND: (SCHEDULER =!= $(DEDICATEDSCHEDULER)) || ($(SUSPEND))
+    PREEMPT: (SCHEDULER =!= $(DEDICATEDSCHEDULER)) && ($(PREEMPT))
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Configures a scheduler as a dedicated scheduler
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - Scheduler
+  name: DedicatedScheduler
+  params: 
+    DEDICATED_SCHEDULER_USE_FIFO: "TRUE"
+    UNUSED_CLAIM_TIMEOUT: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables dynamic slots for an execute node
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - ExecuteNode
+  name: DynamicSlots
+  params: 
+    NUM_SLOTS: "1"
+    SLOT_TYPE_1: cpus=100%,disk=100%,swap=100%
+    NUM_SLOTS_TYPE_1: "1"
+    SLOT_TYPE_1_PARTITIONABLE: "TRUE"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables running ec2 jobs on an execute node
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - ExecuteNode
+  name: EC2
+  params: 
+    EC2_GAHP: $(SBIN)/ec2_gahp
+    GRIDMANAGER_MAX_SUBMITTED_JOBS_PER_RESOURCE_AMAZON: "20"
+    AMAZON_GAHP: $(SBIN)/amazon_gahp
+    EC2_GAHP_LOG: /tmp/EC2GahpLog.$(USERNAME)
+    AMAZON_GAHP_LOG: /tmp/AmazonGahpLog.$(USERNAME)
+    GRIDMANAGER_JOB_PROBE_INTERVAL: "300"
+    GRIDMANAGER_MAX_SUBMITTED_JOBS_PER_RESOURCE_EC2: "20"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables routing ec2 enhanced jobs on a job router
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - JobRouter
+  name: EC2Enhanced
+  params: 
+    NEED_SET_EC2E_ROUTES: "TRUE"
+    EC2E_HOOK_UPDATE_JOB_INFO: $(LIBEXEC)/hooks/hook_retrieve_status.py
+    JOB_ROUTER_ENTRIES: 0
+    JOB_ROUTER_DEFAULTS: $(JOB_ROUTER_DEFAULTS) [ MaxIdleJobs = 10; MaxJobs = 200; set_PeriodicRemove = (JobStatus == 5 && HoldReason =!= "Spooling input data files") || (JobStatus == 1 && (CurrentTime - QDate) > 3600*6); set_requirements = true; set_WantAWS = false; ]
+    EC2E_HOOK_JOB_EXIT: $(LIBEXEC)/hooks/hook_job_finalize.py
+    JOB_ROUTER_HOOK_KEYWORD: EC2E
+    EC2E_HOOK_JOB_CLEANUP: $(LIBEXEC)/hooks/hook_cleanup.py
+    EC2E_ATTRS_TO_COPY: EC2RunAttempts, EC2JobSuccessful
+    EC2E_HOOK_TRANSLATE_JOB: $(LIBEXEC)/hooks/hook_translate.py
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables running jobs
+  conflicts: []
+
+  depends: 
+  - Master
+  included: 
+  - BaseJobExecuter
+  name: ExecuteNode
+  params: 
+    PERIODIC_CHECKPOINT: $(LastCkpt) > (3 * $(HOUR) + $RANDOM_INTEGER(-30,30,1) * $(MINUTE) )
+    WANT_VACATE: ( $(ActivationTimer) > 10 * $(MINUTE) || $(IsVanilla) )
+    WANT_SUSPEND: ( $(SmallJob) || $(KeyboardNotBusy) || $(IsVanilla) ) && ( $(SUSPEND) )
+    STARTD_ADDRESS_FILE: $(LOG)/.startd_address
+    MAX_STARTD_LOG: "1000000"
+    DAEMON_LIST: ">= STARTD"
+    RUNBENCHMARKS: (LastBenchmark == 0 ) || ($(BenchmarkTimer) >= (4 * $(HOUR)))
+    STARTER: $(SBIN)/condor_starter
+    STARTD_JOB_EXPRS: ImageSize, ExecutableSize, JobUniverse, NiceUser
+    STARTD_DEBUG: ""
+    KILL: $(ActivityTimer) > $(MaxVacateTime)
+    BENCHMARKTIMER: (CurrentTime - LastBenchmark)
+    STARTD: $(SBIN)/condor_startd
+    START: ( (KeyboardIdle > $(StartIdleTime)) && ( $(CPUIdle) || (State != "Unclaimed" && State != "Owner")) )
+    CONSOLE_DEVICES: mouse, console
+    STARTER_LIST: STARTER
+    MAXJOBRETIREMENTTIME: 0
+    STARTD_ATTRS: ">= \"$(COLLECTOR_HOST)\", SmallJob, KeyboardNotBusy, IsVanilla, ActivationTimer, MINUTE, StartIdleTime, CPUIdle, KeyboardBusy, ContinueIdleTime, MaxSuspendTime, MaxVacateTime, HOUR, LastCkpt"
+    CONTINUE: ( $(CPUIdle) && ($(ActivityTimer) > 10) && (KeyboardIdle > $(ContinueIdleTime)) )
+    SUSPEND: ( $(KeyboardBusy) || ( (CpuBusyTime > 2 * $(MINUTE)) && $(ActivationTimer) > 90 ) )
+    STARTD_LOG: $(LOG)/StartLog
+    PREEMPT: ( ((Activity == "Suspended") && ($(ActivityTimer) > $(MaxSuspendTime))) || (SUSPEND && (WANT_SUSPEND == False)) )
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables preemption for an execute node that is a dedicated resource
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - DedicatedResource
+  name: ExecuteNodeDedicatedPreemption
+  params: 
+    STARTD_JOB_EXPRS: ImageSize, ExecutableSize, JobUniverse, NiceUser
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables publishing execute node data used by the trigger service
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - ExecuteNode
+  name: ExecuteNodeTriggerData
+  params: 
+    TRIGGER_DATA_GETDATA_EXECUTABLE: $(BIN)/get_trigger_data
+    STARTD_CRON_AUTOPUBLISH: If_Changed
+    TRIGGER_DATA_GETDATA_PERIOD: 5m
+    TRIGGER_DATA_JOBLIST: GetData
+    TRIGGER_DATA_GETDATA_PREFIX: Triggerd
+    TRIGGER_DATA_GETDATA_RECONFIG: "FALSE"
+    STARTD_CRON_NAME: TRIGGER_DATA
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables high availability for the central manager
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - CentralManager
+  name: HACentralManager
+  params: 
+    REPLICATION_LOG: $(LOG)/ReplicationLog
+    MASTER_NEGOTIATOR_CONTROLLER: HAD
+    MAX_HAD_LOG: "640000"
+    HAD_CONNECTION_TIMEOUT: "2"
+    TRANSFERER_LOG: $(LOG)/TransfererLog
+    HAD_USE_REPLICATION: "true"
+    HAD_PORT: "51450"
+    HAD_ARGS: -p $(HAD_PORT)
+    DAEMON_LIST: ">= HAD REPLICATION"
+    ALLOW_ADMINISTRATOR: $(ALLOW_ADMINISTRATOR), $(COLLECTOR_HOST)
+    REPLICATION_INTERVAL: "300"
+    MASTER_HAD_BACKOFF_CONSTANT: "360"
+    HAD_LOG: $(LOG)/HADLog
+    CONDOR_HOST: 0
+    REPLICATION_LIST: 0
+    MAX_TRANSFERER_LIFETIME: "300"
+    ALLOW_NEGOTIATOR_SCHEDD: $(FLOCK_NEGOTIATOR_HOSTS), $(COLLECTOR_HOST)
+    ALLOW_NEGOTIATOR: $(ALLOW_NEGOTIATOR), $(COLLECTOR_HOST)
+    REPLICATION_PORT: "41450"
+    REPLICATION: $(SBIN)/condor_replication
+    HAD: $(SBIN)/condor_had
+    COLLECTOR_HOST: $(CONDOR_HOST)
+    REPLICATION_ARGS: -p $(REPLICATION_PORT)
+    HAD_UPDATE_INTERVAL: "300"
+    HAD_LIST: 0
+    STATE_FILE: $(SPOOL)/Accountantnew.log
+    MAX_REPLICATION_LOG: "640000"
+    HAD_USE_PRIMARY: "true"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables high availability for a scheduler
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - BaseHAScheduler
+  - SchedulerInDL
+  name: HAScheduler
+  params: 
+    HA_POLL_PERIOD: "60"
+    VALID_SPOOL_FILES: $(VALID_SPOOL_FILES), SCHEDD.lock
+    HA_LOCK_HOLD_TIME: "300"
+    HA_LOCK_URL: 0
+    MASTER_HA_LIST: $(MASTER_HA_LIST), SCHEDD
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Configures startd job hooks on an execute node
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: JobHooks
+  params: 
+    JOB_HOOKS_IP: 127.0.0.1
+    MAX_JOB_HOOKS_LOG: "10000000"
+    JOB_HOOKS_PORT: "10000"
+    JOB_HOOKS_LOG: $(LOG)/JobHooksLog
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: The location of the job queue used by the scheduler
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: JobQueueLocation
+  params: 
+    SPOOL: 0
+    HISTORY: $(SPOOL)/history
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables a job router
+  conflicts: []
+
+  depends: 
+  - Master
+  - BaseScheduler
+  included: []
+
+  name: JobRouter
+  params: 
+    JOB_ROUTER: $(LIBEXEC)/condor_job_router
+    MAX_HISTORY_ROTATIONS: "20"
+    DAEMON_LIST: ">= JOB_ROUTER"
+    JOB_ROUTER_DEBUG: ""
+    MAX_JOB_ROUTER_LOG: "1000000"
+    JOB_ROUTER_LOG: $(LOG)/JobRouterLog
+    JOB_ROUTER_ADDRESS_FILE: $(LOG)/.job_router_address
+    JOB_ROUTER_POLLING_PERIOD: "10"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables a job server
+  conflicts: []
+
+  depends: 
+  - Master
+  included: 
+  - BaseJobServer
+  name: JobServer
+  params: 
+    JOB_SERVER.JOB_SERVER_ADDRESS_FILE: $(LOG)/.job_server_address
+    DC_DAEMON_LIST: ">= JOB_SERVER"
+    DAEMON_LIST: ">= JOB_SERVER"
+    JOB_SERVER.SPOOL: 0
+    JOB_SERVER.JOB_SERVER_LOG: $(LOG)/JobServerLog
+    JOB_SERVER.HISTORY: $(JOB_SERVER.SPOOL)/history
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables keyboard monitoring
+  conflicts: []
+
+  depends: 
+  - Master
+  included: []
+
+  name: KeyboardMonitor
+  params: 
+    KBDD: $(SBIN)/condor_kbdd
+    DAEMON_LIST: ">= KBDD"
+    KBDD_LOG: $(LOG)/KbdLog
+    KBDD_ADDRESS_FILE: $(LOG)/.kbdd_address
+    MAX_KBDD_LOG: "1000000"
+    KBDD_DEBUG: ""
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables low-latency scheduling for an execute node
+  conflicts: []
+
+  depends: 
+  - JobHooks
+  included: 
+  - ExecuteNode
+  name: LowLatency
+  params: 
+    MAX_CAROD_LOG: "1000000"
+    CAROD_LEASE_TIME: "35"
+    JOB_HOOKS_PORT: $(CAROD_PORT)
+    DAEMON_LIST: ">= CAROD"
+    CAROD_IP: 127.0.0.1
+    CAROD: $(SBIN)/carod
+    LOW_LATENCY_JOB_HOOK_JOB_EXIT: $(LIBEXEC)/hooks/hook_job_exit.py
+    LOW_LATENCY_HOOK_REPLY_FETCH: $(LIBEXEC)/hooks/hook_reply_fetch.py
+    CAROD_PORT: "10000"
+    CAROD_LEASE_CHECK_INTERVAL: "30"
+    STARTD_JOB_HOOK_KEYWORD: LOW_LATENCY
+    CAROD_BROKER_PORT: "5672"
+    LOW_LATENCY_JOB_HOOK_UPDATE_JOB_INFO: $(LIBEXEC)/hooks/hook_update_job_status.py
+    CAROD_BROKER_IP: 0
+    CAROD_QUEUED_CONNECTIONS: "5"
+    CAROD_BROKER_QUEUE: 0
+    STARTER_UPDATE_INTERVAL: "30"
+    LOW_LATENCY_HOOK_FETCH_WORK: $(LIBEXEC)/hooks/hook_fetch_work.py
+    LOW_LATENCY_JOB_HOOK_PREPARE_JOB: $(LIBEXEC)/hooks/hook_prepare_job.py
+    FETCHWORKDELAY: 10 * (Activity == "Idle")
+    CAROD_LOG: $(LOG)/CaroLog
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables master functionality
+  conflicts: []
+
+  depends: 
+  - NodeAccess
+  included: []
+
+  name: Master
+  params: 
+    SEC_DEFAULT_AUTHENTICATION: OPTIONAL
+    SEC_DEFAULT_AUTHENTICATION_METHODS: $(SEC_DEFAULT_AUTHENTICATION_METHODS), FS, NTLM, CLAIMTOBE
+    CONDOR_DEVELOPERS: NONE
+    MASTER_ADDRESS_FILE: $(LOG)/.master_address
+    DAEMON_LIST: ">= MASTER"
+    ALLOW_ADMINISTRATOR: $(ALLOW_ADMINISTRATOR), $(CONDOR_HOST)
+    CONDOR_HOST: 0
+    CONDOR_DEVELOPERS_COLLECTOR: NONE
+    SEC_DEFAULT_CRYPTO_METHODS: 3DES
+    MASTER: $(SBIN)/condor_master
+    COLLECTOR_NAME: ""
+    SEC_DEFAULT_NEGOTIATION: OPTIONAL
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables negotiator functionality
+  conflicts: []
+
+  depends: 
+  - NodeAccess
+  - Master
+  included: []
+
+  name: Negotiator
+  params: 
+    NEGOTIATOR_PRE_JOB_RANK: RemoteOwner =?= UNDEFINED
+    NEGOTIATOR_DEBUG: D_MATCH
+    DAEMON_LIST: ">= NEGOTIATOR"
+    PREEMPTION_REQUIREMENTS: ( $(StateTimer) > (1 * $(HOUR)) && RemoteUserPrio > SubmittorPrio * 1.2 ) || (MY.NiceUser == True)
+    NEGOTIATOR_LOG: $(LOG)/NegotiatorLog
+    NEGOTIATOR: $(SBIN)/condor_negotiator
+    MAX_NEGOTIATOR_LOG: "1000000"
+    ALLOW_NEGOTIATOR: $(ALLOW_NEGOTIATOR), $(CONDOR_HOST)
+    PREEMPTION_RANK: (RemoteUserPrio * 1000000) - TARGET.ImageSize
+    MAX_NEGOTIATOR_MATCH_LOG: "1000000"
+    NEGOTIATOR_MATCH_LOG: $(LOG)/MatchLog
+    NEGOTIATOR_ADDRESS_FILE: $(LOG)/.negotiator_address
+    NEGOTIATOR_INTERVAL: "20"
+    FLOCK_NEGOTIATOR_HOSTS: $(FLOCK_TO)
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Configures read/write access to the node
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: NodeAccess
+  params: 
+    ALLOW_READ: 0
+    ALLOW_WRITE: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables power management on the collector
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - Collector
+  name: PowerManagementCollector
+  params: 
+    VALID_SPOOL_FILES: $(VALID_SPOOL_FILES), OfflineLog
+    OFFLINE_LOG: $(SPOOL)/OfflineLog
+    OFFLINE_EXPIRE_ADS_AFTER: "28800"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables power management for an execute node
+  conflicts: 
+  - Collector
+  - Negotiator
+  - Scheduler
+  depends: []
+
+  included: 
+  - ExecuteNode
+  name: PowerManagementNode
+  params: 
+    HIBERNATE: ifThenElse( $(ShouldHibernate), "RAM", "NONE" )
+    TimeToWait: (2 * $(HOUR))
+    HIBERNATE_CHECK_INTERVAL: "300"
+    ShouldHibernate: ( (KeyboardIdle > $(StartIdleTime)) && $(CPUIdle) && ($(StateTimer) > $(TimeToWait)) )
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables power management wake up for a subnet
+  conflicts: 
+  - PowerManagementNode
+  depends: []
+
+  included: []
+
+  name: PowerManagementSubnetManager
+  params: 
+    ROOSTER: $(LIBEXEC)/condor_rooster
+    DAEMON_LIST: ">= ROOSTER"
+    ROOSTER_INTERVAL: "300"
+    ROOSTER_UNHIBERNATE: Offline && Unhibernate
+    ROOSTER_SUBNET_MASK: 0
+    ROOSTER_MAX_UNHIBERNATE: 0
+    UNHIBERNATE: CurrentTime - MachineLastMatchTime < 1200
+    ROOSTER_WAKEUP_CMD: "\"$(BIN)/condor_power -d -i -s $(ROOSTER_SUBNET_MASK)\""
+    ROOSTER_UNHIBERNATE_RANK: Mips*Cpus
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: QMF related parameters
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: QMF
+  params: 
+    QMF_DELETE_ON_SHUTDOWN: "TRUE"
+    QMF_BROKER_HOST: 0
+    QMF_BROKER_PORT: "5672"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables query server functionality
+  conflicts: []
+
+  depends: 
+  - Master
+  included: 
+  - BaseQueryServer
+  name: QueryServer
+  params: 
+    QUERY_SERVER.SPOOL: 0
+    QUERY_SERVER.HISTORY: $(QUERY_SERVER.SPOOL)/history
+    QUERY_SERVER.QUERY_SERVER_LOG: $(LOG)/QueryServerLog
+    DC_DAEMON_LIST: ">= QUERY_SERVER"
+    DAEMON_LIST: ">= QUERY_SERVER"
+    QUERY_SERVER.HTTP_PORT: "9091"
+    QUERY_SERVER.QUERY_SERVER_ADDRESS_FILE: $(LOG)/.query_server_address
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables publishing aviary locator data for the query server
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - QueryServer
+  - AviaryPublishingEnabled
+  name: QueryServerPublisher
+  params: 
+    AVIARY_PUBLISH_INTERVAL: "10"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables SSL security for the aviary scheduler
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - AviaryScheduler
+  name: SSLEnabledAviaryScheduler
+  params: 
+    SCHEDD.AVIARY_SSL_CA_DIR: 0
+    SCHEDD.AVIARY_SSL_SERVER_KEY: 0
+    SCHEDD.AVIARY_SSL: "True"
+    SCHEDD.AVIARY_SSL_CA_FILE: 0
+    SCHEDD.AVIARY_SSL_SERVER_CERT: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables SSL security for the query server
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - QueryServer
+  name: SSLEnabledQueryServer
+  params: 
+    QUERY_SERVER.AVIARY_SSL_CA_FILE: 0
+    QUERY_SERVER.AVIARY_SSL: "True"
+    QUERY_SERVER.AVIARY_SSL_SERVER_CERT: 0
+    QUERY_SERVER.AVIARY_SSL_SERVER_KEY: 0
+    QUERY_SERVER.AVIARY_SSL_CA_DIR: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables job scheduling
+  conflicts: 
+  - HAScheduler
+  depends: []
+
+  included: 
+  - JobQueueLocation
+  - BaseScheduler
+  - SchedulerInDL
+  name: Scheduler
+  params: 
+    SPOOL: $(LOCAL_DIR)/spool
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables preemption for a dedicated scheduler
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - DedicatedScheduler
+  name: SchedulerDedicatedPreemption
+  params: 
+    SCHEDD_PREEMPTION_REQUIREMENTS: 0
+    SCHEDD_PREEMPTION_RANK: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Adds the scheduler to the list of daemons to run.  This is not intended to be used alone, but as a part of other features.
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: SchedulerInDL
+  params: 
+    DAEMON_LIST: ">= SCHEDD"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Sets the filesystem domain
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: SharedFileSystem
+  params: 
+    FILESYSTEM_DOMAIN: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: The location on a shared filesystem of the job queue used by the schedd.
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: SharedJobQueueLocation
+  params: 
+    SCHEDD.HISTORY: $(SCHEDD.SPOOL)/history
+    SCHEDD.SPOOL: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables shared port
+  conflicts: []
+
+  depends: []
+
+  included: []
+
+  name: SharedPort
+  params: 
+    SHARED_PORT_DEBUG: ""
+    DAEMON_SOCKET_DIR: $(RUN)
+    DAEMON_LIST: ">= SHARED_PORT"
+    SHARED_PORT: $(LIBEXEC)/condor_shared_port
+    USE_SHARED_PORT: "True"
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables event triggers over QMF
+  conflicts: []
+
+  depends: 
+  - QMF
+  - Master
+  included: []
+
+  name: TriggerService
+  params: 
+    TRIGGERD_DEFAULT_EVAL_PERIOD: "10"
+    TRIGGERD.QMF_STOREFILE: $(DATA)/.triggerd_storefile
+    ENABLE_ABSENT_NODES_DETECTION: "True"
+    MAX_TRIGGERD_LOG: "1000000"
+    TRIGGERD_LOG: $(LOG)/TriggerLog
+    DC_DAEMON_LIST: ">= TRIGGERD"
+    DAEMON_LIST: ">= TRIGGERD"
+    TRIGGERD: $(SBIN)/condor_triggerd
+    TRIGGERD_ADDRESS_FILE: $(LOG)/.triggerd_address
+    DATA: 0
+- !ruby/object:Wallaroo::SerializedConfigs::Feature 
+  annotation: Enables the vm universe on an execute node
+  conflicts: []
+
+  depends: []
+
+  included: 
+  - ExecuteNode
+  name: VMUniverse
+  params: 
+    VM_TYPE: 0
+    VM_NETWORKING: 0
+    LIBVIRT_XML_SCRIPT: 0
+    VM_MEMORY: $(DETECTED_MEMORY)
+    VM_GAHP_SERVER: $(SBIN)/condor_vm-gahp
+    VM_GAHP_LOG: $(LOG)/VMGahpLog
+    MAX_VM_GAHP_LOG: "1000000"
+groups: 
+- !ruby/object:Wallaroo::SerializedConfigs::Group 
+  annotation: The default group
+  features: []
+
+  is_identity_group: false
+  name: +++DEFAULT
+  params: {}
+
+- !ruby/object:Wallaroo::SerializedConfigs::Group 
+  annotation: The skeleton group
+  features: []
+
+  is_identity_group: false
+  name: +++SKEL
+  params: {}
+
+nodes: []
+
+params: 
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Hosts with administrator access
+  kind: String
+  level: 0
+  must_change: true
+  name: ALLOW_ADMINISTRATOR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The machines with Negotiator access
+  kind: String
+  level: 0
+  must_change: true
+  name: ALLOW_NEGOTIATOR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The Schedulers with Negotiator access
+  kind: String
+  level: 0
+  must_change: true
+  name: ALLOW_NEGOTIATOR_SCHEDD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Hosts with read access
+  kind: String
+  level: 0
+  must_change: true
+  name: ALLOW_READ
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Hosts with write access
+  kind: String
+  level: 0
+  must_change: true
+  name: ALLOW_WRITE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Debug flags shared by all subsystems
+  kind: String
+  level: 0
+  must_change: false
+  name: ALL_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/amazon_gahp
+  depends: []
+
+  description: The location of the Amazon Gahp binary
+  kind: String
+  level: 0
+  must_change: false
+  name: AMAZON_GAHP
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: /tmp/AmazonGahpLog.$(USERNAME)
+  depends: []
+
+  description: Location of the Amazon Gahp log files
+  kind: String
+  level: 0
+  must_change: false
+  name: AMAZON_GAHP_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "2"
+  depends: []
+
+  description: The number of updates an endpoint can miss before becoming a candidate for garbage collection from the available list
+  kind: string
+  level: 0
+  must_change: false
+  name: AVIARY_LOCATOR_MISSED_UPDATES
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "20"
+  depends: []
+
+  description: The interval in seconds that the Aviary locator scans the known endpoints and marks them unresponsive or missing
+  kind: string
+  level: 0
+  must_change: false
+  name: AVIARY_LOCATOR_PRUNE_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "10"
+  depends: []
+
+  description: The interval in seconds that the Aviary endpoints send their heartbeats
+  kind: string
+  level: 0
+  must_change: false
+  name: AVIARY_PUBLISH_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "False"
+  depends: []
+
+  description: Controls Aviary locator publishing
+  kind: string
+  level: 0
+  must_change: false
+  name: AVIARY_PUBLISH_LOCATION
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: (CurrentTime - LastBenchmark)
+  depends: []
+
+  description: A parameter that can be used to determine when to run benchmarks
+  kind: String
+  level: 0
+  must_change: false
+  name: BENCHMARKTIMER
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "0"
+  depends: []
+
+  description: The version of the base database
+  kind: String
+  level: 0
+  must_change: false
+  name: BaseDBVersion
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/carod
+  depends: []
+
+  description: The location of the carod daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: CAROD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The IP address where an AMQP broker is running
+  kind: String
+  level: 0
+  must_change: true
+  name: CAROD_BROKER_IP
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "5672"
+  depends: []
+
+  description: The port the AMQP broker is listening on for connections
+  kind: Integer
+  level: 0
+  must_change: false
+  name: CAROD_BROKER_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The queue on the AMQP broker containing jobs
+  kind: String
+  level: 0
+  must_change: true
+  name: CAROD_BROKER_QUEUE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: 127.0.0.1
+  depends: []
+
+  description: The IP Address where the carod is listening for connections
+  kind: String
+  level: 0
+  must_change: false
+  name: CAROD_IP
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "30"
+  depends: []
+
+  description: How often carod will check for jobs that haven't communicated in $(CAROD_LEASE_TIME)
+  kind: Integer
+  level: 0
+  must_change: false
+  name: CAROD_LEASE_CHECK_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "35"
+  depends: []
+
+  description: The amount of time condor can process a low-latency job without reporting status to carod
+  kind: Integer
+  level: 0
+  must_change: false
+  name: CAROD_LEASE_TIME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/CaroLog
+  depends: []
+
+  description: The location of the Low-Latency daemon log file
+  kind: String
+  level: 0
+  must_change: false
+  name: CAROD_LOG
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "10000"
+  depends: []
+
+  description: The port the carod daemon is using to listen for connections
+  kind: Integer
+  level: 0
+  must_change: false
+  name: CAROD_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "5"
+  depends: []
+
+  description: The number of outstandinng connections carod will allow before rejecting connection requests
+  kind: Integer
+  level: 0
+  must_change: false
+  name: CAROD_QUEUED_CONNECTIONS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_collector
+  depends: []
+
+  description: The location of the Collector binary
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIB)/plugins/MgmtCollectorPlugin-plugin.so
+  depends: []
+
+  description: A list of plugins that the Collector will load
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR.PLUGINS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.collector_address
+  depends: []
+
+  description: The file where the Collector will store its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: 
+  - COLLECTOR
+  description: Arguments to pass to the Collector daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR_ARGS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output the Collector will produce in its log
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Allows changing of the port the Collector listens on
+  kind: String
+  level: 0
+  must_change: true
+  name: COLLECTOR_HOST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/CollectorLog
+  depends: []
+
+  description: The location of the Collector's log file
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(FULL_HOSTNAME)
+  depends: []
+
+  description: A short description of the condor pool
+  kind: String
+  level: 0
+  must_change: false
+  name: COLLECTOR_NAME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "200"
+  depends: []
+
+  description: The default limit for concurrency limits
+  kind: Double
+  level: 0
+  must_change: false
+  name: CONCURRENCY_LIMIT_DEFAULT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: NONE
+  depends: []
+
+  description: The e-mail address condor will use, once per week, to send the output of the condor_status
+  kind: String
+  level: 1
+  must_change: false
+  name: CONDOR_DEVELOPERS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: NONE
+  depends: []
+
+  description: The hostname of a machine to send periodic updates to with basic information about the status of the pool
+  kind: String
+  level: 1
+  must_change: false
+  name: CONDOR_DEVELOPERS_COLLECTOR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The list of Central Managers in the pool
+  kind: String
+  level: 0
+  must_change: true
+  name: CONDOR_HOST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: mouse, console
+  depends: []
+
+  description: List of devices that should be considered the console
+  kind: String
+  level: 0
+  must_change: false
+  name: CONSOLE_DEVICES
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( $(CPUIdle) && ($(ActivityTimer) > 10) && (KeyboardIdle > $(ContinueIdleTime)) )
+  depends: []
+
+  description: Describes when a machine will resume a suspended job
+  kind: String
+  level: 0
+  must_change: false
+  name: CONTINUE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The daemons the condor_master will start and monitor
+  kind: String
+  level: 0
+  must_change: true
+  name: DAEMON_LIST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(RUN)
+  depends: []
+
+  description: Specifies the directory where Unix versions of condor daemons will create named sockets so that incoming connections can be forwarded to them by the Shared Port.  Write access to this directory grants permission to receive connections through the Shared Port
+  kind: String
+  level: 0
+  must_change: false
+  name: DAEMON_SOCKET_DIR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Where files used by the condor_triggerd are stored
+  kind: String
+  level: 0
+  must_change: true
+  name: DATA
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The daemons that use the Condor daemoncore library
+  kind: String
+  level: 0
+  must_change: false
+  name: DC_DAEMON_LIST
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The dedicated scheduler managing a dedicated resource
+  kind: String
+  level: 0
+  must_change: true
+  name: DEDICATEDSCHEDULER
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines if parallel universe jobs will be scheduled in a first-in, first-out manner
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: DEDICATED_SCHEDULER_USE_FIFO
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: EC2RunAttempts, EC2JobSuccessful
+  depends: []
+
+  description: The parameters that should be copied from the routed job to the source job for EC2 Enhanced
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2E_ATTRS_TO_COPY
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_cleanup.py
+  depends: []
+
+  description: The cleanup hook used by the Job Router for EC2 Enhanced
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2E_HOOK_JOB_CLEANUP
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_job_finalize.py
+  depends: []
+
+  description: The exit hook used by the Job Router for EC2 Enhanced
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2E_HOOK_JOB_EXIT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_translate.py
+  depends: []
+
+  description: The translation hook used by the Job Router for EC2 Enhanced
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2E_HOOK_TRANSLATE_JOB
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_retrieve_status.py
+  depends: []
+
+  description: The update hook used by the Job Router for EC2 Enhanced
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2E_HOOK_UPDATE_JOB_INFO
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/ec2_gahp
+  depends: []
+
+  description: The location of the EC2 Gahp binary
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2_GAHP
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: /tmp/EC2GahpLog.$(USERNAME)
+  depends: []
+
+  description: Location of the EC2 Gahp log files
+  kind: String
+  level: 0
+  must_change: false
+  name: EC2_GAHP_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines whether the condor_triggerd will look for absent nodes
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: ENABLE_ABSENT_NODES_DETECTION
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: 10 * (Activity == "Idle")
+  depends: []
+
+  description: The number of seconds since the fetch attempt compelted before the Startd will attempt to fetch more work
+  kind: String
+  level: 0
+  must_change: false
+  name: FETCHWORKDELAY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A string that is used to decide if two machines (a submitting machine and an execute machine) share a file system
+  kind: String
+  level: 0
+  must_change: true
+  name: FILESYSTEM_DOMAIN
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A list of Collectors for pools that the Scheduler attempt to use to run jobs
+  kind: String
+  level: 0
+  must_change: true
+  name: FLOCK_COLLECTOR_HOSTS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A list of Collectors for pools that the Scheduler attempt to use to run jobs
+  kind: String
+  level: 0
+  must_change: true
+  name: FLOCK_NEGOTIATOR_HOSTS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: The number of seconds between status update requests to EC2
+  kind: Integer
+  level: 0
+  must_change: false
+  name: GRIDMANAGER_JOB_PROBE_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "20"
+  depends: []
+
+  description: Amazon EC2 has a hard limit of 20 concurrently running instances.  This parameter limits the number of amazon resources
+  kind: Integer
+  level: 0
+  must_change: false
+  name: GRIDMANAGER_MAX_SUBMITTED_JOBS_PER_RESOURCE_AMAZON
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "20"
+  depends: []
+
+  description: Amazon EC2 has a hard limit of 20 concurrently running instances.  This parameter limits the number of EC2 resources
+  kind: Integer
+  level: 0
+  must_change: false
+  name: GRIDMANAGER_MAX_SUBMITTED_JOBS_PER_RESOURCE_EC2
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_had
+  depends: []
+
+  description: The location of the HAD daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: HAD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: -p $(HAD_PORT)
+  depends: []
+
+  description: The arguments passed to the HAD daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: HAD_ARGS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "2"
+  depends: []
+
+  description: How long the HAD daemon waits before giving up on establishing a TCP connection
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HAD_CONNECTION_TIMEOUT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The list of hostnames and ports fo rmachines running the HAD daemon
+  kind: String
+  level: 0
+  must_change: true
+  name: HAD_LIST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/HADLog
+  depends: []
+
+  description: The file containing the HAD's log
+  kind: String
+  level: 0
+  must_change: false
+  name: HAD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "51450"
+  depends: []
+
+  description: The port on which the HAD daemon will listen
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HAD_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: How often the HAD daemon will update the Collector
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HAD_UPDATE_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines if the first entry in HAD_LIST is a primary Central Manager
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: HAD_USE_PRIMARY
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "False"
+  depends: []
+
+  description: Controls the replication feature of the HAD daemon
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: HAD_USE_REPLICATION
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "3600"
+  depends: []
+
+  description: The length of time the Master daemon will the lock for each High Available daemon
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HA_LOCK_HOLD_TIME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The URL that the Master daemon uses to synchronize the High Availability service
+  kind: String
+  level: 0
+  must_change: true
+  name: HA_LOCK_URL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: How often the Master will the High Availability locks to see if any are stale or have been released
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HA_POLL_PERIOD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ifThenElse( $(ShouldHibernate), "RAM", "NONE" )
+  depends: []
+
+  description: An expression that represents a lower power state. When this state name evaluates to a valid non-NONE state, the machine will be put into the specified low power state
+  kind: String
+  level: 0
+  must_change: false
+  name: HIBERNATE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "0"
+  depends: []
+
+  description: The number of seconds specifying how often the condor_startd checks to see if the machine is ready to enter a low power state
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HIBERNATE_CHECK_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SPOOL)/history
+  depends: 
+  - SPOOL
+  description: The location of the historical jobs file
+  kind: String
+  level: 0
+  must_change: false
+  name: HISTORY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "600"
+  depends: []
+
+  description: Determines how often the Job Server will read the historical jobs file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: HISTORY_INTERVAL
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: 127.0.0.1
+  depends: []
+
+  description: The IP Address the job hooks should use to contact the translation daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_HOOKS_IP
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/JobHooksLog
+  depends: []
+
+  description: The location of the Job Hooks log files
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_HOOKS_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "10000"
+  depends: []
+
+  description: The port the job hooks should connect to on the translation daemon
+  kind: Integer
+  level: 0
+  must_change: false
+  name: JOB_HOOKS_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/condor_job_router
+  depends: []
+
+  description: The location of the Job Router binary
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_ROUTER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SEC_DEFAULT_AUTHENTICATION_METHODS)
+  depends: []
+
+  description: The default authentication methods used by the Job Router
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_ROUTER.SEC_DEFAULT_AUTHENTICATION_METHODS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.job_router_address
+  depends: []
+
+  description: The file where the Job Router will store its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_ROUTER_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output the Job Router will produce in its log file
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_ROUTER_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Provides default values for all routes in the Job Router's routing table
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_ROUTER_DEFAULTS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The definition of the job routing table
+  kind: String
+  level: 0
+  must_change: true
+  name: JOB_ROUTER_ENTRIES
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The default hook prefix for the Job Router
+  kind: String
+  level: 0
+  must_change: true
+  name: JOB_ROUTER_HOOK_KEYWORD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/JobRouterLog
+  depends: []
+
+  description: The location of the Job Router log file
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_ROUTER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "10"
+  depends: []
+
+  description: How often the Job Router will look for new jobs to route
+  kind: Integer
+  level: 0
+  must_change: false
+  name: JOB_ROUTER_POLLING_PERIOD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_job_server
+  depends: []
+
+  description: The location of the Job Server binary
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(JOB_SERVER.SPOOL)/history
+  depends: 
+  - JOB_SERVER.SPOOL
+  description: The location of the historical jobs file used by the Job Server
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER.HISTORY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.job_server_address
+  depends: []
+
+  description: The file where the Job Server will store its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER.JOB_SERVER_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The level of debugging output the Job Server will produce in its log file
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER.JOB_SERVER_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/JobServerLog
+  depends: []
+
+  description: The location of the Job Server log file
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER.JOB_SERVER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The name of the Scehduler that the Job Server is working with
+  kind: string
+  level: 0
+  must_change: true
+  name: JOB_SERVER.SCHEDD_NAME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The location of the job queue file used by the Job Server
+  kind: String
+  level: 0
+  must_change: true
+  name: JOB_SERVER.SPOOL
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.job_server_address
+  depends: []
+
+  description: The file where the Job Server will store its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output the Job Server will produce in its log file
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/JobServerLog
+  depends: []
+
+  description: The location of the Job Server log file
+  kind: String
+  level: 0
+  must_change: false
+  name: JOB_SERVER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_kbdd
+  depends: []
+
+  description: The KBDD binary
+  kind: String
+  level: 0
+  must_change: false
+  name: KBDD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.kbdd_address
+  depends: []
+
+  description: The file where the KBDD will place its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: KBDD_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output the KBDD will produce in its log file
+  kind: String
+  level: 0
+  must_change: false
+  name: KBDD_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/KbdLog
+  depends: []
+
+  description: The location of the KBDD log file
+  kind: String
+  level: 0
+  must_change: false
+  name: KBDD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(ActivityTimer) > $(MaxVacateTime)
+  depends: []
+
+  description: Describes when a machine will kill a preempting job
+  kind: String
+  level: 0
+  must_change: false
+  name: KILL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/libvirt_simple_script.awk
+  depends: []
+
+  description: A script that produces XML output used to start a libvirt VM
+  kind: String
+  level: 0
+  must_change: false
+  name: LIBVIRT_XML_SCRIPT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_fetch_work.py
+  depends: []
+
+  description: The fetch work hook the Startd will use when grabbing low-latency work
+  kind: String
+  level: 0
+  must_change: false
+  name: LOW_LATENCY_HOOK_FETCH_WORK
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_reply_fetch.py
+  depends: []
+
+  description: The reply fetch hook the Startd will use when processing low-latency jobs
+  kind: String
+  level: 0
+  must_change: false
+  name: LOW_LATENCY_HOOK_REPLY_FETCH
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_job_exit.py
+  depends: []
+
+  description: The job exit hook the Starter will use when processing low-latency jobs
+  kind: String
+  level: 0
+  must_change: false
+  name: LOW_LATENCY_JOB_HOOK_JOB_EXIT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_prepare_job.py
+  depends: []
+
+  description: The prepare job hook the Starter will use when processing low-latency jobs
+  kind: String
+  level: 0
+  must_change: false
+  name: LOW_LATENCY_JOB_HOOK_PREPARE_JOB
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/hooks/hook_update_job_status.py
+  depends: []
+
+  description: The update job info hook the Starter will use with processing low-latency jobs
+  kind: String
+  level: 0
+  must_change: false
+  name: LOW_LATENCY_JOB_HOOK_UPDATE_JOB_INFO
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_master
+  depends: []
+
+  description: The master binary
+  kind: String
+  level: 0
+  must_change: false
+  name: MASTER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIB)/plugins/MgmtMasterPlugin-plugin.so
+  depends: []
+
+  description: List of plugin modules to load for the condor_master
+  kind: String
+  level: 0
+  must_change: false
+  name: MASTER.PLUGINS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SEC_DEFAULT_AUTHENTICATION_METHODS)
+  depends: []
+
+  description: The default authentication methods used by the Master
+  kind: String
+  level: 0
+  must_change: false
+  name: MASTER.SEC_DEFAULT_AUTHENTICATION_METHODS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "True"
+  depends: []
+
+  description: Determines if the Master process will use the condor_procd for managing process families
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: MASTER.USE_PROCD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.master_address
+  depends: []
+
+  description: The file where the Master will store its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: MASTER_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "360"
+  depends: []
+
+  description: How long to wait before restarting the HAD daemon
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MASTER_HAD_BACKOFF_CONSTANT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The list of daemons that will be run in High Availabilty mode
+  kind: String
+  level: 0
+  must_change: true
+  name: MASTER_HA_LIST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: HAD
+  depends: []
+
+  description: Which controlling daemon will control the Negotiator
+  kind: String
+  level: 0
+  must_change: false
+  name: MASTER_NEGOTIATOR_CONTROLLER
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "0"
+  depends: []
+
+  description: The maximum time to wait for a job to finish before kicking it off the machine due to preemption, priority, or Startd graceful shutdown
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAXJOBRETIREMENTTIME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Low-Latency daemon log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_CAROD_LOG
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Collector log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_COLLECTOR_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the HAD log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_HAD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "2"
+  depends: []
+
+  description: How many backup files are preserved when history file rotation is turned on
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_HISTORY_ROTATIONS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Job Hooks log files
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_JOB_HOOKS_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Job Router log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_JOB_ROUTER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Job Server log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_JOB_SERVER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the KBDD log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_KBDD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Negotiator log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_NEGOTIATOR_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Negotiator's match log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_NEGOTIATOR_MATCH_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Query Server daemon log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_QUERY_SERVER_LOG
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Replication log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_REPLICATION_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Scheduler's log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_SCHEDD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Shadow's log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_SHADOW_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Startd log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_STARTD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Starter log
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_STARTER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: The maximum time a replication task is allowed to take
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_TRANSFERER_LIFETIME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the Triggerd log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_TRIGGERD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1000000"
+  depends: []
+
+  description: The maximum size of the VM Ghap log file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: MAX_VM_GAHP_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines if the Job Router's routing table needs to be prompted for
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: NEED_SET_EC2E_ROUTES
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_negotiator
+  depends: []
+
+  description: The location of the Negotiator binary file
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIB)/plugins/MgmtNegotiatorPlugin-plugin.so
+  depends: []
+
+  description: A list of plugins that the Negotiator will load
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR.PLUGINS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.negotiator_address
+  depends: []
+
+  description: The file where the Negotiator will write its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: D_MATCH
+  depends: []
+
+  description: The debugging output the Negotiator will produce in its log file
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "60"
+  depends: []
+
+  description: How often the Negotiator starts a negotiation cycle
+  kind: Integer
+  level: 0
+  must_change: false
+  name: NEGOTIATOR_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/NegotiatorLog
+  depends: []
+
+  description: The location of the Negotiator's log file
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/MatchLog
+  depends: []
+
+  description: The location of the Negotiator's match log file
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR_MATCH_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: RemoteOwner =?= UNDEFINED
+  depends: []
+
+  description: Determines how resources that match a request are sorted
+  kind: String
+  level: 0
+  must_change: false
+  name: NEGOTIATOR_PRE_JOB_RANK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The number of slots the machine will report to the Collector
+  kind: Integer
+  level: 0
+  must_change: true
+  name: NUM_SLOTS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The number of slots that are $(SLOT_TYPE_1)
+  kind: Integer
+  level: 0
+  must_change: true
+  name: NUM_SLOTS_TYPE_1
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "28800"
+  depends: []
+
+  description: The number of seconds specifying the lifetime of the persistent machine ClassAd representing a hibernating machine
+  kind: Integer
+  level: 0
+  must_change: false
+  name: OFFLINE_EXPIRE_ADS_AFTER
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SPOOL)/OfflineLog
+  depends: []
+
+  description: The full path and file name of a file that stores machine ClassAds for every hibernating machine
+  kind: String
+  level: 0
+  must_change: false
+  name: OFFLINE_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LastCkpt) > (3 * $(HOUR) + $RANDOM_INTEGER(-30,30,1) * $(MINUTE) )
+  depends: []
+
+  description: Determines how often to checkpoint
+  kind: String
+  level: 0
+  must_change: false
+  name: PERIODIC_CHECKPOINT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( ((Activity == "Suspended") && ($(ActivityTimer) > $(MaxSuspendTime))) || (SUSPEND && (WANT_SUSPEND == False)) )
+  depends: []
+
+  description: Describes when a machine will nicely stop a job
+  kind: String
+  level: 0
+  must_change: false
+  name: PREEMPT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: (RemoteUserPrio * 1000000) - TARGET.ImageSize
+  depends: []
+
+  description: The last sorting rank used when breaking ties when determining jobs for preemption
+  kind: String
+  level: 0
+  must_change: false
+  name: PREEMPTION_RANK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( $(StateTimer) > (1 * $(HOUR)) && RemoteUserPrio > SubmittorPrio * 1.2 ) || (MY.NiceUser == True)
+  depends: []
+
+  description: Determines if a running job will be preempted
+  kind: String
+  level: 0
+  must_change: false
+  name: PREEMPTION_REQUIREMENTS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The mechanism to use when authenticating with a QMF broker
+  kind: String
+  level: 0
+  must_change: true
+  name: QMF_BROKER_AUTH_MECH
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The hostname where a QMF broker is running
+  kind: String
+  level: 0
+  must_change: true
+  name: QMF_BROKER_HOST
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The location of a file containing a password to use when authenticating with a QMF broker
+  kind: String
+  level: 0
+  must_change: true
+  name: QMF_BROKER_PASSWORD_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "5672"
+  depends: []
+
+  description: The port on QMF_BROKER_HOST that the QMF broker is listening on
+  kind: String
+  level: 0
+  must_change: false
+  name: QMF_BROKER_PORT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The username to use when authenticating with a QMF broker
+  kind: String
+  level: 0
+  must_change: true
+  name: QMF_BROKER_USERNAME
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Delete the QMF resources on shutdown
+  kind: String
+  level: 0
+  must_change: false
+  name: QMF_DELETE_ON_SHUTDOWN
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines whether to publish slot information from the Collector
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: QMF_IGNORE_UPDATE_STARTD_AD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "FALSE"
+  depends: []
+
+  description: Determines if the Scheduler should publish job submissions over QMF
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: QMF_PUBLISH_SUBMISSIONS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/aviary_query_server
+  depends: []
+
+  description: The location of the Aviary Query Server binary
+  kind: String
+  level: 0
+  must_change: false
+  name: QUERY_SERVER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "False"
+  depends: []
+
+  description: Enable HTTPS mutual authentication for Aviary in the Query Server
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.AVIARY_SSL
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL CA directory used by the Query Server
+  kind: String
+  level: 0
+  must_change: true
+  name: QUERY_SERVER.AVIARY_SSL_CA_DIR
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL CA file used by the Query Server
+  kind: String
+  level: 0
+  must_change: true
+  name: QUERY_SERVER.AVIARY_SSL_CA_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL server certificate used by the Query Server
+  kind: String
+  level: 0
+  must_change: true
+  name: QUERY_SERVER.AVIARY_SSL_SERVER_CERT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL server private key used by the Query Server
+  kind: String
+  level: 0
+  must_change: true
+  name: QUERY_SERVER.AVIARY_SSL_SERVER_KEY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(QUERY_SERVER.SPOOL)/history
+  depends: 
+  - QUERY_SERVER.SPOOL
+  description: The location of the historical jobs file used by the Query Server
+  kind: String
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.HISTORY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "120"
+  depends: []
+
+  description: The number of seconds between polls of the HISTORY file
+  kind: Integer
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.HISTORY_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "9091"
+  depends: []
+
+  description: The port the QueryServer listens on
+  kind: Integer
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.HTTP_PORT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.query_server_address
+  depends: []
+
+  description: The file where the Query Server will write its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.QUERY_SERVER_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: D_ALWAYS
+  depends: []
+
+  description: The debugging output the Aviary Query Server will produce in its log file
+  kind: String
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.QUERY_SERVER_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/QueryServerLog
+  depends: []
+
+  description: The location of the Aviary Query Server log file
+  kind: String
+  level: 0
+  must_change: false
+  name: QUERY_SERVER.QUERY_SERVER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The name of the Scehduler that the Aviary Query Server is working with
+  kind: String
+  level: 0
+  must_change: true
+  name: QUERY_SERVER.SCHEDD_NAME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The location of the job queue file used by the Query Server
+  kind: String
+  level: 0
+  must_change: true
+  name: QUERY_SERVER.SPOOL
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Args to append to the Aviary Query Server on daemon startup
+  kind: String
+  level: 0
+  must_change: false
+  name: QUERY_SERVER_ARGS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "FALSE"
+  depends: []
+
+  description: Determines if all users that access the job queue are trusted
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: QUEUE_ALL_USERS_TRUSTED
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: root, condor
+  depends: []
+
+  description: The users that have super user access to the job queue
+  kind: String
+  level: 0
+  must_change: false
+  name: QUEUE_SUPER_USERS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "0"
+  depends: []
+
+  description: Controls which jobs a machine prefers to run over others
+  kind: Double
+  level: 0
+  must_change: false
+  name: RANK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Multiplier used to create a high RANK value
+  kind: Double
+  level: 0
+  must_change: true
+  name: RANK_FACTOR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_replication
+  depends: []
+
+  description: The location of the Replication daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: REPLICATION
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: -p $(REPLICATION_PORT)
+  depends: []
+
+  description: The port on which the Replication daemon will listen
+  kind: String
+  level: 0
+  must_change: false
+  name: REPLICATION_ARGS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: How often the Replication daemon initiates replicating the $(STATE_FILE)
+  kind: Integer
+  level: 0
+  must_change: false
+  name: REPLICATION_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A list of hostnames and ports for machines running the Replication daemon
+  kind: String
+  level: 0
+  must_change: true
+  name: REPLICATION_LIST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/ReplicationLog
+  depends: []
+
+  description: The file that holds the Replication daemon's log
+  kind: String
+  level: 0
+  must_change: false
+  name: REPLICATION_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "41450"
+  depends: []
+
+  description: The port on which the Replication daemon will listen
+  kind: Integer
+  level: 0
+  must_change: false
+  name: REPLICATION_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "False"
+  depends: []
+
+  description: Whether to restart the condor_procd on error
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: RESTART_PROCD_ON_ERROR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/condor_rooster
+  depends: []
+
+  description: The location of the Rooster binary
+  kind: String
+  level: 0
+  must_change: false
+  name: ROOSTER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: The number of seconds between checks for offline machines that should be woken up
+  kind: Integer
+  level: 0
+  must_change: false
+  name: ROOSTER_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "0"
+  depends: []
+
+  description: The maximum number of machines to wake up per cycle.  A value of 0 means unlimited
+  kind: Integer
+  level: 0
+  must_change: false
+  name: ROOSTER_MAX_UNHIBERNATE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The subnet used by condor_rooster when waking up a machine
+  kind: String
+  level: 0
+  must_change: true
+  name: ROOSTER_SUBNET_MASK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: Offline && Unhibernate
+  depends: []
+
+  description: A boolean expression that specifies which machines should be woken up
+  kind: String
+  level: 0
+  must_change: false
+  name: ROOSTER_UNHIBERNATE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: Mips*Cpus
+  depends: []
+
+  description: A ClassAd expression specifying which machines should be woken up first in a given cycle. Higher ranked machines are woken first
+  kind: String
+  level: 0
+  must_change: false
+  name: ROOSTER_UNHIBERNATE_RANK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "\"$(BIN)/condor_power -d -i -s 255.255.255.255\""
+  depends: []
+
+  description: A string representing the command line to invoke by condor_rooster in order to wake up a machine
+  kind: String
+  level: 0
+  must_change: false
+  name: ROOSTER_WAKEUP_CMD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: (LastBenchmark == 0 ) || ($(BenchmarkTimer) >= (4 * $(HOUR)))
+  depends: 
+  - BENCHMARKTIMER
+  description: Determines when an unclaimed machine should run benchmarks
+  kind: String
+  level: 0
+  must_change: false
+  name: RUNBENCHMARKS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_schedd
+  depends: []
+
+  description: The location of the Scheduler binary
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "False"
+  depends: []
+
+  description: Enable HTTPS mutual authentication for Aviary in the Scheduler
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: SCHEDD.AVIARY_SSL
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL CA directory used by the Scheduler
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD.AVIARY_SSL_CA_DIR
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL CA file used by the Scheduler
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD.AVIARY_SSL_CA_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL server certificate used by the Scheduler
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD.AVIARY_SSL_SERVER_CERT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Path to Aviary SSL server private key used by the Scheduler
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD.AVIARY_SSL_SERVER_KEY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SCHEDD.SPOOL)/history
+  depends: 
+  - SCHEDD.SPOOL
+  description: The location of the historical jobs file for use by the Scheduler
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD.HISTORY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "9090"
+  depends: []
+
+  description: Port the Aviary Schedd plugin listens on
+  kind: Integer
+  level: 0
+  must_change: false
+  name: SCHEDD.HTTP_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIB)/plugins/MgmtScheddPlugin-plugin.so
+  depends: []
+
+  description: The plugins to load for the Scheduler
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD.PLUGINS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SPOOL)/.schedd_storefile
+  depends: 
+  - SPOOL
+  description: The path and filename for the persistent id information for a Scheduler running a QMF agent
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD.QMF_STOREFILE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SEC_DEFAULT_AUTHENTICATION_METHODS)
+  depends: []
+
+  description: The default authentication methods used by the Scheduler
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD.SEC_DEFAULT_AUTHENTICATION_METHODS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Where certain files used by the condor_schedd are stored, such as the job queue file and the initial executables of any jobs that have been submitted
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD.SPOOL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.schedd_address
+  depends: []
+
+  description: The file where the Scheduler will write its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.schedd_classad
+  depends: []
+
+  description: The file were the Scheduler will write its ClassAd
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD_DAEMON_AD_FILE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: D_PID
+  depends: []
+
+  description: The debugging output the Scheduler will produce in its log
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The hostname(s) of the machine(s) running the Scheduler
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD_HOST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/SchedLog
+  depends: []
+
+  description: The location of the Scheduler's log file
+  kind: String
+  level: 0
+  must_change: false
+  name: SCHEDD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The name the Scheduler uses to identify itself
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD_NAME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "0"
+  depends: []
+
+  description: Determines a machine's preference for running a job
+  kind: Double
+  level: 0
+  must_change: false
+  name: SCHEDD_PREEMPTION_RANK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Determines if a machine allocated by a dedicated scheduler is a candidate for job preemption
+  kind: String
+  level: 0
+  must_change: true
+  name: SCHEDD_PREEMPTION_REQUIREMENTS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: OPTIONAL
+  depends: []
+
+  description: The level of authentication in Condor
+  kind: String
+  level: 1
+  must_change: false
+  name: SEC_DEFAULT_AUTHENTICATION
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: CLAIMTOBE
+  depends: []
+
+  description: The list of acceptable authentication methods
+  kind: String
+  level: 1
+  must_change: false
+  name: SEC_DEFAULT_AUTHENTICATION_METHODS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: 3DES
+  depends: []
+
+  description: The list of default acceptable encryption methods
+  kind: String
+  level: 1
+  must_change: false
+  name: SEC_DEFAULT_CRYPTO_METHODS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: REQUIRED
+  depends: []
+
+  description: The level of encryption in Condor
+  kind: String
+  level: 1
+  must_change: false
+  name: SEC_DEFAULT_ENCRYPTION
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: REQUIRED
+  depends: []
+
+  description: The level of integrity checking in Condor
+  kind: String
+  level: 1
+  must_change: false
+  name: SEC_DEFAULT_INTEGRITY
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: OPTIONAL
+  depends: []
+
+  description: The level of secure sessions in Condor
+  kind: String
+  level: 1
+  must_change: false
+  name: SEC_DEFAULT_NEGOTIATION
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_shadow
+  depends: []
+
+  description: The location of the Shadow binary
+  kind: String
+  level: 0
+  must_change: false
+  name: SHADOW
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output the Shadow will produce in its log
+  kind: String
+  level: 0
+  must_change: false
+  name: SHADOW_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: SHADOW
+  depends: []
+
+  description: The shadow binaries the machine supports
+  kind: String
+  level: 0
+  must_change: false
+  name: SHADOW_LIST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOCK)/ShadowLock
+  depends: []
+
+  description: The lock file used when accessing $(SHADOW_LOG)
+  kind: String
+  level: 0
+  must_change: false
+  name: SHADOW_LOCK
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/ShadowLog
+  depends: []
+
+  description: The location of the Shadow's log file
+  kind: String
+  level: 0
+  must_change: false
+  name: SHADOW_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "1800"
+  depends: []
+
+  description: Estimated virtual memory size of each Shadow process
+  kind: Integer
+  level: 0
+  must_change: false
+  name: SHADOW_SIZE_ESTIMATE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIBEXEC)/condor_shared_port
+  depends: []
+
+  description: The Shared Port binary
+  kind: String
+  level: 0
+  must_change: false
+  name: SHARED_PORT
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: 
+  - SHARED_PORT
+  description: Arguments to pass to the Shared Port daemon
+  kind: String
+  level: 0
+  must_change: false
+  name: SHARED_PORT_ARGS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output that the Shared Port will produce in its log
+  kind: String
+  level: 0
+  must_change: false
+  name: SHARED_PORT_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Defines a slot type
+  kind: String
+  level: 0
+  must_change: true
+  name: SLOT_TYPE_1
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "FALSE"
+  depends: []
+
+  description: Determines if $(SLOT_TYPE_1) is a partitionable slot
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: SLOT_TYPE_1_PARTITIONABLE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Where certain files used by the condor_schedd are stored, such as the job queue file and the initial executables of any jobs that have been submitted
+  kind: String
+  level: 0
+  must_change: true
+  name: SPOOL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( (KeyboardIdle > $(StartIdleTime)) && ( $(CPUIdle) || (State != "Unclaimed" && State != "Owner")) )
+  depends: []
+
+  description: Describes when a machine is willing to start a job
+  kind: String
+  level: 0
+  must_change: false
+  name: START
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_startd
+  depends: []
+
+  description: The Startd binary
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LIB)/plugins/MgmtStartdPlugin-plugin.so
+  depends: []
+
+  description: The plugins to load for the ExecuteNode
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD.PLUGINS
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.startd_address
+  depends: []
+
+  description: The file where the Startd will place its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Have the startd advertise arbitrary attributes in its ClassAd
+  kind: String
+  level: 0
+  must_change: true
+  name: STARTD_ATTRS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: If_Changed
+  depends: []
+
+  description: Determines if the ExecuteNode should automatically publish a new update to the Collector after the cron modules produce output
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD_CRON_AUTOPUBLISH
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A string that is used in related configuration paramters
+  kind: String
+  level: 0
+  must_change: true
+  name: STARTD_CRON_NAME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The debugging output that the Startd will produce in its log
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ImageSize, ExecutableSize, JobUniverse, NiceUser
+  depends: []
+
+  description: Attributes of the running job that the Startd will advertise
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD_JOB_EXPRS
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The default hook keyword used by the Startd
+  kind: String
+  level: 0
+  must_change: true
+  name: STARTD_JOB_HOOK_KEYWORD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/StartLog
+  depends: []
+
+  description: The file that will contain the Startd's log
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_starter
+  depends: []
+
+  description: The Starter binary
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: D_NODATE
+  depends: []
+
+  description: The debugging output the Starter will produce in its log
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTER_DEBUG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: STARTER
+  depends: 
+  - STARTER
+  description: A list of Starters the machine supports
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTER_LIST
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_starter
+  depends: []
+
+  description: The local universe Starter
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTER_LOCAL
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/StarterLog
+  depends: []
+
+  description: The file that will contain the Stater's log
+  kind: String
+  level: 0
+  must_change: false
+  name: STARTER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "30"
+  depends: []
+
+  description: How often the Starter will envoke the update job info hook after the first automated invokation
+  kind: Integer
+  level: 0
+  must_change: false
+  name: STARTER_UPDATE_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines when to start a local universe job
+  kind: String
+  level: 0
+  must_change: false
+  name: START_LOCAL_UNIVERSE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "TRUE"
+  depends: []
+
+  description: Determines when to start a scheduler universe job
+  kind: String
+  level: 0
+  must_change: false
+  name: START_SCHEDULER_UNIVERSE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SPOOL)/Accountantnew.log
+  depends: 
+  - SPOOL
+  description: The name of the file that will be replicated
+  kind: String
+  level: 0
+  must_change: false
+  name: STATE_FILE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( $(KeyboardBusy) || ( (CpuBusyTime > 2 * $(MINUTE)) && $(ActivationTimer) > 90 ) )
+  depends: []
+
+  description: Describes when a machine will suspend a job
+  kind: String
+  level: 0
+  must_change: false
+  name: SUSPEND
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( (KeyboardIdle > $(StartIdleTime)) && $(CPUIdle) && ($(StateTimer) > $(TimeToWait)) )
+  depends: []
+
+  description: Expression used to determine if the machine should hibernate due to inactivity
+  kind: String
+  level: 0
+  must_change: false
+  name: ShouldHibernate
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/TransfererLog
+  depends: []
+
+  description: The file that contains the log of the Replication daemon's transfers
+  kind: String
+  level: 0
+  must_change: false
+  name: TRANSFERER_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_triggerd
+  depends: []
+
+  description: The location of the Triggerd binary
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGERD
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(DATA)/.triggerd_storefile
+  depends: 
+  - DATA
+  description: The path and filename for the persistent id information for a Trigger Service running a QMF agent
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGERD.QMF_STOREFILE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "10"
+  depends: []
+
+  description: How often the TriggerService will update the AMQP broker
+  kind: Interger
+  level: 0
+  must_change: false
+  name: TRIGGERD.QMF_UPDATE_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/.triggerd_address
+  depends: []
+
+  description: The file where the Triggerd will store its address information
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGERD_ADDRESS_FILE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "10"
+  depends: []
+
+  description: The default interval for evaluating triggers by the TriggerService
+  kind: Integer
+  level: 0
+  must_change: false
+  name: TRIGGERD_DEFAULT_EVAL_PERIOD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/TriggerLog
+  depends: []
+
+  description: The location of the Triggerd log file
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGERD_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The query collector the TriggerService will query for trigger information.  If unset, all collectors in the pool will be used
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGERD_QUERY_COLLECTOR
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(BIN)/get_trigger_data
+  depends: []
+
+  description: The executable to run to retrieve data for the TriggerService
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGER_DATA_GETDATA_EXECUTABLE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: 5m
+  depends: []
+
+  description: How often $(TRIGGER_DATA_GETDATA_EXECUTABLE) is run
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGER_DATA_GETDATA_PERIOD
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: TRIGGERD
+  depends: []
+
+  description: A string which is prepended to all attributes generated by the $(TRIGGER_DATA_GETDATA_EXECUTABLE)
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGER_DATA_GETDATA_PREFIX
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "FALSE"
+  depends: []
+
+  description: Determines if the ExecuteNode should send a SIGHUP when the condor_startd daemon is reconfigured
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: TRIGGER_DATA_GETDATA_RECONFIG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: GETDATA
+  depends: []
+
+  description: The cron modules to run to provide data for the TriggerService
+  kind: String
+  level: 0
+  must_change: false
+  name: TRIGGER_DATA_JOBLIST
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: (2 * $(HOUR))
+  depends: []
+
+  description: Expression used to indicate the time since the last job was run
+  kind: String
+  level: 0
+  must_change: false
+  name: TimeToWait
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A string that is used to decide under which user to run jobs. If the $(UID_DOMAIN) on the submitting machine is different then the $(UID_DOMAIN) on the machine that runs a job, then condor runs the job as the user nobody
+  kind: String
+  level: 0
+  must_change: true
+  name: UID_DOMAIN
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: MachineLastMatchTime =!= UNDEFINED
+  depends: []
+
+  description: A boolean expression that specifies when an offline machine should be woken up
+  kind: String
+  level: 0
+  must_change: false
+  name: UNHIBERNATE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "600"
+  depends: []
+
+  description: How long a Dedicated Scheduler should hold onto claims if it has no jobs to run on them
+  kind: Integer
+  level: 0
+  must_change: false
+  name: UNUSED_CLAIM_TIMEOUT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "300"
+  depends: []
+
+  description: The number of seconds specifying how often the condor_startd should send a ClassAd update to the condor_collector
+  kind: Integer
+  level: 0
+  must_change: false
+  name: UPDATE_INTERVAL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: "False"
+  depends: []
+
+  description: Specifies whether a condor process should rely on the Shared Port for receiving incoming connections
+  kind: Boolean
+  level: 0
+  must_change: false
+  name: USE_SHARED_PORT
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A list of files that condor_preen considers valid files to find in the $(SPOOL) directory
+  kind: String
+  level: 0
+  must_change: true
+  name: VALID_SPOOL_FILES
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(LOG)/VMGahpLog
+  depends: []
+
+  description: The location of the VM Gahp log
+  kind: String
+  level: 0
+  must_change: false
+  name: VM_GAHP_LOG
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: $(SBIN)/condor_vm-gahp
+  depends: []
+
+  description: The location of the VM Gahp binary
+  kind: String
+  level: 0
+  must_change: false
+  name: VM_GAHP_SERVER
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The amount of memory that can be used by VM universe jobs
+  kind: Integer
+  level: 0
+  must_change: true
+  name: VM_MEMORY
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Determines if VM universe will allow networking
+  kind: Boolean
+  level: 0
+  must_change: true
+  name: VM_NETWORKING
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The networking interface VM Universe jobs will use for bridge networking
+  kind: String
+  level: 0
+  must_change: true
+  name: VM_NETWORKING_BRIDGE_INTERFACE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: Default VM networking type
+  kind: String
+  level: 0
+  must_change: true
+  name: VM_NETWORKING_DEFAULT_TYPE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: nat, bridge
+  depends: []
+
+  description: The kind of networking types that are supported
+  kind: String
+  level: 0
+  must_change: false
+  name: VM_NETWORKING_TYPE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: The kind of virtual machine program that will be used for VM universe jobs
+  kind: String
+  level: 0
+  must_change: true
+  name: VM_TYPE
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A dummy param used to force a configuration pull
+  kind: String
+  level: 0
+  must_change: false
+  name: WALLABY_FORCE_CONFIG_PULL
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ""
+  depends: []
+
+  description: A dummy param used to force all daemons to restart
+  kind: String
+  level: 0
+  must_change: false
+  name: WALLABY_FORCE_RESTART
+  needs_restart: true
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( $(SmallJob) || $(KeyboardNotBusy) || $(IsVanilla) ) && ( $(SUSPEND) )
+  depends: []
+
+  description: Describes when a machine should consider SUSPEND instead of PREEMPT
+  kind: String
+  level: 0
+  must_change: false
+  name: WANT_SUSPEND
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: ( $(ActivationTimer) > 10 * $(MINUTE) || $(IsVanilla) )
+  depends: []
+
+  description: Describes when a machine should preempt gracefully instead of hard-killing
+  kind: String
+  level: 0
+  must_change: false
+  name: WANT_VACATE
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: /var/lib/condor/aviary/axis2.xml
+  depends: []
+
+  description: The root of the axis2 deployment
+  kind: String
+  level: 0
+  must_change: false
+  name: WSFCPP_HOME
+  needs_restart: false
+- !ruby/object:Wallaroo::SerializedConfigs::Parameter 
+  annotation: ""
+  conflicts: []
+
+  default_val: /usr/bin/pygrub
+  depends: []
+
+  description: The bootloader for Xen domainU
+  kind: String
+  level: 0
+  must_change: false
+  name: XEN_BOOTLOADER
+  needs_restart: false
+subsystems: 
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the collector subsystem
+  name: collector
+  params: 
+  - ALLOW_READ
+  - ALLOW_WRITE
+  - AVIARY_LOCATOR_MISSED_UPDATES
+  - AVIARY_LOCATOR_PRUNE_INTERVAL
+  - AVIARY_PUBLISH_LOCATION
+  - COLLECTOR
+  - COLLECTOR.PLUGINS
+  - COLLECTOR_ADDRESS_FILE
+  - COLLECTOR_DEBUG
+  - COLLECTOR_HOST
+  - COLLECTOR_LOG
+  - FLOCK_COLLECTOR_HOSTS
+  - MAX_COLLECTOR_LOG
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+  - QMF_IGNORE_UPDATE_STARTD_AD
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the had subsystem
+  name: had
+  params: 
+  - HAD
+  - HAD_ARGS
+  - HAD_CONNECTION_TIMEOUT
+  - HAD_LIST
+  - HAD_LOG
+  - HAD_PORT
+  - HAD_UPDATE_INTERVAL
+  - HAD_USE_PRIMARY
+  - HAD_USE_REPLICATION
+  - MAX_HAD_LOG
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the job_router subsystem
+  name: job_router
+  params: 
+  - EC2E_ATTRS_TO_COPY
+  - EC2E_HOOK_JOB_CLEANUP
+  - EC2E_HOOK_JOB_EXIT
+  - EC2E_HOOK_TRANSLATE_JOB
+  - EC2E_HOOK_UPDATE_JOB_INFO
+  - JOB_ROUTER
+  - JOB_ROUTER.SEC_DEFAULT_AUTHENTICATION_METHODS
+  - JOB_ROUTER_ADDRESS_FILE
+  - JOB_ROUTER_DEBUG
+  - JOB_ROUTER_DEFAULTS
+  - JOB_ROUTER_ENTRIES
+  - JOB_ROUTER_HOOK_KEYWORD
+  - JOB_ROUTER_LOG
+  - JOB_ROUTER_POLLING_PERIOD
+  - MAX_HISTORY_ROTATIONS
+  - MAX_JOB_ROUTER_LOG
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the job_server subsystem
+  name: job_server
+  params: 
+  - HISTORY_INTERVAL
+  - JOB_SERVER
+  - JOB_SERVER.HISTORY
+  - JOB_SERVER.JOB_SERVER_ADDRESS_FILE
+  - JOB_SERVER.JOB_SERVER_DEBUG
+  - JOB_SERVER.JOB_SERVER_LOG
+  - JOB_SERVER.SCHEDD_NAME
+  - JOB_SERVER.SPOOL
+  - JOB_SERVER_ADDRESS_FILE
+  - JOB_SERVER_DEBUG
+  - JOB_SERVER_LOG
+  - MAX_JOB_SERVER_LOG
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+  - QMF_PUBLISH_SUBMISSIONS
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the kbdd subsystem
+  name: kbdd
+  params: 
+  - KBDD
+  - KBDD_ADDRESS_FILE
+  - KBDD_DEBUG
+  - KBDD_LOG
+  - MAX_KBDD_LOG
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the low-latency subsystem
+  name: ll_daemon
+  params: 
+  - CAROD
+  - CAROD_BROKER_IP
+  - CAROD_BROKER_PORT
+  - CAROD_BROKER_QUEUE
+  - CAROD_IP
+  - CAROD_LEASE_CHECK_INTERVAL
+  - CAROD_LEASE_TIME
+  - CAROD_LOG
+  - CAROD_PORT
+  - CAROD_QUEUED_CONNECTIONS
+  - MAX_CAROD_LOG
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the master subsystem
+  name: master
+  params: 
+  - ALLOW_ADMINISTRATOR
+  - COLLECTOR_NAME
+  - CONDOR_DEVELOPERS
+  - CONDOR_DEVELOPERS_COLLECTOR
+  - CONDOR_HOST
+  - DAEMON_LIST
+  - DC_DAEMON_LIST
+  - MASTER
+  - MASTER.PLUGINS
+  - MASTER.SEC_DEFAULT_AUTHENTICATION_METHODS
+  - MASTER.USE_PROCD
+  - MASTER_ADDRESS_FILE
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+  - SEC_DEFAULT_AUTHENTICATION
+  - SEC_DEFAULT_AUTHENTICATION_METHODS
+  - SEC_DEFAULT_CRYPTO_METHODS
+  - SEC_DEFAULT_ENCRYPTION
+  - SEC_DEFAULT_INTEGRITY
+  - SEC_DEFAULT_NEGOTIATION
+  - WALLABY_FORCE_CONFIG_PULL
+  - WALLABY_FORCE_RESTART
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the negotiator subsystem
+  name: negotiator
+  params: 
+  - ALLOW_NEGOTIATOR
+  - FLOCK_NEGOTIATOR_HOSTS
+  - MAX_NEGOTIATOR_LOG
+  - MAX_NEGOTIATOR_MATCH_LOG
+  - NEGOTIATOR
+  - NEGOTIATOR.PLUGINS
+  - NEGOTIATOR_ADDRESS_FILE
+  - NEGOTIATOR_DEBUG
+  - NEGOTIATOR_INTERVAL
+  - NEGOTIATOR_LOG
+  - NEGOTIATOR_MATCH_LOG
+  - NEGOTIATOR_PRE_JOB_RANK
+  - PREEMPTION_RANK
+  - PREEMPTION_REQUIREMENTS
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the query_server subsystem
+  name: query_server
+  params: 
+  - AVIARY_PUBLISH_INTERVAL
+  - AVIARY_PUBLISH_LOCATION
+  - MAX_QUERY_SERVER_LOG
+  - QUERY_SERVER
+  - QUERY_SERVER.AVIARY_SSL
+  - QUERY_SERVER.AVIARY_SSL_CA_DIR
+  - QUERY_SERVER.AVIARY_SSL_CA_FILE
+  - QUERY_SERVER.AVIARY_SSL_SERVER_CERT
+  - QUERY_SERVER.AVIARY_SSL_SERVER_KEY
+  - QUERY_SERVER.HISTORY
+  - QUERY_SERVER.HISTORY_INTERVAL
+  - QUERY_SERVER.HTTP_PORT
+  - QUERY_SERVER.QUERY_SERVER_ADDRESS_FILE
+  - QUERY_SERVER.QUERY_SERVER_DEBUG
+  - QUERY_SERVER.QUERY_SERVER_LOG
+  - QUERY_SERVER.SCHEDD_NAME
+  - QUERY_SERVER.SPOOL
+  - QUERY_SERVER_ARGS
+  - WSFCPP_HOME
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the replication subsystem
+  name: replication
+  params: 
+  - HAD_USE_REPLICATION
+  - MAX_REPLICATION_LOG
+  - REPLICATION
+  - REPLICATION_ARGS
+  - REPLICATION_INTERVAL
+  - REPLICATION_LIST
+  - REPLICATION_LOG
+  - REPLICATION_PORT
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the rooster subsystem
+  name: rooster
+  params: 
+  - ROOSTER
+  - ROOSTER_INTERVAL
+  - ROOSTER_MAX_UNHIBERNATE
+  - ROOSTER_UNHIBERNATE
+  - ROOSTER_UNHIBERNATE_RANK
+  - ROOSTER_WAKEUP_CMD
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the schedd subsystem
+  name: schedd
+  params: 
+  - ALLOW_NEGOTIATOR_SCHEDD
+  - ALLOW_WRITE
+  - AVIARY_PUBLISH_INTERVAL
+  - AVIARY_PUBLISH_LOCATION
+  - HISTORY
+  - MAX_SCHEDD_LOG
+  - MAX_SHADOW_LOG
+  - MAX_STARTER_LOG
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+  - QMF_PUBLISH_SUBMISSIONS
+  - QUEUE_ALL_USERS_TRUSTED
+  - QUEUE_SUPER_USERS
+  - SCHEDD
+  - SCHEDD.AVIARY_SSL
+  - SCHEDD.AVIARY_SSL_CA_DIR
+  - SCHEDD.AVIARY_SSL_CA_FILE
+  - SCHEDD.AVIARY_SSL_SERVER_CERT
+  - SCHEDD.AVIARY_SSL_SERVER_KEY
+  - SCHEDD.HTTP_PORT
+  - SCHEDD.PLUGINS
+  - SCHEDD_ADDRESS_FILE
+  - SCHEDD_DAEMON_AD_FILE
+  - SCHEDD_DEBUG
+  - SCHEDD_LOG
+  - SHADOW
+  - SHADOW_DEBUG
+  - SHADOW_LIST
+  - SHADOW_LOCK
+  - SHADOW_LOG
+  - SHADOW_SIZE_ESTIMATE
+  - STARTER_DEBUG
+  - STARTER_LOCAL
+  - STARTER_LOG
+  - START_LOCAL_UNIVERSE
+  - START_SCHEDULER_UNIVERSE
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the shared_port subsystem
+  name: shared_port
+  params: 
+  - DAEMON_SOCKET_DIR
+  - SHARED_PORT
+  - SHARED_PORT_DEBUG
+  - USE_SHARED_PORT
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the startd subsystem
+  name: startd
+  params: 
+  - ALLOW_READ
+  - ALLOW_WRITE
+  - BENCHMARKTIMER
+  - CONSOLE_DEVICES
+  - CONTINUE
+  - KILL
+  - LIBVIRT_XML_SCRIPT
+  - MAXJOBRETIREMENTTIME
+  - MAX_STARTD_LOG
+  - MAX_STARTER_LOG
+  - MAX_VM_GAHP_LOG
+  - PERIODIC_CHECKPOINT
+  - PREEMPT
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+  - RUNBENCHMARKS
+  - START
+  - STARTD
+  - STARTD_ADDRESS_FILE
+  - STARTD_ATTRS
+  - STARTD_CRON_AUTOPUBLISH
+  - STARTD_CRON_NAME
+  - STARTD_DEBUG
+  - STARTD_JOB_EXPRS
+  - STARTD_LOG
+  - STARTER
+  - STARTER_DEBUG
+  - STARTER_LIST
+  - STARTER_LOG
+  - SUSPEND
+  - TRIGGER_DATA_GETDATA_EXECUTABLE
+  - TRIGGER_DATA_GETDATA_PERIOD
+  - TRIGGER_DATA_GETDATA_PREFIX
+  - TRIGGER_DATA_GETDATA_RECONFIG
+  - TRIGGER_DATA_JOBLIST
+  - UPDATE_INTERVAL
+  - VM_GAHP_LOG
+  - VM_GAHP_SERVER
+  - VM_MEMORY
+  - VM_NETWORKING
+  - VM_NETWORKING_BRIDGE_INTERFACE
+  - VM_NETWORKING_DEFAULT_TYPE
+  - VM_NETWORKING_TYPE
+  - VM_TYPE
+  - WANT_SUSPEND
+  - WANT_VACATE
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the transferer subsystem
+  name: transferer
+  params: 
+  - MAX_TRANSFERER_LIFETIME
+  - TRANSFERER_LOG
+- !ruby/object:Wallaroo::SerializedConfigs::Subsystem 
+  annotation: The list of parameters affecting the triggerd subsystem
+  name: triggerd
+  params: 
+  - DATA
+  - ENABLE_ABSENT_NODES_DETECTION
+  - QMF_BROKER_AUTH_MECH
+  - QMF_BROKER_HOST
+  - QMF_BROKER_PASSWORD_FILE
+  - QMF_BROKER_PORT
+  - QMF_BROKER_USERNAME
+  - QMF_DELETE_ON_SHUTDOWN
+  - TRIGGERD.QMF_STOREFILE
+  - TRIGGERD.QMF_UPDATE_INTERVAL
+  - TRIGGERD_ADDRESS_FILE
+  - TRIGGERD_DEFAULT_EVAL_PERIOD
+  - TRIGGERD_QUERY_COLLECTOR

@@ -1,0 +1,10 @@
+= wallaroo
+
+Wallaroo is the informal codename for release 2 of the Wallaby 
+configuration service.  It runs over REST, supports branching
+history and efficient full-state restoration, and does not depend
+on a messaging broker.
+
+== Copyright
+
+Copyright (c) 2009--2013 Red Hat, Inc. See LICENSE for details.

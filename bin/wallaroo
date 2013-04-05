@@ -1,0 +1,240 @@
+#!/usr/bin/ruby
+
+# wallaroo:  the wallaby2 store
+#
+# Copyright (c) 2009--2013 Red Hat, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+require 'digest/sha1'
+
+require 'logger'
+require 'syslog'
+require 'optparse'
+require 'socket'
+require 'etc'
+
+module Util
+  module Daemon
+    def drop_privs(to_user=nil)
+      to_user ||= "wallaby"
+      if Process.euid == 0
+        begin
+          new_uid = Etc.getpwnam(to_user).uid
+          new_gid = Etc.getpwnam(to_user).gid
+
+          Process::Sys.setgid(new_gid)
+          Process::Sys.setuid(new_uid)
+        rescue ArgumentError
+          Syslog.open do |s|
+            s.warning "can't switch to user #{to_user}; does it exist?"
+            puts  "can't switch to user #{to_user}; does it exist?"
+          end
+        end
+      end
+    end
+
+    def daemonify
+      pid = nil
+      sid = nil
+
+      return if Process.ppid == 1
+
+      pid = fork
+
+      if pid != nil
+        if pid < 0
+          Syslog.open {|s| s.fatal "can't fork child process"}
+          exit!(1)
+        end
+        exit!(0)
+      end
+
+      sid = Process.setsid
+      if sid < 0
+        Syslog.open {|s| s.fatal "can't set self as session group leader"}
+        exit!(1)
+      end
+
+      exit!(1) if Dir.chdir("/") < 0
+
+      # close open FDs
+      $stdin.reopen("/dev/null", "r")
+      $stdout.reopen("/dev/null", "w")
+      $stderr.reopen("/dev/null", "w")
+    end
+  end
+end
+
+# XXX: port is ignored
+port = (ENV['WALLAROO_SERVER_PORT'] || 8000).to_i
+do_daemonify = !ENV['WALLAROO_FOREGROUND']
+explicit_secret = ENV['WALLAROO_SECRET']
+secret_file = ENV['WALLAROO_SECRET_FILE']
+run_erl = ENV['WALLAROO_RUN_ERL']
+to_erl = ENV['WALLAROO_TO_ERL']
+extra_args = ENV['WALLAROO_ERL_EXTRA_ARGS']
+erl = ENV['WALLAROO_ERL']
+pipe = ENV['WALLAROO_PIPE']
+logdir = ENV['WALLAROO_LOG_DIR']
+run_as = nil
+logoptions = nil
+
+op = OptionParser.new do |opts|
+  opts.banner = "Usage wallaroo [options] (start|stop)"
+  
+  opts.on("-h", "--help", "shows this message") do
+    raise OptionParser::InvalidOption.new
+  end
+
+  opts.on("-p", "--port NUM", "port to listen on (default 8000)") do |num|
+    puts "warning:  --port currently has no effect"
+    port = num.to_i
+  end
+  
+  opts.on("--run-as USER", "unix user to execute wallaroo as") do |user|
+    # NB:  Perhaps obviously, this only has an effect if we're running as root
+    # Also, if we're running in the foreground, we'll run as the current user
+    # unless a run-as user is explicitly specified
+    run_as = user
+  end
+  
+  opts.on("-f", "--foreground", "run in the foreground") do
+    do_daemonify = false
+  end
+end
+
+begin
+  cmd_args = op.parse!
+rescue OptionParser::InvalidOption
+  puts op
+  exit
+end
+
+DO_SECRETFILECREATE = secret_file && !File.exist?(secret_file)
+
+class WallarooService
+  include ::Util::Daemon
+  
+  def initialize(options, do_daemonify, run_as)
+    @options = options
+    @run_erl = options[:run_erl]
+    @to_erl = options[:to_erl]
+    @erl = options[:erl]
+    @pipe = options[:pipe]
+    @logdir = options[:logdir]
+    @nodehost = options[:nodehost]
+    @extra_args = options[:extra_args]
+    @do_daemonify = do_daemonify
+    @run_as = run_as
+  end
+  
+  def start
+    drop_privs(@run_as) if (@do_daemonify || @run_as)
+    cmd = (@do_daemonify ? [@run_erl, "-daemon"] : [@run_erl]) + 
+      [@pipe, @logdir, "exec #{@erl} #{@extra_args} -boot start_sasl -s reloader -s wallaroo_web -sname wallaroo_web -- console"]
+
+    # XXX: this doesn't verify that the service actually started (the old wallaby-agent script had the same problem!)
+    exec(*cmd)
+    0
+  end
+
+  def stop
+    pid = fork
+    if pid
+      Process.waitpid(pid)
+    else 
+      $stdin.reopen("/dev/null", "r")
+      $stdout.reopen("/dev/null", "w")
+      $stderr.reopen("/dev/null", "w")
+      IO.popen("#{@to_erl} #{@pipe}", "w+") {|f| f.puts("q().")}
+      0
+    end
+  end
+  
+  def console
+    exec(@erl, "-sname", "console-#{Process.pid}", "-remsh", "wallaroo_web@#{@nodehost}")
+  end
+  
+  def main(args)
+    case args[0]
+    when "start" 
+      start
+    when "stop" 
+      stop
+    when "console" 
+      console
+    else
+      puts "fatal: unknown command '#{args[0]}'"
+      1
+    end
+  end
+end
+
+def get_secret(sfile, explicit)
+  from_file = nil
+  
+  if sfile && File.exist?(sfile)
+    stat = File.stat(sfile)
+    ok = (stat.mode & 077 == 0 && stat.readable?)
+    if ok
+      from_file = open(sfile, "r") {|f| f.read}
+    else
+      Syslog.open do |s| 
+        s.notice "ignoring secret file #{sfile} #{!stat.readable? ? "since it is not readable" : "due to insecure permissions"}"
+      end
+      puts "ignoring secret file #{sfile} #{!stat.readable? ? "since it is not readable" : "due to insecure permissions"}" unless do_daemonify
+    end
+  end
+  
+  return explicit || from_file
+end
+
+begin
+  if DO_SECRETFILECREATE
+    puts "creating secret file"
+    old_umask = File.umask
+    begin
+      File.umask(0177)
+      bytes = open("/dev/urandom", "r") {|f| f.read(512)}
+      secret = Digest::SHA1.hexdigest(bytes)
+      open(secret_file, "w") {|f| f.write(secret)}
+    ensure
+      File.umask(old_umask)
+    end
+  end
+  
+  $WALLAROO_SECRET = nil
+  
+  options = {}
+  options[:port] = port
+  options[:logdir] = logdir || "/tmp/wallaroo"
+  options[:pipe] = pipe || "/tmp/wallaroo.pipe"
+  options[:run_erl] = run_erl || "/usr/bin/run_erl"
+  options[:to_erl] = to_erl || "/usr/bin/to_erl"
+  options[:erl] = erl || "/usr/bin/erl"
+  options[:extra_args] = extra_args
+  options[:nodehost] = (Socket.gethostname.split(".").shift)
+
+  # TODO: set erlang cookie to WALLAROO_SECRET
+  $WALLAROO_SECRET = (get_secret(secret_file, explicit_secret) rescue nil)
+  
+  # XXX: start service here
+  WallarooService.new(options, do_daemonify, run_as).main(cmd_args)
+rescue Exception => ex
+  Syslog.open do |s|
+    s.crit "agent exiting with exception #{ex.inspect}"
+    puts "agent exiting with exception #{ex.inspect}\n#{ex.backtrace.join("\n")}" 
+    1
+  end
+end
