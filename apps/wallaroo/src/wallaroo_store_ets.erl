@@ -2,17 +2,19 @@
 % Copyright (c) 2011 Red Hat, Inc., and William C. Benton
 
 -module(wallaroo_store_ets).
--export([init/1,start/1,cleanup/1,delete_object/1,delete_commit/1,delete_tag/1,delete_branch/1,delete_meta/2,find_object/1,find_commit/1,find_tag/1,find_meta/1,find_meta/2,find_branch/1,store_object/2,store_meta/3,store_commit/2,store_tag/2,store_branch/2, objects/0, tags/0, commits/0, branches/0, meta/0]).
+-export([init/1,start/1,cleanup/1,delete_object/1,delete_commit/1,delete_tag/1,delete_branch/1,delete_meta/2,find_object/1,find_commit/1,find_tag/1,find_meta/1,find_meta/2,find_branch/1,store_object/2,store_meta/3,store_commit/2,store_tag/2,store_branch/2, objects/0, tags/0, commits/0, branches/0, meta/0, users/0, find_user/1, delete_user/1, store_user/2]).
 -behaviour(wallaroo_storage).
 
 -define(OBJECT_TABLE, wallaroo_objects).
 -define(COMMIT_TABLE, wallaroo_commits).
 -define(TAG_TABLE, wallaroo_tags).
 -define(BRANCH_TABLE, wallaroo_branches).
--define(META_TABLE, wallaroo_meta).
+-define(META_TABLE, wallaroo_metadata).
+-define(USER_TABLE, wallaroo_users).
+-define(TABLES, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE, ?BRANCH_TABLE, ?META_TABLE, ?USER_TABLE]).
 
 init(_) ->
-    lists:map(fun(X)->create_table(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE, ?BRANCH_TABLE, ?META_TABLE]), ok.
+    lists:map(fun(X)->create_table(X) end, ?TABLES), ok.
 
 create_table(T) ->
     case ets:info(T) of
@@ -24,7 +26,7 @@ create_table(T) ->
     end.
 
 cleanup(_) ->
-    lists:map(fun(X) -> ets:delete(X) end, [?OBJECT_TABLE, ?COMMIT_TABLE, ?TAG_TABLE, ?BRANCH_TABLE, ?META_TABLE]), ok.
+    lists:map(fun(X) -> ets:delete(X) end, ?TABLES), ok.
 
 start(_) ->
     ok.
@@ -40,6 +42,9 @@ find_tag(Hash) ->
 
 find_branch(Hash) ->
     generic_find(?BRANCH_TABLE, Hash).
+
+find_user(Name) ->
+    generic_find(?USER_TABLE, Name).
 
 find_meta(Domain, Key) ->
     generic_find(?META_TABLE, {Domain, Key}).
@@ -68,6 +73,9 @@ store_tag(Key, Value) ->
 
 store_branch(Key, Value) ->
     generic_store(?BRANCH_TABLE, Key, Value, true).
+
+store_user(Key, Value) ->
+    generic_store(?USER_TABLE, Key, Value, true).
 
 store_meta(Domain, Key, Value) ->
     generic_store(?META_TABLE, {Domain, Key}, Value, true).
@@ -99,6 +107,9 @@ delete_commit(Key) ->
 delete_branch(Key) ->
     generic_delete(?BRANCH_TABLE, Key).
 
+delete_user(Key) ->
+    generic_delete(?USER_TABLE, Key).
+
 delete_meta(Domain, Key) ->
     generic_delete(?META_TABLE, {Domain, Key}).
 
@@ -119,3 +130,6 @@ branches() ->
 
 meta() ->
     ets:tab2list(?META_TABLE).
+
+users() ->
+    ets:tab2list(?USER_TABLE).

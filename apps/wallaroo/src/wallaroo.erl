@@ -32,7 +32,13 @@ init([]) ->
 init([{storemod, StoreMod}]) ->
     case StoreMod:find_tag(<<"empty">>) of
 	find_failed ->
-	    setup_empty_tag(StoreMod);
+	    setup_special_tag(StoreMod, <<"empty">>);
+	_ ->
+	    pass
+    end,
+    case StoreMod:find_tag(<<"current">>) of
+	find_failed ->
+	    setup_special_tag(StoreMod, <<"current">>);
 	_ ->
 	    pass
     end,
@@ -439,9 +445,9 @@ setup_basic_commit(StoreMod) ->
     {EmptyTreeHash, EmptyTree} = wallaroo_db:hash_and_store(wallaroo_tree:empty(), StoreMod),
     ensure_entities_exist({EmptyTreeHash, EmptyTree}, group, [<<"+++SKEL">>, <<"+++DEFAULT">>], EmptyCommitSHA, StoreMod).
 
-setup_empty_tag(StoreMod) ->
+setup_special_tag(StoreMod, Tag) ->
     SHA = setup_basic_commit(StoreMod),
-    wallaroo_tag:store_without_validating(<<"empty">>, wallaroo_tag:new(SHA, [], []), StoreMod).
+    wallaroo_tag:store_without_validating(Tag, wallaroo_tag:new(SHA, [], []), StoreMod).
 
 get_path(What, Name, Tree, StoreMod) when is_atom(What) ->
     get_path(xlate_what(What), Name, Tree, StoreMod);

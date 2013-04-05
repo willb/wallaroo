@@ -84,7 +84,10 @@ module Wallaroo
       def fetch_json_resource(path, custom_q=nil, default_val=nil)
         custom_q ||= self.how.to_q
         url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, custom_q, nil)
-        response = Net::HTTP.get_response(url)
+        http = Net::HTTP.new(url.host, url.port)
+        request = Net::HTTP::Get.new(url.request_url)
+        request.basic_auth(self.username, self.pw) unless (self.username == "" && self.pw == "")
+        response = http.request(request)
         if default_val
           response.code =~ /^2/ ? JSON.parse(response.body) : default_val
         else
@@ -97,6 +100,7 @@ module Wallaroo
         http = Net::HTTP.new(url.host, url.port)
         request = Net::HTTP::Put.new(url.request_uri)
         request.body = object.to_json
+        request.basic_auth(self.username, self.pw) unless (self.username == "" && self.pw == "")
         request.content_type = "application/json"
           
         response = http.request(request)
@@ -112,6 +116,7 @@ module Wallaroo
         url = URI::HTTP.new(self.scheme, nil, self.host, self.port, nil, path, nil, skip_q ? nil : self.how.to_q, nil)
         http = Net::HTTP.new(url.host, url.port)
         request = Net::HTTP::Delete.new(url.request_uri)
+        request.basic_auth(self.username, self.pw) unless (self.username == "" && self.pw == "")
         
         response = http.request(request)
         
@@ -204,13 +209,23 @@ module Wallaroo
         end
 
         def exists?
-          response = Net::HTTP.get_response(url)
+          http = Net::HTTP.new(url.host, url.port)
+          request = Net::HTTP::Get.new(url.request_uri)
+          request.basic_auth(@cm.username, @cm.pw) unless (@cm.username == "" && @cm.pw == "")
+          
+          response = http.request(request)
+
           return response.code.to_i < 400
         end
       
         def refresh
           @url = nil
-          response = Net::HTTP.get_response(url)
+          http = Net::HTTP.new(url.host, url.port)
+          request = Net::HTTP::Get.new(url.request_uri)
+          request.basic_auth(@cm.username, @cm.pw) unless (@cm.username == "" && @cm.pw == "")
+          
+          response = http.request(request)
+          
           unless response.code == "200"
             # XXX: improve error handling to be on par with QMF client
             fatal response.body, response.code
@@ -230,6 +245,7 @@ module Wallaroo
           request = Net::HTTP::Put.new(url.request_uri)
           request.body = attr_vals.to_json
           request.content_type = "application/json"
+          request.basic_auth(@cm.username, @cm.pw) unless (@cm.username == "" && @cm.pw == "")
           
           response = http.request(request)
           
@@ -246,6 +262,7 @@ module Wallaroo
           request = Net::HTTP::Put.new(url.request_uri)
           request.body = attr_vals.to_json
           request.content_type = "application/json"
+          request.basic_auth(@cm.username, @cm.pw) unless (@cm.username == "" && @cm.pw == "")
           
           response = http.request(request)
           
