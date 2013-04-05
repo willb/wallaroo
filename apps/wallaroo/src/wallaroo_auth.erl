@@ -5,6 +5,10 @@
 
 -behaviour(gen_server).
 
+
+-define(debug, true).
+-include("dlog.hrl").
+
 -define(SERVER, ?MODULE).
 -record(authstate, {hashmod, hashopts, storage}).
 
@@ -171,7 +175,7 @@ do_update_pass({User, Pass}, #authstate{hashmod=Mod, hashopts=Opts, storage=Stor
     StoreMod:store_user(User, wallaroo_user:set_pass(StoreMod:find_user(User), Pass, {Mod, Opts})).
 
 internal_authorized_by(Mechanism,Creds,Action,State) ->
-    authorize_and_do(Mechanism, Creds, Action, fun(ok) -> true end, ok, State, false).
+    authorize_and_do(Mechanism, Creds, Action, fun(ok,_) -> true end, ok, State, false).
 
 internal_list_users(#authstate{storage=StoreMod}=State) ->
     {[U || {U, _} <- StoreMod:users()], State}.
@@ -180,8 +184,8 @@ authorize_and_do(Mechanism, Creds, Action, Callback, Arg, State) ->
     authorize_and_do(Mechanism, Creds, Action, Callback, Arg, State, {error, not_authorized}).
 
 authorize_and_do(Mechanism, Creds, Action, Callback, Arg, State, FailureVal) ->
-    Authorized = authorized_by_empty_userlist(State) orelse
-	authorized_by_creds(Mechanism, Creds, Action, State),
+    Authorized = ?D_VAL(authorized_by_empty_userlist(State)) orelse
+	?D_VAL(authorized_by_creds(Mechanism, Creds, Action, State)),
     invoke_callback(Authorized, Callback, Arg, State, FailureVal).
 
 authorized_by_empty_userlist(#authstate{storage=StoreMod}) ->

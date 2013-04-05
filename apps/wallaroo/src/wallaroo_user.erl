@@ -62,24 +62,27 @@ set_meta({?USER_TUPLE_TAG, {Name, PassHash, Role, OrderedMeta}}, Key, Val) ->
 allowed_to({?USER_TUPLE_TAG, {_, _, Role, _}}, Action) when ?IS_ROLE(Action) ->
     role_includes(Role, role(Action)).
 
-role_includes(?NO_ROLE, _) ->
-    false;
-role_includes(?ADMIN_ROLE, _) ->
-    true;
-role_includes(?WRITE_ROLE, ?ADMIN_ROLE) ->
-    false;
-role_includes(?WRITE_ROLE, _) ->
-    true;
-role_includes(?READ_ROLE, ?ADMIN_ROLE) ->
-    false;
-role_includes(?READ_ROLE, ?WRITE_ROLE) ->
-    false;
-role_includes(?READ_ROLE, _) ->
-    true;
 role_includes(X, Y) when ?IS_ROLE(X) ->
     role_includes(role(X), Y);
 role_includes(X, Y) when ?IS_ROLE(Y) ->
-    role_includes(X, role(Y)).
+    int_role_includes(X, role(Y));
+role_includes(X, Y) ->
+    int_role_includes(X,Y).
+
+int_role_includes(?NO_ROLE, _) ->
+    false;
+int_role_includes(?ADMIN_ROLE, _) ->
+    true;
+int_role_includes(?WRITE_ROLE, ?ADMIN_ROLE) ->
+    false;
+int_role_includes(?WRITE_ROLE, _) ->
+    true;
+int_role_includes(?READ_ROLE, ?ADMIN_ROLE) ->
+    false;
+int_role_includes(?READ_ROLE, ?WRITE_ROLE) ->
+    false;
+int_role_includes(?READ_ROLE, _) ->
+    true.
 
 
 

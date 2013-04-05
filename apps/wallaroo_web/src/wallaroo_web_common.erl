@@ -6,7 +6,7 @@
 % -define(DO_TRACE, {trace, "priv"}).
 -define(DO_TRACE, ok).
 
-% -define(debug, true).
+-define(debug, true).
 -include("dlog.hrl").
 
 config_for(#ww_ctx{config_for=Kind}) ->
@@ -98,7 +98,7 @@ extract_creds(B64Creds) ->
 extract_basic_header(ReqData) ->
     case wrq:get_req_header("authorization", ReqData) of
 	"Basic "++B64 ->
-	    {ok, extract_creds(B64)};
+	    extract_creds(B64);
 	_ ->
 	    none
     end.
@@ -106,23 +106,30 @@ extract_basic_header(ReqData) ->
 extract_secret_header(ReqData) ->
     case wrq:get_req_header("x-wallaroo-secret", ReqData) of
 	Str when is_list(Str) ->
-	    {ok, ensure_str_format(Str, binary)};
+	    ensure_str_format(Str, binary);
 	_ ->
 	    none
     end.
 
 authorized(Secret, Creds, Role) ->
-    authorized(Secret, Creds, Role, <<>>).
+    authorized(Secret, Creds, Role, none).
 
 authorized(Secret, _, Role, _) when is_binary(Secret) ->
-    {secret, wallaby_auth:authorized(Secret, Role)};
-authorized(_, {User, Pass}, Role, <<>>) ->
-    {User, authorized(none, {User, Pass}, Role, User)};
+    ?D_VAL(authorized_1),
+    ?D_VAL({secret, wallaroo_auth:authorized(Secret, Role)});
+authorized(_, {User, Pass}, Role, none) ->
+    ?D_VAL({authorized_2, {User, Pass}}),
+    ?D_VAL(authorized(none, {User, Pass}, Role, User));
 authorized(_, {User, Pass}, Role, User) ->
-    {User, wallaby_auth:authorized(User, Pass, Role)};
+    ?D_VAL(authorized_3),
+    ?D_VAL({User, wallaroo_auth:authorized(User, Pass, Role)});
+authorized(Anything, none, Role, none) ->
+    ?D_VAL(authorized(Anything, none, Role, <<>>));
 authorized(_, none, Role, <<>>) ->
-    {none, authorized(none, {<<>>, <<>>}, Role, <<>>)};
+    ?D_VAL(authorized_4),
+    ?D_VAL({none, wallaroo_auth:authorized(<<>>, <<>>, Role)});
 authorized(_, _, _, _) ->
+    ?D_VAL(authorized_5),
     {none, false}.
 
 auth_result({How, true}, ReqData, Ctx) ->
@@ -131,16 +138,19 @@ auth_result({_, false}, ReqData, Ctx) ->
     {"Basic realm=wallaroo", ReqData, Ctx}.
 
 generic_auth(ReqData, Ctx, VerbRoles, DefaultRole) when is_list(VerbRoles) ->
+    ?D_VAL(generic_auth_4_clause_1),
     Verb = wrq:method(ReqData),
-    Role = orddict_default_fetch(Verb, VerbRoles, DefaultRole),
+    Role = ?D_VAL(orddict_default_fetch(Verb, VerbRoles, DefaultRole)),
     generic_auth(ReqData, Ctx, Role).
 
 generic_auth(ReqData, Ctx, VerbRoles) when is_list(VerbRoles) ->
+    ?D_VAL(generic_auth_3_clause_1),
     generic_auth(ReqData, Ctx, VerbRoles, admin);
 generic_auth(ReqData, Ctx, Role) ->
-    Secret = extract_secret_header(ReqData),
-    Basic = extract_basic_header(ReqData),
-    Result = authorized(Secret, Basic, Role),
+    ?D_VAL(generic_auth_3_clause_2),
+    Secret = ?D_VAL(extract_secret_header(ReqData)),
+    Basic = ?D_VAL(extract_basic_header(ReqData)),
+    Result = ?D_VAL(authorized(Secret, Basic, Role)),
     auth_result(Result, ReqData, Ctx).
 
 generic_find(Commit, FindFunc, Name, ReqData, Ctx) ->
