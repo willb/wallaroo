@@ -134,7 +134,7 @@ module Wallaroo
           end
         end
 
-        nodes = nodes.select {|node| @constraint == nil || safe_instance_eval(node,@constraint)}
+        nodes = nodes.select {|node| node.send(:freeze!); @constraint == nil || safe_instance_eval(node,@constraint)}
         node_structs = nodes.map do |node|
           n = OpenStruct.new
           n.name = node.name

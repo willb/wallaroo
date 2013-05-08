@@ -30,6 +30,7 @@ module Wallaroo
       declare_attribute :provisioned
       
       def identity_group
+        return @identity_group if @identity_group
         result = cm.make_proxy_object(:group, attr_vals[:identity_group])
         result.refresh
         result
@@ -49,6 +50,7 @@ module Wallaroo
       end
       
       def last_checkin
+        return @last_checkin if @last_checkin
         meta = cm.fetch_json_resource("/meta/node/#{CGI::escape(self.name)}", "", {})
         meta["last-checkin"] || 0
       end
@@ -119,6 +121,17 @@ module Wallaroo
       end
       
       private
+      def freeze!
+        @last_checkin = last_checkin
+        @identity_group = identity_group
+        attr_vals.freeze
+        class << self
+          def refresh
+            nil
+          end
+        end
+      end
+
       def timestamp(tm=nil)
         tm ||= Time.now.utc
         (tm.tv_sec * 1000000) + tm.tv_usec
