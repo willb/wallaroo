@@ -79,58 +79,60 @@ module Wallaroo
       def act
         nodes = store.objects_of_type("Node")
 
-        ::Fixnum.class_eval do
-          def minute_ago
-            tm = Time.now.utc - (60 * self)
-            (tm.tv_sec * 1000000) + tm.tv_usec
-          end
-          
-          def hour_ago
-            (60 * self).minutes_ago
-          end
-
-          def day_ago
-            (24 * self).hours_ago
-          end
-
-          def week_ago
-            (7 * self).days_ago
-          end
-
-          def year_ago
-            ta = Time.now.utc.to_a
-            ta[5] = ta[5] - self
-            tm = Time.utc(*ta)
-            (tm.tv_sec * 1000000) + tm.tv_usec
-          end
-          
-          alias :years_ago :year_ago
-          alias :minutes_ago :minute_ago
-          alias :hours_ago :hour_ago
-          alias :days_ago :day_ago
-          alias :weeks_ago :week_ago
-
-          # NB:  the following two only make sense if used 
-          # in conjunction with the X_ago methods, which
-          # return timestamps.  Consider the following example:
-          #   last_checkin.was_more_than 4.hours_ago
-          # 4.hours_ago returns a timestamp, and the last checkin
-          # is also a timestamp.  If the integer representing the
-          # last checkin timestamp is less than the result of 
-          # 4.hours_ago, then the last checkin was more than 
-          # four hours ago.  This is perilously close to Rails-
-          # level silliness, and I am not proud of it.
-
-          def was_more_than(num)
-            return self < num
-          end
-
-          def was_less_than(num)
-            return self > num
-          end
-          
-          def is_never
-            self == 0
+        [::Fixnum, ::Bignum].each do |kls|
+          kls.class_eval do
+            def minute_ago
+              tm = Time.now.utc - (60 * self)
+              (tm.tv_sec * 1000000) + tm.tv_usec
+            end
+            
+            def hour_ago
+              (60 * self).minutes_ago
+            end
+            
+            def day_ago
+              (24 * self).hours_ago
+            end
+            
+            def week_ago
+              (7 * self).days_ago
+            end
+            
+            def year_ago
+              ta = Time.now.utc.to_a
+              ta[5] = ta[5] - self
+              tm = Time.utc(*ta)
+              (tm.tv_sec * 1000000) + tm.tv_usec
+            end
+            
+            alias :years_ago :year_ago
+            alias :minutes_ago :minute_ago
+            alias :hours_ago :hour_ago
+            alias :days_ago :day_ago
+            alias :weeks_ago :week_ago
+            
+            # NB:  the following two only make sense if used 
+            # in conjunction with the X_ago methods, which
+            # return timestamps.  Consider the following example:
+            #   last_checkin.was_more_than 4.hours_ago
+            # 4.hours_ago returns a timestamp, and the last checkin
+            # is also a timestamp.  If the integer representing the
+            # last checkin timestamp is less than the result of 
+            # 4.hours_ago, then the last checkin was more than 
+            # four hours ago.  This is perilously close to Rails-
+            # level silliness, and I am not proud of it.
+            
+            def was_more_than(num)
+              return self < num
+            end
+            
+            def was_less_than(num)
+              return self > num
+            end
+            
+            def is_never
+              self == 0
+            end
           end
         end
 
