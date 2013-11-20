@@ -60,11 +60,11 @@ end
 
 def commit_version
   old_version = pkg_version
-  [:MAJOR, :MINOR, :PATCH, :BUILD].each {|vc| ::Mrg::Grid::Config::Version.send(:remove_const, vc)}
-  load 'lib/mrg/grid/config/version.rb'
+  [:MAJOR, :MINOR, :PATCH, :BUILD].each {|vc| ::Wallaroo::Version.send(:remove_const, vc)}
+  ::Wallaroo::Version::init
   new_version = pkg_version
   message = "bumping version from #{old_version} to #{new_version}"
-  sh "git commit -m '#{message}' lib/mrg/grid/config/version.rb"
+  sh "git commit -m '#{message}' apps/wallaroo/src/version.hrl"
   sh "git tag v#{new_version}"
   sh "git push origin master v#{new_version}" 
 end
@@ -76,8 +76,8 @@ end
 
 def set_version_component(vc, new_v)
   old_v=pkg_version_component(vc)
-  vc = vc.to_s.upcase
-  sh "sed -i 's/#{vc}=#{old_v}/#{vc}=#{new_v}/' ./version.rb"
+  vc = vc.to_s.downcase
+  sh "sed -i 's/\{#{vc}, #{old_v}\}/{#{vc}, #{new_v}}/' apps/wallaroo/src/version.hrl"
 end
 
 def clear_build
