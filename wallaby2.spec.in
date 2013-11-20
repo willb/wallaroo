@@ -257,6 +257,12 @@ fi
 
 %changelog
 
+* Wed Nov 20 2013 William Benton <willb@redhat.com> - 0.2.2-1
+- Fixes for Ruby 1.9 and 2.0
+- Fixes for inventory constraint bugs on 32-bit systems
+- Improved build workflow
+- unpackaged post-0.2.1 additions including user authentication
+
 * Wed Mar 27 2013 William Benton <willb@redhat.com> - 0.2.1-9
 - fix for configuration generation problems with append-valued parameters in certain cases
 - numerous minor bug fixes
